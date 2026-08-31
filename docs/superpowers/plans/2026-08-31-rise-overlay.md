@@ -604,22 +604,18 @@ git commit -m "feat: auto quest briefing then swap to combat HUD"
 ### Task 13: 窗口吸附与热键
 
 **Files:**
-- Modify: 紧凑 Widget 配置（Position、Anchor）
-- Reuse: 上游已有 attach-to-game 行为；确认 Compact 控件走同一 `WidgetBase`
+- Modify: 紧凑 Widget 配置（Position）
+- Reuse: 上游 `OverlayManager` → `WidgetView`（置顶透明窗 + 屏幕坐标 `Position`）；**不是**游戏客户区 HWND 父子吸附
 
-- [ ] **Step 1: 配置默认左上；`AttachToGame`/`Follow` 类选项开启**
+> **核实结论（2026-08-31）：** 上游并无 “attach-to-game-client-rect / Follow” 实现。Process attach 仅用于读进程内存。Compact HUD 走同一 `OverlayManager` 路径，因此**不会**随游戏窗口拖动而移动；`HideWhenUnfocus` 只在失焦时隐藏。客户区相对吸附仍为缺口（见 QA §7 #11 / README attach model）。
 
-- [ ] **Step 2: 窗口模式拖动游戏客户区，确认 HUD 跟随**
+- [x] **Step 1: 配置默认左上；沿用 OverlayManager 托管（无独立屏幕坐标系）** — 已完成；~~“开启 AttachToGame/Follow”~~ 上游无此选项，已划掉
 
-- [ ] **Step 3: 热键显示/隐藏（沿用或新增 `RiseOverlay.Toggle`）**
+- [ ] **Step 2: 窗口模式拖动游戏客户区，确认 HUD 跟随** — **V1 预期失败**（屏幕绝对坐标）；勿当作实现完成项
 
-- [ ] **Step 4: Commit**
+- [x] **Step 3: 热键显示/隐藏** — 沿用 `OverlayClientConfig.ToggleVisibility`（默认 Ctrl+Alt+O）；无单独 `RiseOverlay.Toggle`
 
-```bash
-git add RiseOverlay.UI HunterPie.Core
-git commit -m "feat: attach compact overlay to game window and toggle hotkey"
-```
-
+- [ ] **Step 4: Commit**（实现类改动如有则另提；文档澄清见 `docs: clarify overlay attach…`）
 ---
 
 ### Task 14: 裁剪非 Rise 表面功能

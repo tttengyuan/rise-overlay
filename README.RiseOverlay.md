@@ -28,11 +28,23 @@ Design and implementation planning for this fork live under `docs/superpowers/`.
 ## Rise compact monster HUD
 
 - New overlay widget: `MHROverlayConfig.RiseCompactMonsterWidget` (default `Initialize=true` for Rise).
-- Hosted on the same HunterPie overlay path as other widgets: `RiseCompactMonsterView` : `Widget`, `RiseCompactMonsterViewModel` : `WidgetViewModel`, registered through `OverlayManager` / `WidgetView` (process attach + always-on-top).
+- Hosted on the same HunterPie overlay path as other widgets: `RiseCompactMonsterView` : `Widget`, `RiseCompactMonsterViewModel` : `WidgetViewModel`, registered through `OverlayManager` → `WidgetView`.
 - Default position: top-left (`Position` 20,20). Overlay defaults: `IsEnabled=true`, `HideWhenUnfocus=true` (hide when the game loses focus).
 - Legacy HunterPie monster widget (`BossesWidget` / `MHRMonsterWidgetConfig`) defaults to `Initialize=false` on fresh configs so the compact HUD is not duplicated.
 - Client config is persisted under the HunterPie client config path (typically AppData). Existing installs that already saved `BossesWidget.Initialize=true` keep that value until reset.
 - Static weakness table: `static/monsters-overlay.json` next to the app binary (from `RiseOverlay.Data/static`).
+
+### Overlay attach model (Task 13)
+
+HunterPie does **not** parent overlay HWNDs to the game client. Verified path:
+
+| Layer | What it does |
+| --- | --- |
+| Process attach | `WindowsProcessWatcher` + Rise `IProcessAttachStrategy` open the game **process** for memory reads (not window ownership). |
+| `OverlayManager` | Creates one topmost transparent `WidgetView` WPF window per widget and tracks focus/HUD visibility. |
+| `WidgetView` | Screen-space `Left`/`Top` bound to widget `Position`; `Topmost` + periodic `SetWindowPos(HWND_TOPMOST)`. No `SetParent` / client-rect follow. |
+
+Compact HUD uses that same path — it does **not** use independent custom screen logic, but it also does **not** auto-follow the game window when you drag/resize the client. Moving the game leaves HUD at its last screen coordinates; `HideWhenUnfocus` only hides when the game loses focus. True client-relative attach remains a known gap (see QA checklist §7 #11).
 
 ## Overlay toggle hotkey
 
@@ -92,7 +104,18 @@ dotnet build HunterPie/HunterPie.csproj -c Release
 dotnet publish HunterPie/HunterPie.csproj -c Release -o F:\rise-overlay\publish\RiseOverlay
 ```
 
-4. **Native DLL** — if the Native project produced `HunterPie.Native.dll`, copy it into `publish\RiseOverlay` (and matching Debug/Release output if you run from `bin`). If Native failed to build, managed overlay may still start; features that need the native module will not work until the DLL is present.
+4. **Native DLL** — injector loads `libs/HunterPie.Native.dll` (see `IPCInjectorInitializer`). After a VS Native x64 build, copy into both run and publish trees:
+
+```powershell
+# Debug run output (typical MSBuild destination)
+# HunterPie\bin\Debug\net10.0-windows7.0\libs\HunterPie.Native.dll
+
+New-Item -ItemType Directory -Force -Path publish\RiseOverlay\libs | Out-Null
+Copy-Item -Force HunterPie\bin\Debug\net10.0-windows7.0\libs\HunterPie.Native.dll publish\RiseOverlay\libs\
+# Prefer Release Native when shipping a Release publish folder, if that build succeeded.
+```
+
+If Native failed to build, managed overlay may still start; features that need the native module will not work until the DLL is under `libs\`.
 
 5. Confirm `publish\RiseOverlay\static\monsters-overlay.json` exists (copied from `RiseOverlay.Data`).
 
