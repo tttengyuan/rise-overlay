@@ -26,7 +26,8 @@ internal class RiseCompactMonsterWidgetInitializer(
     private readonly IOverlay _overlay = overlay;
     private readonly ILocalizationRepository _localizationRepository = localizationRepository;
 
-    private RiseMonsterHudController? _handler;
+    private RiseMonsterHudController? _monsterHandler;
+    private RiseDpsController? _dpsHandler;
     private WidgetView? _view;
 
     public GameProcessType SupportedGames => GameProcessType.MonsterHunterRise;
@@ -62,12 +63,13 @@ internal class RiseCompactMonsterWidgetInitializer(
                 : id;
         }
 
-        _handler = new RiseMonsterHudController(
+        _monsterHandler = new RiseMonsterHudController(
             context: context,
             viewModel: viewModel,
             staticStore: store,
             localizePart: LocalizePart
         );
+        _dpsHandler = new RiseDpsController(context, viewModel);
 
         _view = _overlay.Register(viewModel);
         return Task.CompletedTask;
@@ -76,8 +78,10 @@ internal class RiseCompactMonsterWidgetInitializer(
     public void Unload()
     {
         _overlay.Unregister(_view);
-        _handler?.UnhookEvents();
-        _handler = null;
+        _monsterHandler?.UnhookEvents();
+        _dpsHandler?.UnhookEvents();
+        _monsterHandler = null;
+        _dpsHandler = null;
         _view = null;
     }
 }
