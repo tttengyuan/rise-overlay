@@ -1,0 +1,27 @@
+<UserControl x:Class="RiseOverlay.UI.Controls.ElementChip"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d"
+             d:DesignHeight="20"
+             d:DesignWidth="20"
+             Focusable="False"
+             IsTabStop="False">
+    <Border x:Name="Root"
+            Background="#B85C5C"
+            CornerRadius="2"
+            Padding="4,1"
+            MinWidth="18"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Center">
+        <TextBlock x:Name="LabelText"
+                   Text="火"
+                   Foreground="White"
+                   FontSize="11"
+                   FontWeight="SemiBold"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   TextAlignment="Center" />
+    </Border>
+</UserControl>
