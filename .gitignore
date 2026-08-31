@@ -29,3 +29,6 @@ Icons
 
 Installer/*.ttf
 Installer/installer
+
+# V1 folder publish output (see README.RiseOverlay.md)
+publish/

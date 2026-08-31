@@ -66,3 +66,42 @@ Rise `IQuest` exposes id/type/status/timer but **not** quest target monster ids 
 | **Idle (hidden)** | Quest ended / idle, or quest active but neither briefing targets nor combat monsters |
 
 Target keys are remembered from `IGame.Monsters` (name + id) when known. Pre-spawn briefing therefore only appears if keys are already available (e.g. monsters still tracked) or after a future quest-target memory read is added. Empty briefing panels are not shown.
+
+## Build & publish (V1 folder distribution)
+
+V1 ships as a **folder** from `dotnet publish` (no installer required). Native and managed builds are hybrid.
+
+### Prerequisites
+
+- .NET SDK matching `HunterPie` (`net10.0-windows`)
+- Visual Studio 2022 with C++ desktop workload (for `HunterPie.Native` x64)
+- Monster Hunter Rise address maps under the app `Address` folder (same as upstream HunterPie)
+
+### Hybrid build
+
+1. **Native (x64)** — open/build `HunterPie.Native/HunterPie.Native.vcxproj` with VS2022 MSBuild (Debug or Release | x64). `dotnet build` / `dotnet publish` do **not** compile this C++ project.
+2. **Managed** — from repo root:
+
+```powershell
+dotnet build HunterPie/HunterPie.csproj -c Release
+```
+
+3. **Publish folder (V1):**
+
+```powershell
+dotnet publish HunterPie/HunterPie.csproj -c Release -o F:\rise-overlay\publish\RiseOverlay
+```
+
+4. **Native DLL** — if the Native project produced `HunterPie.Native.dll`, copy it into `publish\RiseOverlay` (and matching Debug/Release output if you run from `bin`). If Native failed to build, managed overlay may still start; features that need the native module will not work until the DLL is present.
+
+5. Confirm `publish\RiseOverlay\static\monsters-overlay.json` exists (copied from `RiseOverlay.Data`).
+
+### Run
+
+Launch `HunterPie.exe` from the publish folder, start Monster Hunter Rise, then use **Ctrl+Alt+O** to toggle overlay visibility.
+
+### QA
+
+Manual acceptance checklist (spec §7 + known gaps):  
+`docs/superpowers/specs/2026-08-31-rise-overlay-qa-checklist.md`
+
