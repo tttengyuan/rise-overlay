@@ -3,57 +3,86 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:RiseOverlay.UI.Controls;assembly=RiseOverlay.UI"
         xmlns:domain="clr-namespace:RiseOverlay.Domain;assembly=RiseOverlay.Domain"
-        Title="RiseOverlay.UI Playground — ElementChip"
-        Width="420"
-        Height="220"
+        xmlns:views="clr-namespace:RiseOverlay.UI.Views;assembly=RiseOverlay.UI"
+        Title="RiseOverlay.UI Playground"
+        Width="520"
+        Height="640"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource Brushes.PanelBackground}">
-    <Border Margin="16"
-            Padding="12"
-            BorderBrush="{StaticResource Brushes.PanelBorder}"
-            BorderThickness="1"
-            Background="{StaticResource Brushes.PanelBackground}">
-        <StackPanel>
-            <TextBlock Text="ElementChip showcase"
-                       Foreground="{StaticResource Brushes.Foreground}"
-                       FontSize="{StaticResource Fonts.Size.Title}"
-                       Margin="0,0,0,10" />
+        Background="#FF12151C">
+    <TabControl Margin="12"
+                Background="Transparent"
+                BorderThickness="0">
+        <TabControl.Resources>
+            <Style TargetType="TabItem">
+                <Setter Property="Foreground" Value="{StaticResource Brushes.ForegroundMuted}" />
+                <Setter Property="Padding" Value="10,4" />
+                <Setter Property="Background" Value="Transparent" />
+            </Style>
+        </TabControl.Resources>
 
-            <TextBlock Text="Normal"
-                       Foreground="{StaticResource Brushes.ForegroundMuted}"
-                       FontSize="{StaticResource Fonts.Size.Small}"
-                       Margin="0,0,0,4" />
-            <StackPanel Orientation="Horizontal">
-                <controls:ElementChip Element="{x:Static domain:ElementId.Fire}" Margin="0,0,6,0" />
-                <controls:ElementChip Element="{x:Static domain:ElementId.Water}" Margin="0,0,6,0" />
-                <controls:ElementChip Element="{x:Static domain:ElementId.Thunder}" Margin="0,0,6,0" />
-                <controls:ElementChip Element="{x:Static domain:ElementId.Ice}" Margin="0,0,6,0" />
-                <controls:ElementChip Element="{x:Static domain:ElementId.Dragon}" />
-            </StackPanel>
+        <TabItem Header="MonsterHud">
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          Padding="8">
+                <StackPanel>
+                    <TextBlock Text="嗟怨震天怨虎龙 — fullest sample"
+                               Foreground="{StaticResource Brushes.ForegroundMuted}"
+                               FontSize="{StaticResource Fonts.Size.Small}"
+                               Margin="0,0,0,8" />
+                    <views:MonsterHudView x:Name="MonsterHud" HorizontalAlignment="Left" />
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
 
-            <TextBlock Text="Dimmed"
-                       Foreground="{StaticResource Brushes.ForegroundMuted}"
-                       FontSize="{StaticResource Fonts.Size.Small}"
-                       Margin="0,12,0,4" />
-            <StackPanel Orientation="Horizontal">
-                <controls:ElementChip Element="{x:Static domain:ElementId.Fire}" Dimmed="True" Margin="0,0,6,0" />
-                <controls:ElementChip Element="{x:Static domain:ElementId.Water}" Dimmed="True" Margin="0,0,6,0" />
-                <controls:ElementChip Element="{x:Static domain:ElementId.Thunder}" Dimmed="True" Margin="0,0,6,0" />
-                <controls:ElementChip Element="{x:Static domain:ElementId.Ice}" Dimmed="True" Margin="0,0,6,0" />
-                <controls:ElementChip Element="{x:Static domain:ElementId.Dragon}" Dimmed="True" />
-            </StackPanel>
+        <TabItem Header="ElementChip">
+            <Border Margin="8"
+                    Padding="12"
+                    BorderBrush="{StaticResource Brushes.PanelBorder}"
+                    BorderThickness="1"
+                    Background="{StaticResource Brushes.PanelBackground}">
+                <StackPanel>
+                    <TextBlock Text="ElementChip showcase"
+                               Foreground="{StaticResource Brushes.Foreground}"
+                               FontSize="{StaticResource Fonts.Size.Title}"
+                               Margin="0,0,0,10" />
 
-            <TextBlock Text="Small"
-                       Foreground="{StaticResource Brushes.ForegroundMuted}"
-                       FontSize="{StaticResource Fonts.Size.Small}"
-                       Margin="0,12,0,4" />
-            <StackPanel Orientation="Horizontal">
-                <controls:ElementChip Element="{x:Static domain:ElementId.Fire}" Small="True" Margin="0,0,6,0" />
-                <controls:ElementChip Element="{x:Static domain:ElementId.Water}" Small="True" Margin="0,0,6,0" />
-                <controls:ElementChip Element="{x:Static domain:ElementId.Thunder}" Small="True" Margin="0,0,6,0" />
-                <controls:ElementChip Element="{x:Static domain:ElementId.Ice}" Small="True" Margin="0,0,6,0" />
-                <controls:ElementChip Element="{x:Static domain:ElementId.Dragon}" Small="True" />
-            </StackPanel>
-        </StackPanel>
-    </Border>
+                    <TextBlock Text="Normal"
+                               Foreground="{StaticResource Brushes.ForegroundMuted}"
+                               FontSize="{StaticResource Fonts.Size.Small}"
+                               Margin="0,0,0,4" />
+                    <StackPanel Orientation="Horizontal">
+                        <controls:ElementChip Element="{x:Static domain:ElementId.Fire}" Margin="0,0,6,0" />
+                        <controls:ElementChip Element="{x:Static domain:ElementId.Water}" Margin="0,0,6,0" />
+                        <controls:ElementChip Element="{x:Static domain:ElementId.Thunder}" Margin="0,0,6,0" />
+                        <controls:ElementChip Element="{x:Static domain:ElementId.Ice}" Margin="0,0,6,0" />
+                        <controls:ElementChip Element="{x:Static domain:ElementId.Dragon}" />
+                    </StackPanel>
+
+                    <TextBlock Text="Dimmed"
+                               Foreground="{StaticResource Brushes.ForegroundMuted}"
+                               FontSize="{StaticResource Fonts.Size.Small}"
+                               Margin="0,12,0,4" />
+                    <StackPanel Orientation="Horizontal">
+                        <controls:ElementChip Element="{x:Static domain:ElementId.Fire}" Dimmed="True" Margin="0,0,6,0" />
+                        <controls:ElementChip Element="{x:Static domain:ElementId.Water}" Dimmed="True" Margin="0,0,6,0" />
+                        <controls:ElementChip Element="{x:Static domain:ElementId.Thunder}" Dimmed="True" Margin="0,0,6,0" />
+                        <controls:ElementChip Element="{x:Static domain:ElementId.Ice}" Dimmed="True" Margin="0,0,6,0" />
+                        <controls:ElementChip Element="{x:Static domain:ElementId.Dragon}" Dimmed="True" />
+                    </StackPanel>
+
+                    <TextBlock Text="Small"
+                               Foreground="{StaticResource Brushes.ForegroundMuted}"
+                               FontSize="{StaticResource Fonts.Size.Small}"
+                               Margin="0,12,0,4" />
+                    <StackPanel Orientation="Horizontal">
+                        <controls:ElementChip Element="{x:Static domain:ElementId.Fire}" Small="True" Margin="0,0,6,0" />
+                        <controls:ElementChip Element="{x:Static domain:ElementId.Water}" Small="True" Margin="0,0,6,0" />
+                        <controls:ElementChip Element="{x:Static domain:ElementId.Thunder}" Small="True" Margin="0,0,6,0" />
+                        <controls:ElementChip Element="{x:Static domain:ElementId.Ice}" Small="True" Margin="0,0,6,0" />
+                        <controls:ElementChip Element="{x:Static domain:ElementId.Dragon}" Small="True" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </TabItem>
+    </TabControl>
 </Window>
