@@ -11,5 +11,7 @@ public partial class MainWindow : Window
         MonsterHud.DataContext = MonsterHudViewModel.CreateSampleScornedMagnamalo();
         CombatStack.MonsterHudControl.DataContext = MonsterHudViewModel.CreateSampleScornedMagnamalo();
         CombatStack.DpsPanelControl.DataContext = DpsPanelViewModel.CreateSampleParty4();
+        BriefingSingle.DataContext = QuestBriefingViewModel.CreateSampleSingle();
+        BriefingFour.DataContext = QuestBriefingViewModel.CreateSampleFour();
     }
 }

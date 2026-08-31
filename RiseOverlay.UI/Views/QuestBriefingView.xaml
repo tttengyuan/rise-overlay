@@ -1,0 +1,165 @@
+<UserControl x:Class="RiseOverlay.UI.Views.QuestBriefingView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:RiseOverlay.UI.Controls"
+             xmlns:vm="clr-namespace:RiseOverlay.UI.ViewModels"
+             Width="272"
+             Focusable="False"
+             IsTabStop="False">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+
+        <DataTemplate DataType="{x:Type vm:ElementDisplayItem}">
+            <controls:ElementChip Element="{Binding Element}"
+                                  Dimmed="{Binding IsDimmed}"
+                                  Margin="0,0,3,0" />
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type vm:QuestBriefingTargetViewModel}">
+            <StackPanel>
+                <TextBlock Text="{Binding Name}"
+                           Foreground="{StaticResource Brushes.Foreground}"
+                           FontSize="{StaticResource Fonts.Size.Title}"
+                           FontWeight="SemiBold"
+                           TextTrimming="CharacterEllipsis"
+                           Margin="0,0,0,4" />
+
+                <Grid Margin="0,0,0,5">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Grid.Column="0"
+                               Text="弱"
+                               Foreground="{StaticResource Brushes.ForegroundMuted}"
+                               FontSize="{StaticResource Fonts.Size.Small}"
+                               VerticalAlignment="Center"
+                               Margin="0,0,4,0" />
+                    <ItemsControl Grid.Column="1"
+                                  ItemsSource="{Binding OverallElements}"
+                                  VerticalAlignment="Center">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+
+                    <TextBlock Grid.Column="2"
+                               Text="推荐"
+                               Foreground="{StaticResource Brushes.ForegroundMuted}"
+                               FontSize="{StaticResource Fonts.Size.Small}"
+                               VerticalAlignment="Center"
+                               Margin="6,0,4,0" />
+                    <ItemsControl Grid.Column="3"
+                                  ItemsSource="{Binding Recommended}"
+                                  VerticalAlignment="Center">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <controls:ElementChip Element="{Binding}" Margin="0,0,3,0" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Grid>
+
+                <StackPanel Orientation="Horizontal">
+                    <Border Background="#334A9B9B"
+                            CornerRadius="2"
+                            Padding="5,1"
+                            Margin="0,0,4,0"
+                            VerticalAlignment="Center">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsCapturable}" Value="False">
+                                        <Setter Property="Background" Value="#33333A44" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <TextBlock Text="{Binding CaptureChipText}"
+                                   FontSize="{StaticResource Fonts.Size.Small}"
+                                   VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{StaticResource Brushes.AccentTeal}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsCapturable}" Value="False">
+                                            <Setter Property="Foreground" Value="{StaticResource Brushes.ForegroundMuted}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Border>
+
+                    <Border Visibility="{Binding HasSeverableTail, Converter={StaticResource BoolToVis}}"
+                            Background="#334A9B9B"
+                            CornerRadius="2"
+                            Padding="5,1"
+                            Margin="0,0,4,0"
+                            VerticalAlignment="Center">
+                        <TextBlock Text="断尾"
+                                   Foreground="{StaticResource Brushes.AccentTeal}"
+                                   FontSize="{StaticResource Fonts.Size.Small}" />
+                    </Border>
+
+                    <Border Visibility="{Binding ShowFocusPart, Converter={StaticResource BoolToVis}}"
+                            Background="#33333A44"
+                            CornerRadius="2"
+                            Padding="5,1"
+                            VerticalAlignment="Center">
+                        <TextBlock Text="{Binding FocusPartLabel}"
+                                   Foreground="{StaticResource Brushes.ForegroundMuted}"
+                                   FontSize="{StaticResource Fonts.Size.Small}" />
+                    </Border>
+                </StackPanel>
+
+                <Rectangle Height="1"
+                           Margin="0,8,0,8"
+                           Stroke="{StaticResource Brushes.PanelBorder}"
+                           StrokeThickness="1"
+                           StrokeDashArray="2 2"
+                           SnapsToDevicePixels="True"
+                           Visibility="{Binding ShowSeparator, Converter={StaticResource BoolToVis}}" />
+            </StackPanel>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Border Background="{StaticResource Brushes.PanelBackground}"
+            Padding="8,6"
+            CornerRadius="2"
+            BorderBrush="{StaticResource Brushes.PanelBorder}"
+            BorderThickness="1">
+        <StackPanel>
+            <Grid Margin="0,0,0,6">
+                <TextBlock Text="任务简报"
+                           Foreground="{StaticResource Brushes.Foreground}"
+                           FontSize="{StaticResource Fonts.Size.Title}"
+                           FontWeight="SemiBold"
+                           HorizontalAlignment="Left"
+                           VerticalAlignment="Center" />
+                <TextBlock Text="{Binding TargetCountText}"
+                           Foreground="{StaticResource Brushes.ForegroundMuted}"
+                           FontSize="{StaticResource Fonts.Size.Small}"
+                           HorizontalAlignment="Right"
+                           VerticalAlignment="Center" />
+            </Grid>
+
+            <Rectangle Height="1"
+                       Margin="0,0,0,8"
+                       Fill="{StaticResource Brushes.PanelBorder}"
+                       SnapsToDevicePixels="True" />
+
+            <ItemsControl ItemsSource="{Binding Targets}" />
+        </StackPanel>
+    </Border>
+</UserControl>

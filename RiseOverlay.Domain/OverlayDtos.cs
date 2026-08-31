@@ -37,3 +37,13 @@ public sealed record MonsterHudDto(
 public sealed record DpsEntryDto(string Name, bool IsSelf, double Dps, long TotalDamage);
 
 public sealed record DpsPanelDto(IReadOnlyList<DpsEntryDto> Entries);
+
+public sealed record QuestBriefingTargetDto(
+    string Name,
+    bool IsCapturable,
+    bool HasSeverableTail,
+    string? FocusPartLabel,
+    IReadOnlyList<ElementId> OverallElementsOrdered,
+    IReadOnlyList<ElementId> Recommended);
+
+public sealed record QuestBriefingDto(IReadOnlyList<QuestBriefingTargetDto> Targets);
