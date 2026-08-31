@@ -7,10 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\RiseOverlay.Domain\RiseOverlay.Domain.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
     <None Include="static\monsters-overlay.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

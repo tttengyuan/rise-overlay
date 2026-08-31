@@ -48,7 +48,7 @@ public sealed class MonsterStaticStore
         foreach (var monster in monsters)
         {
             _byId[monster.Id] = monster;
-            if (!_byTitle.ContainsKey(monster.Title))
+            if (!string.IsNullOrWhiteSpace(monster.Title) && !_byTitle.ContainsKey(monster.Title))
                 _byTitle[monster.Title] = monster;
         }
     }
@@ -59,8 +59,14 @@ public sealed class MonsterStaticStore
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         var json = File.ReadAllText(path);
-        var monsters = JsonSerializer.Deserialize<List<MonsterStaticDto>>(json, JsonOptions)
-            ?? [];
+        var monsters = JsonSerializer.Deserialize<List<MonsterStaticDto>>(json, JsonOptions);
+        if (monsters is null || monsters.Count == 0)
+        {
+            if (!string.IsNullOrWhiteSpace(json))
+                throw new InvalidDataException($"Monster static data at '{path}' deserialized to null or empty.");
+            monsters = [];
+        }
+
         return new MonsterStaticStore(monsters);
     }
 
