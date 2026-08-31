@@ -9,5 +9,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         MonsterHud.DataContext = MonsterHudViewModel.CreateSampleScornedMagnamalo();
+        CombatStack.MonsterHudControl.DataContext = MonsterHudViewModel.CreateSampleScornedMagnamalo();
+        CombatStack.DpsPanelControl.DataContext = DpsPanelViewModel.CreateSampleParty4();
     }
 }

@@ -6,7 +6,7 @@
         xmlns:views="clr-namespace:RiseOverlay.UI.Views;assembly=RiseOverlay.UI"
         Title="RiseOverlay.UI Playground"
         Width="520"
-        Height="640"
+        Height="720"
         WindowStartupLocation="CenterScreen"
         Background="#FF12151C">
     <TabControl Margin="12"
@@ -19,6 +19,20 @@
                 <Setter Property="Background" Value="Transparent" />
             </Style>
         </TabControl.Resources>
+
+        <TabItem Header="CombatStack">
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          Padding="8">
+                <StackPanel>
+                    <TextBlock Text="怨虎龙 + 4 人 DPS（CombatStack）"
+                               Foreground="{StaticResource Brushes.ForegroundMuted}"
+                               FontSize="{StaticResource Fonts.Size.Small}"
+                               Margin="0,0,0,8" />
+                    <views:CombatStackView x:Name="CombatStack" HorizontalAlignment="Left" />
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
 
         <TabItem Header="MonsterHud">
             <ScrollViewer VerticalScrollBarVisibility="Auto"
