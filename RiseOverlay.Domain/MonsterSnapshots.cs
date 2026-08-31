@@ -42,7 +42,9 @@ public sealed record LiveMonsterSnapshot(
     IReadOnlyList<LivePartSnapshot> Parts,
     IReadOnlyList<LiveAilmentSnapshot> Ailments,
     StatusLineModel Status,
-    bool QuestAllowsCapture);
+    bool QuestAllowsCapture,
+    /// <summary>Live capture threshold as percent (0–100). When set, preferred over static default.</summary>
+    double? CaptureThresholdPercent = null);
 
 /// <summary>
 /// Static-derived overlay fields used by briefing and as the base for <see cref="MonsterHudMapper.MergeLive"/>.

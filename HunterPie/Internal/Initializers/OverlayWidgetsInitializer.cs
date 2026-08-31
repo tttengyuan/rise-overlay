@@ -22,6 +22,7 @@ using HunterPie.UI.Overlay.Widgets.SpecializedTools.ViewModels;
 using HunterPie.UI.Overlay.Widgets.SpecializedTools.Views;
 using HunterPie.UI.Overlay.Widgets.Wirebug.ViewModels;
 using HunterPie.UI.Overlay.Widgets.Wirebug.Views;
+using RiseOverlay.UI.Overlay;
 using System.Threading.Tasks;
 
 namespace HunterPie.Internal.Initializers;
@@ -43,7 +44,7 @@ internal class OverlayWidgetsInitializer(IWidgetProvider widgetProvider) : IInit
         _widgetProvider.Bind<PlayerHudViewModel, PlayerHudView>();
         _widgetProvider.Bind<SpecializedToolViewModelV2, SpecializedToolViewV2>();
         _widgetProvider.Bind<WirebugsViewModel, WirebugsView>();
-
+        _widgetProvider.Bind<RiseCompactMonsterViewModel, RiseCompactMonsterView>();
 
         return Task.CompletedTask;
     }

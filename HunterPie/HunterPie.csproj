@@ -70,6 +70,8 @@
     <ProjectReference Include="..\HunterPie.Integrations\HunterPie.Integrations.csproj" />
     <ProjectReference Include="..\HunterPie.Platforms\HunterPie.Platforms.csproj" />
     <ProjectReference Include="..\HunterPie.UI\HunterPie.UI.csproj" />
+    <ProjectReference Include="..\RiseOverlay.UI\RiseOverlay.UI.csproj" />
+    <ProjectReference Include="..\RiseOverlay.Data\RiseOverlay.Data.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -81,6 +83,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <SubType>Designer</SubType>
       <Generator></Generator>
+    </None>
+    <None Include="..\RiseOverlay.Data\static\monsters-overlay.json" Link="static\monsters-overlay.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
 

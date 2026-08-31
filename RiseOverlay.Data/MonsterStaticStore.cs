@@ -55,6 +55,8 @@ public sealed class MonsterStaticStore
 
     public IReadOnlyList<MonsterStaticDto> All => _monsters;
 
+    public static MonsterStaticStore LoadEmpty() => new MonsterStaticStore([]);
+
     public static MonsterStaticStore Load(string path)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);

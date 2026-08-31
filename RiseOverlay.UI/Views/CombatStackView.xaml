@@ -6,7 +6,8 @@
              Focusable="False"
              IsTabStop="False">
     <StackPanel>
-        <views:MonsterHudView x:Name="MonsterHud" />
-        <views:DpsPanelView x:Name="DpsPanel" Margin="0,5,0,0" />
+        <!-- Prefer VM shape with MonsterHud / DpsPanel (RiseCompactMonsterViewModel); playground may override child DataContext. -->
+        <views:MonsterHudView x:Name="MonsterHud" DataContext="{Binding MonsterHud}" />
+        <views:DpsPanelView x:Name="DpsPanel" DataContext="{Binding DpsPanel}" Margin="0,5,0,0" />
     </StackPanel>
 </UserControl>

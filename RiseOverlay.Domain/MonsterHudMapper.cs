@@ -52,13 +52,34 @@ public static class MonsterHudMapper
             Recommended: mapped.Recommended);
     }
 
+    /// <summary>
+    /// Fallback when static table miss: HP/parts/ailments still render; no weakness chips.
+    /// </summary>
+    public static MonsterStaticMapped CreateFallbackStatic(
+        string name,
+        bool isCapturable,
+        double? captureThresholdPercent = DefaultCaptureThresholdPercent)
+    {
+        return new MonsterStaticMapped(
+            Name: name,
+            IsCapturable: isCapturable,
+            CaptureThresholdPercent: isCapturable ? captureThresholdPercent : null,
+            HasSeverableTail: false,
+            FocusPartLabel: null,
+            OverallElementsOrdered: OverallDisplayOrder,
+            Recommended: Array.Empty<ElementId>(),
+            Parts: Array.Empty<MappedPartStatic>());
+    }
+
     public static MonsterHudDto MergeLive(MonsterStaticMapped staticSnapshot, LiveMonsterSnapshot live)
     {
         ArgumentNullException.ThrowIfNull(staticSnapshot);
         ArgumentNullException.ThrowIfNull(live);
 
         var showCapture = CaptureRules.ShowCaptureUi(staticSnapshot.IsCapturable, live.QuestAllowsCapture);
-        var threshold = showCapture ? staticSnapshot.CaptureThresholdPercent : null;
+        var threshold = showCapture
+            ? live.CaptureThresholdPercent ?? staticSnapshot.CaptureThresholdPercent
+            : null;
 
         var staticByName = staticSnapshot.Parts
             .GroupBy(p => p.Name, StringComparer.OrdinalIgnoreCase)

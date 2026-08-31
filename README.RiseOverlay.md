@@ -22,3 +22,10 @@ It is intentionally narrower in scope than full HunterPie (multi-game client / f
 ## Docs
 
 Design and implementation planning for this fork live under `docs/superpowers/`.
+
+## Rise compact monster HUD
+
+- New overlay widget: `MHROverlayConfig.RiseCompactMonsterWidget` (default `Initialize=true` for Rise).
+- Legacy HunterPie monster widget (`BossesWidget` / `MHRMonsterWidgetConfig`) defaults to `Initialize=false` on fresh configs so the compact HUD is not duplicated.
+- Client config is persisted under the HunterPie client config path (typically AppData). Existing installs that already saved `BossesWidget.Initialize=true` keep that value until reset.
+- Static weakness table: `static/monsters-overlay.json` next to the app binary (from `RiseOverlay.Data/static`).

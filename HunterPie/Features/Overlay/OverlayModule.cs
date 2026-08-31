@@ -18,6 +18,7 @@ internal class OverlayModule : IDependencyModule
             .WithSingle<ClockWidgetInitializer>()
             .WithSingle<DamageWidgetInitializer>()
             .WithSingle<MonsterWidgetInitializer>()
+            .WithSingle<RiseCompactMonsterWidgetInitializer>()
             .WithSingle<PlayerHudWidgetInitializer>()
             .WithSingle<SpecializedToolWidgetInitializer>()
             .WithSingle<WirebugWidgetInitializer>()
