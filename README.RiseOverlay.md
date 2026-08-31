@@ -26,9 +26,22 @@ Design and implementation planning for this fork live under `docs/superpowers/`.
 ## Rise compact monster HUD
 
 - New overlay widget: `MHROverlayConfig.RiseCompactMonsterWidget` (default `Initialize=true` for Rise).
+- Hosted on the same HunterPie overlay path as other widgets: `RiseCompactMonsterView` : `Widget`, `RiseCompactMonsterViewModel` : `WidgetViewModel`, registered through `OverlayManager` / `WidgetView` (process attach + always-on-top).
+- Default position: top-left (`Position` 20,20). Overlay defaults: `IsEnabled=true`, `HideWhenUnfocus=true` (hide when the game loses focus).
 - Legacy HunterPie monster widget (`BossesWidget` / `MHRMonsterWidgetConfig`) defaults to `Initialize=false` on fresh configs so the compact HUD is not duplicated.
 - Client config is persisted under the HunterPie client config path (typically AppData). Existing installs that already saved `BossesWidget.Initialize=true` keep that value until reset.
 - Static weakness table: `static/monsters-overlay.json` next to the app binary (from `RiseOverlay.Data/static`).
+
+## Overlay toggle hotkey
+
+Rise Overlay reuses HunterPie’s global overlay visibility hotkey (no separate `RiseOverlay.Toggle`):
+
+| Action | Default keybinding | Config |
+| --- | --- | --- |
+| Show / hide overlay | **Ctrl+Alt+O** | `OverlayClientConfig.ToggleVisibility` |
+| Design mode (drag widgets) | ScrollLock | `OverlayClientConfig.ToggleDesignMode` |
+
+Requires app restart after changing hotkeys. Persisted AppData configs may still have older values until reset.
 
 ## Quest briefing ↔ combat scene switch
 
