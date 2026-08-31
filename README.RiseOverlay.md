@@ -19,6 +19,8 @@ Rise Overlay aims to be a **Monster Hunter Rise-only** compact HUD overlay focus
 
 It is intentionally narrower in scope than full HunterPie (multi-game client / full feature set).
 
+**Supported game:** Monster Hunter Rise only. World / Wilds process attach is disabled by default; World / Wilds widget configs keep `Initialize=false`. Discord Rich Presence and the Discord sidebar entry are off/hidden by default. Unused Rise widgets (wirebug, class meters, activities, chat, etc.) default to `Initialize=false` so the compact HUD is the primary surface. Persisted AppData configs may still enable older widgets until reset.
+
 ## Docs
 
 Design and implementation planning for this fork live under `docs/superpowers/`.

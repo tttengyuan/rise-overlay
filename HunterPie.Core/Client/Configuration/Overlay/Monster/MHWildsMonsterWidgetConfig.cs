@@ -7,6 +7,12 @@ namespace HunterPie.Core.Client.Configuration.Overlay.Monster;
 
 public class MHWildsMonsterWidgetConfig : MonsterWidgetConfig
 {
+    public MHWildsMonsterWidgetConfig()
+    {
+        // Rise Overlay: Wilds surface disabled by default (code kept for compile).
+        Initialize = false;
+    }
+
     public override MonsterDetailsConfiguration Details { get; set; }
         = new()
         {

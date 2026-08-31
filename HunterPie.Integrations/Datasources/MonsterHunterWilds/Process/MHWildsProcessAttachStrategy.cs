@@ -1,8 +1,5 @@
-﻿using HunterPie.Core.Address.Map;
-using HunterPie.Core.Client;
-using HunterPie.Core.Domain.Enums;
+﻿using HunterPie.Core.Domain.Enums;
 using HunterPie.Core.Domain.Process;
-using HunterPie.Core.Domain.Process.Exceptions;
 using HunterPie.Core.Domain.Process.Service;
 using HunterPie.Core.Extensions;
 using HunterPie.Core.Game.Events;
@@ -37,28 +34,9 @@ internal class MHWildsProcessAttachStrategy : IProcessAttachStrategy
 
     public bool CanAttach(SystemProcess process)
     {
-        if (!process.MainWindowTitle.ToUpperInvariant().StartsWith("MONSTER HUNTER WILDS"))
-            return false;
-
-        string? version = process.MainModule
-            ?.FileVersionInfo.FileVersion;
-
-        if (version is not { })
-            throw new UnauthorizedAccessException("Failed to get Monster Hunter Wilds version, missing permissions");
-
-        string mapPath = Path.Combine(ClientInfo.AddressPath, $"MonsterHunterWilds.{version}.map");
-
-        if (!Path.Exists(mapPath))
-            throw new UnsupportedGamePatchException(Name, version);
-
-        bool hasLoaded = AddressMap.Parse(
-            filePath: mapPath
-        );
-
-        if (!hasLoaded)
-            throw new Exception($"Failed to load address for Monster Hunter Wilds v{version}");
-
-        return true;
+        // Rise Overlay: Wilds detection disabled (strategy kept so the solution still compiles).
+        _ = process;
+        return false;
     }
 
     public void SetStatus(ProcessStatus status) => Status = status;

@@ -14,7 +14,8 @@ internal class DiscordSideBarViewModel : ViewModel, ISideBarViewModel
 
     public string Icon => "ICON_DISCORD";
 
-    public bool IsAvailable => true;
+    // Rise Overlay: Discord community entry hidden by default.
+    public bool IsAvailable => false;
 
     public bool IsSelected { get; set; }
 
