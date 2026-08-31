@@ -12,4 +12,8 @@
     </None>
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\RiseOverlay.Domain\RiseOverlay.Domain.csproj" />
+  </ItemGroup>
+
 </Project>
