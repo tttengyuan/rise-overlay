@@ -21,6 +21,12 @@
     <Color x:Key="Colors.AccentTeal">#FF4A9B9B</Color>
     <SolidColorBrush x:Key="Brushes.AccentTeal" Color="{StaticResource Colors.AccentTeal}" />
 
+    <!-- Severable part bar (mockup .bar > i.sever) -->
+    <LinearGradientBrush x:Key="Brushes.AccentSever" StartPoint="0,0.5" EndPoint="1,0.5">
+        <GradientStop Color="#FFEA580C" Offset="0" />
+        <GradientStop Color="#FFFB923C" Offset="1" />
+    </LinearGradientBrush>
+
     <!-- Typography (10–12) -->
     <sys:Double x:Key="Fonts.Size.Small">10</sys:Double>
     <sys:Double x:Key="Fonts.Size.Body">11</sys:Double>

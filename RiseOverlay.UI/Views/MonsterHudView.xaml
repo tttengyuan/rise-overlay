@@ -91,9 +91,18 @@
                         Background="#1A222C"
                         CornerRadius="1"
                         Margin="0,0,4,0">
-                    <Border Background="{StaticResource Brushes.AccentTeal}"
-                            CornerRadius="1"
+                    <Border CornerRadius="1"
                             RenderTransformOrigin="0,0.5">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="{StaticResource Brushes.AccentTeal}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsSeverable}" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource Brushes.AccentSever}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
                         <Border.RenderTransform>
                             <ScaleTransform ScaleX="{Binding HealthRatio}" />
                         </Border.RenderTransform>
