@@ -28,6 +28,7 @@ internal class RiseCompactMonsterWidgetInitializer(
 
     private RiseMonsterHudController? _monsterHandler;
     private RiseDpsController? _dpsHandler;
+    private QuestBriefingController? _briefingHandler;
     private WidgetView? _view;
 
     public GameProcessType SupportedGames => GameProcessType.MonsterHunterRise;
@@ -70,6 +71,7 @@ internal class RiseCompactMonsterWidgetInitializer(
             localizePart: LocalizePart
         );
         _dpsHandler = new RiseDpsController(context, viewModel);
+        _briefingHandler = new QuestBriefingController(context, viewModel, store);
 
         _view = _overlay.Register(viewModel);
         return Task.CompletedTask;
@@ -78,8 +80,10 @@ internal class RiseCompactMonsterWidgetInitializer(
     public void Unload()
     {
         _overlay.Unregister(_view);
+        _briefingHandler?.UnhookEvents();
         _monsterHandler?.UnhookEvents();
         _dpsHandler?.UnhookEvents();
+        _briefingHandler = null;
         _monsterHandler = null;
         _dpsHandler = null;
         _view = null;

@@ -29,3 +29,25 @@ Design and implementation planning for this fork live under `docs/superpowers/`.
 - Legacy HunterPie monster widget (`BossesWidget` / `MHRMonsterWidgetConfig`) defaults to `Initialize=false` on fresh configs so the compact HUD is not duplicated.
 - Client config is persisted under the HunterPie client config path (typically AppData). Existing installs that already saved `BossesWidget.Initialize=true` keep that value until reset.
 - Static weakness table: `static/monsters-overlay.json` next to the app binary (from `RiseOverlay.Data/static`).
+
+## Quest briefing ↔ combat scene switch
+
+One host widget (`RiseCompactMonsterView`) swaps **QuestBriefingView** and **CombatStackView**.
+
+### Event sources
+
+- `IGame.OnQuestStart` / `OnQuestEnd`
+- `IGame.OnMonsterSpawn` / `OnMonsterDespawn`
+- `IPlayer.OnStageUpdate` (hunting-zone heuristic)
+
+### Visibility heuristics
+
+Rise `IQuest` exposes id/type/status/timer but **not** quest target monster ids (unlike Wilds’ target-key path). Gathering-hub vs map is approximated as:
+
+| Scene | When |
+| --- | --- |
+| **Briefing** | Quest active, no alive large monsters yet (pre-combat this quest), and at least one target name/id key can be resolved via `MonsterStaticStore` + `MonsterHudMapper.ToBriefingTarget` |
+| **Combat** | Quest active and any large monster with `Health > 0` is present |
+| **Idle (hidden)** | Quest ended / idle, or quest active but neither briefing targets nor combat monsters |
+
+Target keys are remembered from `IGame.Monsters` (name + id) when known. Pre-spawn briefing therefore only appears if keys are already available (e.g. monsters still tracked) or after a future quest-target memory read is added. Empty briefing panels are not shown.
