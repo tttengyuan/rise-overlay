@@ -5,7 +5,7 @@
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="pack://application:,,,/RiseOverlay.UI;component/Themes/CompactTeal.xaml" />
+                <ResourceDictionary Source="pack://application:,,,/RiseOverlay.UI;component/Themes/Theme.Classic.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

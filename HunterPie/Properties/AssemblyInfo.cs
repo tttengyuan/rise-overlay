@@ -11,10 +11,10 @@ using System.Windows;
                                               // app, or any theme specific resource dictionaries)
 )]
 
-[assembly: AssemblyTitle("Rise血条")]
-[assembly: AssemblyProduct("Rise血条")]
+[assembly: AssemblyTitle("Rise血�?)]
+[assembly: AssemblyProduct("Rise血�?)]
 [assembly: AssemblyCompany("Rise Overlay")]
 [assembly: AssemblyCopyright("Rise Overlay")]
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
-[assembly: AssemblyInformationalVersion("1.0.0")]
+[assembly: AssemblyVersion("2.0.0.0")]
+[assembly: AssemblyFileVersion("2.0.0.0")]
+[assembly: AssemblyInformationalVersion("2.0.0")]

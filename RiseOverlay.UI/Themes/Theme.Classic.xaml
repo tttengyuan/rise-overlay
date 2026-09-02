@@ -1,0 +1,46 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+
+    <Color x:Key="Colors.PanelBackground">#F20A0E16</Color>
+    <SolidColorBrush x:Key="Brushes.PanelBackground" Color="{StaticResource Colors.PanelBackground}" />
+    <Color x:Key="Colors.PanelBorder">#FF2A2F38</Color>
+    <SolidColorBrush x:Key="Brushes.PanelBorder" Color="{StaticResource Colors.PanelBorder}" />
+    <Color x:Key="Colors.PanelBorderSubtle">#FF22262E</Color>
+    <SolidColorBrush x:Key="Brushes.PanelBorderSubtle" Color="{StaticResource Colors.PanelBorderSubtle}" />
+    <Color x:Key="Colors.Foreground">#FFFFFFFF</Color>
+    <SolidColorBrush x:Key="Brushes.Foreground" Color="{StaticResource Colors.Foreground}" />
+    <Color x:Key="Colors.ForegroundMuted">#FF9AA3B2</Color>
+    <SolidColorBrush x:Key="Brushes.ForegroundMuted" Color="{StaticResource Colors.ForegroundMuted}" />
+    <Color x:Key="Colors.AccentTeal">#FF4A9B9B</Color>
+    <SolidColorBrush x:Key="Brushes.AccentTeal" Color="{StaticResource Colors.AccentTeal}" />
+    <Color x:Key="Colors.AccentHealth">#FFD94B43</Color>
+    <SolidColorBrush x:Key="Brushes.AccentHealth" Color="{StaticResource Colors.AccentHealth}" />
+    <Color x:Key="Colors.AccentQurio">#FFE11D48</Color>
+    <SolidColorBrush x:Key="Brushes.AccentQurio" Color="{StaticResource Colors.AccentQurio}" />
+    <LinearGradientBrush x:Key="Brushes.AccentSever" StartPoint="0,0.5" EndPoint="1,0.5">
+        <GradientStop Color="#FFEA580C" Offset="0" />
+        <GradientStop Color="#FFFB923C" Offset="1" />
+    </LinearGradientBrush>
+    <Color x:Key="Colors.AccentStun">#FFEAB308</Color>
+    <SolidColorBrush x:Key="Brushes.AccentStun" Color="{StaticResource Colors.AccentStun}" />
+    <Color x:Key="Colors.AccentBreak">#FFFF8C42</Color>
+    <SolidColorBrush x:Key="Brushes.AccentBreak" Color="{StaticResource Colors.AccentBreak}" />
+    <Color x:Key="Colors.AccentCapture">#FFC9AA62</Color>
+    <SolidColorBrush x:Key="Brushes.AccentCapture" Color="{StaticResource Colors.AccentCapture}" />
+    <sys:Double x:Key="Fonts.Size.Small">10</sys:Double>
+    <sys:Double x:Key="Fonts.Size.Body">11</sys:Double>
+    <sys:Double x:Key="Fonts.Size.Title">12</sys:Double>
+    <CornerRadius x:Key="Theme.PanelCornerRadius">2</CornerRadius>
+    <Color x:Key="Colors.Element.Fire">#FFB85C5C</Color>
+    <SolidColorBrush x:Key="Brushes.Element.Fire" Color="{StaticResource Colors.Element.Fire}" />
+    <Color x:Key="Colors.Element.Water">#FF4F87A6</Color>
+    <SolidColorBrush x:Key="Brushes.Element.Water" Color="{StaticResource Colors.Element.Water}" />
+    <Color x:Key="Colors.Element.Thunder">#FFB09A4A</Color>
+    <SolidColorBrush x:Key="Brushes.Element.Thunder" Color="{StaticResource Colors.Element.Thunder}" />
+    <Color x:Key="Colors.Element.Ice">#FF5F97A8</Color>
+    <SolidColorBrush x:Key="Brushes.Element.Ice" Color="{StaticResource Colors.Element.Ice}" />
+    <Color x:Key="Colors.Element.Dragon">#FF7D6A96</Color>
+    <SolidColorBrush x:Key="Brushes.Element.Dragon" Color="{StaticResource Colors.Element.Dragon}" />
+    <SolidColorBrush x:Key="Brushes.Element.Foreground" Color="White" />
+</ResourceDictionary>

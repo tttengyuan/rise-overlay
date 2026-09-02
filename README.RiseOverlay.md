@@ -1,29 +1,47 @@
 # Rise Overlay
 
-Thin fork / overlay work based on **[HunterPie](https://github.com/HunterPie/HunterPie)**.
+基于 **[HunterPie](https://github.com/HunterPie/HunterPie)** 的 Monster Hunter Rise 专用紧凑叠层（「Rise血条」）。
 
-## Attribution & license
+## 归属与许可
 
-This repository is based on HunterPie. HunterPie's original license terms apply to upstream code; see the root `LICENSE` file in this tree (and HunterPie's repository).
+本仓库是 HunterPie 的**瘦身 Fork**：在原版架构上主要提取 / 强化 **Rise 紧凑战斗 HUD** 相关模块（任务简报、怪物血条 / 部位 / 异常、DPS），默认关闭多游戏客户端、Discord、以及 Rise 侧大量非必要控件。
 
-Upstream project: https://github.com/HunterPie/HunterPie
+上游项目：https://github.com/HunterPie/HunterPie  
 
-## Purpose
+HunterPie 原版许可证条款适用于上游代码；详见仓库根目录 `LICENSE`。
 
-Rise Overlay aims to be a **Monster Hunter Rise-only** compact HUD overlay focused on:
+## 做什么
 
-- Monster HP
-- Parts
-- Ailments
-- DPS
+Rise-only 叠层，聚焦：
 
-It is intentionally narrower in scope than full HunterPie (multi-game client / full feature set).
+- 任务简报（弱属性 / 推荐属性单行对齐）
+- 怪物 HP、部位、异常状态
+- 队伍 DPS
+- 捕获线 / 怪异化标注
+- 壳窗口「检查更新」（GitHub Releases）
 
-**Supported game:** Monster Hunter Rise only. World / Wilds process attach is disabled by default; World / Wilds widget configs keep `Initialize=false`. Discord Rich Presence and the Discord sidebar entry are off/hidden by default. Unused Rise widgets (wirebug, class meters, activities, chat, etc.) default to `Initialize=false` so the compact HUD is the primary surface. Persisted AppData configs may still enable older widgets until reset.
+**仅支持 Monster Hunter Rise。** World / Wilds 进程附加默认关闭；未使用的 Rise 控件默认 `Initialize=false`。
+
+## UI 主题
+
+壳窗口 **HUD 主题** 可选，写入配置后下次启动自动恢复（简报 + 战斗 HUD + DPS 共用同一主题）：
+
+| ThemeId | 名称 |
+| --- | --- |
+| `Classic` | 现版金青（默认） |
+| `Glass` | 玻璃 |
+| `Parchment` | 羊皮纸 |
+| `Soft` | 日系浅色 |
+| `OledCoral` | OLED 珊瑚 |
+| `GlassCoral` | 玻璃珊瑚 |
+
+另有 **战斗动效** 总开关：虚弱 / 可捕越过阈值、晕眩、部位破坏、推荐弱属性脉冲、怪异化红轨。关闭后保留语义色，去掉脉冲类动画。
+
+设计说明：`docs/superpowers/specs/2026-09-02-rise-overlay-themes-motion-design.md`
 
 ## Docs
 
-Design and implementation planning for this fork live under `docs/superpowers/`.
+更多设计与实现规划见 `docs/superpowers/`。
 
 ## Rise compact monster HUD
 
@@ -31,7 +49,7 @@ Design and implementation planning for this fork live under `docs/superpowers/`.
 - Hosted on the same HunterPie overlay path as other widgets: `RiseCompactMonsterView` : `Widget`, `RiseCompactMonsterViewModel` : `WidgetViewModel`, registered through `OverlayManager` → `WidgetView`.
 - Default position: top-left (`Position` 20,20). Overlay defaults: `IsEnabled=true`, `HideWhenUnfocus=true` (hide when the game loses focus).
 - Legacy HunterPie monster widget (`BossesWidget` / `MHRMonsterWidgetConfig`) defaults to `Initialize=false` on fresh configs so the compact HUD is not duplicated.
-- Client config is persisted under the HunterPie client config path (typically AppData). Existing installs that already saved `BossesWidget.Initialize=true` keep that value until reset.
+- Client config is persisted under the HunterPie client config path (typically next to the binary / ClientPath `config.json`).
 - Static weakness table: `static/monsters-overlay.json` next to the app binary (from `RiseOverlay.Data/static`).
 
 ### Overlay attach model (Task 13)
@@ -55,7 +73,8 @@ Rise Overlay reuses HunterPie’s global overlay visibility hotkey (no separate 
 | Show / hide overlay | **Ctrl+Alt+O** | `OverlayClientConfig.ToggleVisibility` |
 | Design mode (drag widgets) | ScrollLock | `OverlayClientConfig.ToggleDesignMode` |
 
-Requires app restart after changing hotkeys. Persisted AppData configs may still have older values until reset.
+Requires app restart after changing hotkeys. Persisted configs may still have older values until reset.
+
 
 ## Quest briefing ↔ combat scene switch
 

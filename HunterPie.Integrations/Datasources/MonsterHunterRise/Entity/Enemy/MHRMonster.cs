@@ -39,7 +39,7 @@ public sealed class MHRMonster : CommonMonster
     private float _stamina;
     private float _captureThreshold;
     private readonly MHRMonsterAilment _enrage = new(MonsterAilmentRepository.Enrage);
-    private readonly MHRMonsterPart? _qurioThreshold;
+    private MHRMonsterPart? _qurioThreshold;
     private readonly ConcurrentDictionary<long, MHRMonsterPart> _parts = new();
     private readonly ConcurrentDictionary<long, MHRMonsterAilment> _ailments = new();
     private readonly List<Element> _weaknesses = new();
@@ -218,6 +218,14 @@ public sealed class MHRMonster : CommonMonster
             return;
 
         Variant |= VariantType.Frenzy;
+        EnsureQurioThresholdPart();
+    }
+
+    private void EnsureQurioThresholdPart()
+    {
+        if (_qurioThreshold is not null)
+            return;
+        _qurioThreshold = new MHRMonsterPart(MHRiseUtils.QurioPartDefinition);
     }
 
     [ScannableMethod]
@@ -401,6 +409,9 @@ public sealed class MHRMonster : CommonMonster
     [ScannableMethod]
     internal async Task GetQurioThreshold()
     {
+        if (MonsterType == MonsterType.Qurio)
+            EnsureQurioThresholdPart();
+
         if (_qurioThreshold is null)
             return;
 

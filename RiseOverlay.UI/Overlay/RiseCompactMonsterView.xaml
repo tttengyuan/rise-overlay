@@ -8,19 +8,15 @@
                 xmlns:views="clr-namespace:RiseOverlay.UI.Views"
                 mc:Ignorable="d"
                 d:DataContext="{d:DesignInstance Type=local:RiseCompactMonsterViewModel}"
-                Width="272">
+                Width="300">
     <overlay:Widget.Resources>
-        <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="pack://application:,,,/RiseOverlay.UI;component/Themes/CompactTeal.xaml"/>
-            </ResourceDictionary.MergedDictionaries>
-        </ResourceDictionary>
+        <ResourceDictionary />
     </overlay:Widget.Resources>
     <Grid Visibility="{Binding ContentVisibility, Mode=OneWay}">
         <!-- Attached stub: always proves the overlay window is rendering -->
         <Border Visibility="{Binding AttachedVisibility, Mode=OneWay}"
-                Background="{StaticResource Brushes.PanelBackground}"
-                BorderBrush="{StaticResource Brushes.PanelBorder}"
+                Background="{DynamicResource Brushes.PanelBackground}"
+                BorderBrush="{DynamicResource Brushes.PanelBorder}"
                 BorderThickness="1"
                 CornerRadius="2"
                 Padding="8,6">

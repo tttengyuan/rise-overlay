@@ -2,14 +2,11 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:RiseOverlay.UI.ViewModels"
-             Width="272"
+             Width="300"
              Focusable="False"
              IsTabStop="False">
     <UserControl.Resources>
         <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="pack://application:,,,/RiseOverlay.UI;component/Themes/CompactTeal.xaml"/>
-            </ResourceDictionary.MergedDictionaries>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
 
         <DataTemplate DataType="{x:Type vm:DpsEntryRowViewModel}">
@@ -37,21 +34,21 @@
 
                     <TextBlock Grid.Column="0"
                                Text="{Binding Index}"
-                               Foreground="{StaticResource Brushes.ForegroundMuted}"
-                               FontSize="{StaticResource Fonts.Size.Small}"
+                               Foreground="{DynamicResource Brushes.ForegroundMuted}"
+                               FontSize="{DynamicResource Fonts.Size.Small}"
                                VerticalAlignment="Center" />
 
                     <TextBlock Grid.Column="1"
                                Text="{Binding Name}"
-                               FontSize="{StaticResource Fonts.Size.Small}"
+                               FontSize="{DynamicResource Fonts.Size.Small}"
                                VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
-                                <Setter Property="Foreground" Value="{StaticResource Brushes.ForegroundMuted}" />
+                                <Setter Property="Foreground" Value="{DynamicResource Brushes.ForegroundMuted}" />
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding IsSelf}" Value="True">
-                                        <Setter Property="Foreground" Value="{StaticResource Brushes.Foreground}" />
+                                        <Setter Property="Foreground" Value="{DynamicResource Brushes.Foreground}" />
                                         <Setter Property="FontWeight" Value="SemiBold" />
                                     </DataTrigger>
                                 </Style.Triggers>
@@ -65,7 +62,7 @@
                             Background="#1A222C"
                             CornerRadius="1"
                             Margin="0,0,6,0">
-                        <Border Background="{StaticResource Brushes.AccentTeal}"
+                        <Border Background="{DynamicResource Brushes.AccentTeal}"
                                 CornerRadius="1"
                                 RenderTransformOrigin="0,0.5">
                             <Border.RenderTransform>
@@ -76,24 +73,24 @@
 
                     <TextBlock Grid.Column="3"
                                Text="{Binding DpsText}"
-                               Foreground="{StaticResource Brushes.ForegroundMuted}"
-                               FontSize="{StaticResource Fonts.Size.Small}"
+                               Foreground="{DynamicResource Brushes.ForegroundMuted}"
+                               FontSize="{DynamicResource Fonts.Size.Small}"
                                VerticalAlignment="Center"
                                TextAlignment="Right"
                                Margin="0,0,6,0" />
 
                     <TextBlock Grid.Column="4"
                                Text="{Binding TotalDamageText}"
-                               FontSize="{StaticResource Fonts.Size.Body}"
+                               FontSize="{DynamicResource Fonts.Size.Body}"
                                FontWeight="SemiBold"
                                VerticalAlignment="Center"
                                TextAlignment="Right">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
-                                <Setter Property="Foreground" Value="{StaticResource Brushes.Foreground}" />
+                                <Setter Property="Foreground" Value="{DynamicResource Brushes.Foreground}" />
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding IsSelf}" Value="True">
-                                        <Setter Property="Foreground" Value="{StaticResource Brushes.AccentTeal}" />
+                                        <Setter Property="Foreground" Value="{DynamicResource Brushes.AccentTeal}" />
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
@@ -105,16 +102,16 @@
         </ResourceDictionary>
     </UserControl.Resources>
 
-    <Border Background="{StaticResource Brushes.PanelBackground}"
+    <Border Background="{DynamicResource Brushes.PanelBackground}"
             Padding="8,4"
             CornerRadius="2"
-            BorderBrush="{StaticResource Brushes.PanelBorder}"
+            BorderBrush="{DynamicResource Brushes.PanelBorder}"
             BorderThickness="1">
         <Grid>
             <!-- Solo: one compact line -->
             <TextBlock Text="{Binding SoloLineText}"
-                       Foreground="{StaticResource Brushes.Foreground}"
-                       FontSize="{StaticResource Fonts.Size.Body}"
+                       Foreground="{DynamicResource Brushes.Foreground}"
+                       FontSize="{DynamicResource Fonts.Size.Body}"
                        VerticalAlignment="Center"
                        Visibility="{Binding IsSolo, Converter={StaticResource BoolToVis}}" />
 
@@ -122,12 +119,12 @@
             <StackPanel Visibility="{Binding IsParty, Converter={StaticResource BoolToVis}}">
                 <Grid Margin="0,0,0,2">
                     <TextBlock Text="大型目标累计"
-                               Foreground="{StaticResource Brushes.ForegroundMuted}"
-                               FontSize="{StaticResource Fonts.Size.Small}"
+                               Foreground="{DynamicResource Brushes.ForegroundMuted}"
+                               FontSize="{DynamicResource Fonts.Size.Small}"
                                HorizontalAlignment="Left" />
                     <TextBlock Text="{Binding PartyTotalText}"
-                               Foreground="{StaticResource Brushes.ForegroundMuted}"
-                               FontSize="{StaticResource Fonts.Size.Small}"
+                               Foreground="{DynamicResource Brushes.ForegroundMuted}"
+                               FontSize="{DynamicResource Fonts.Size.Small}"
                                HorizontalAlignment="Right" />
                 </Grid>
                 <ItemsControl ItemsSource="{Binding Entries}" />

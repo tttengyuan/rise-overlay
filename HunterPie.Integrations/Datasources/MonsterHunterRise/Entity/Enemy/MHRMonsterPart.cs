@@ -16,6 +16,12 @@ public sealed class MHRMonsterPart : CommonPart, IUpdatable<MHRPartStructure>, I
     private float _sever;
     private PartType _type;
     private bool _isInQurio;
+    private bool _seenBreakableHealth;
+    private bool _seenBreakableDamage;
+    private bool _seenFullFlinch;
+    private bool _breakLatched;
+    private bool _severLatched;
+    private float _breakLatchMaxHealth;
 
     public override string Id { get; protected set; }
 
@@ -82,6 +88,43 @@ public sealed class MHRMonsterPart : CommonPart, IUpdatable<MHRPartStructure>, I
 
     public float QurioMaxHealth { get; private set; }
 
+    /// <summary>True only while the Qurio infestation is active on this part.</summary>
+    public bool IsQurioInfected => _isInQurio;
+
+    /// <summary>
+    /// Physical break/sever. Rise often keeps MaxHealth and refills Health after a break
+    /// (HunterPie: Health==MaxHealth &amp;&amp; Flinch!=MaxFlinch). We latch so a regenerating
+    /// flinch does not bring back 「可破」.
+    /// </summary>
+    public bool IsStructurallyBroken
+    {
+        get
+        {
+            if (Count > 0 || _breakLatched || _severLatched)
+                return true;
+
+            if (MaxHealth <= 0 && _seenBreakableHealth)
+                return true;
+
+            if (MaxHealth > 0 && Health <= 0)
+                return true;
+
+            // Live break edge: refilled after damage, or flinch drop while full after damage.
+            if (_seenBreakableDamage
+                && MaxHealth > 0
+                && Health >= MaxHealth)
+                return true;
+
+            // Live sever edge.
+            if (_seenFullFlinch
+                && MaxSever > 0 && Sever >= MaxSever
+                && MaxFlinch > 0 && Flinch < MaxFlinch)
+                return true;
+
+            return false;
+        }
+    }
+
     public override PartType Type
     {
         get => _type;
@@ -120,6 +163,45 @@ public sealed class MHRMonsterPart : CommonPart, IUpdatable<MHRPartStructure>, I
     {
         if (Type == PartType.Qurio && !_isInQurio)
             GetCurrentType(data);
+
+        if (data.MaxFlinch > 0 && data.Flinch >= data.MaxFlinch)
+            _seenFullFlinch = true;
+
+        // Breakable: Rise often refills Health to MaxHealth after a break instead of
+        // zeroing MaxHealth. Afflicted Qurio cycles also churn part HP in memory — once
+        // broken, stay broken unless MaxHealth grows (rare true multi-break pool).
+        if (data.MaxHealth > 0)
+        {
+            _seenBreakableHealth = true;
+
+            if (_breakLatched && data.MaxHealth > _breakLatchMaxHealth + 1f)
+            {
+                _breakLatched = false;
+                _seenBreakableDamage = false;
+                _breakLatchMaxHealth = 0;
+            }
+
+            if (!_breakLatched)
+            {
+                if (data.Health < data.MaxHealth)
+                    _seenBreakableDamage = true;
+                else if (_seenBreakableDamage)
+                {
+                    _breakLatched = true;
+                    _breakLatchMaxHealth = data.MaxHealth;
+                }
+            }
+        }
+        else if (_seenBreakableHealth)
+        {
+            _breakLatched = true;
+        }
+
+        // Severable: Sever==MaxSever at hunt start is normal. Cut = flinch drop after a full flinch.
+        if (_seenFullFlinch
+            && data.MaxSever > 0 && data.Sever >= data.MaxSever
+            && data.MaxFlinch > 0 && data.Flinch < data.MaxFlinch)
+            _severLatched = true;
 
         MaxHealth = data.MaxHealth;
         Health = data.Health;

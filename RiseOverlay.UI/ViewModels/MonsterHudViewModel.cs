@@ -41,7 +41,9 @@ public sealed class PartRowViewModel : INotifyPropertyChanged
     private bool _isSeverable;
     private bool _isBroken;
     private bool _isQurio;
+    private bool _isQurioThreshold;
     private bool _isRecommendedTarget;
+    private bool _breakFlash;
     private ObservableCollection<ElementId> _weakElements = new();
 
     public string Name
@@ -100,6 +102,22 @@ public sealed class PartRowViewModel : INotifyPropertyChanged
         }
     }
 
+    public bool IsQurioThreshold
+    {
+        get => _isQurioThreshold;
+        set
+        {
+            if (SetField(ref _isQurioThreshold, value))
+                NotifyDerived();
+        }
+    }
+
+    public bool BreakFlash
+    {
+        get => _breakFlash;
+        set => SetField(ref _breakFlash, value);
+    }
+
     public bool IsRecommendedTarget
     {
         get => _isRecommendedTarget;
@@ -121,7 +139,7 @@ public sealed class PartRowViewModel : INotifyPropertyChanged
     public double HealthRatio => _maxHp <= 0 ? 0 : Math.Clamp(_currentHp / _maxHp, 0, 1);
 
     private PartDisplayState DisplayState =>
-        PartDisplayRules.Resolve(_isSeverable, _isBroken, _isQurio);
+        PartDisplayRules.Resolve(_isSeverable, _isBroken, _isQurio, _isQurioThreshold);
 
     public string StatusText => DisplayState.Text;
 
@@ -170,6 +188,7 @@ public sealed class MonsterHudViewModel : INotifyPropertyChanged
     private bool _weakenLineVisible;
     private double _weakenLinePosition;
     private bool _pastWeakenLine;
+    private bool _captureFlash;
     private bool _stunActive;
     private string _stunCountdownText = "";
     private string _statusLineText = "";
@@ -180,6 +199,7 @@ public sealed class MonsterHudViewModel : INotifyPropertyChanged
     private ObservableCollection<PartRowViewModel> _parts = new();
     private bool _showParts = true;
     private bool _showAilments = true;
+    private bool _motionEnabled = true;
 
     public bool ShowParts
     {
@@ -195,6 +215,18 @@ public sealed class MonsterHudViewModel : INotifyPropertyChanged
             if (SetField(ref _showAilments, value))
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowAilmentsLine)));
         }
+    }
+
+    public bool MotionEnabled
+    {
+        get => _motionEnabled;
+        set => SetField(ref _motionEnabled, value);
+    }
+
+    public bool CaptureFlash
+    {
+        get => _captureFlash;
+        set => SetField(ref _captureFlash, value);
     }
 
     public bool CaptureBannerVisible
@@ -368,8 +400,11 @@ public sealed class MonsterHudViewModel : INotifyPropertyChanged
         // Restricted and anomaly quests receive no capture line from the mapper.
         WeakenLineVisible = threshold is > 0;
         WeakenLinePosition = threshold is { } t ? Math.Clamp(t / 100.0, 0, 1) : 0;
-        PastWeakenLine = threshold is { } th
+        bool pastWeaken = threshold is { } th
             && CaptureRules.IsPastThreshold(HealthPercent, th);
+        if (pastWeaken && !_pastWeakenLine && _motionEnabled)
+            TriggerCaptureFlash();
+        PastWeakenLine = pastWeaken;
         // Capture banner only when actually capturable.
         CaptureBannerVisible = dto.IsCapturable && PastWeakenLine;
 
@@ -395,8 +430,33 @@ public sealed class MonsterHudViewModel : INotifyPropertyChanged
             : dto.Status;
         StatusLineText = StatusLineFormatter.Format(statusForLine);
 
-        Parts = new ObservableCollection<PartRowViewModel>(
-            (dto.Parts ?? Array.Empty<PartDto>()).Select(p => new PartRowViewModel
+        SyncParts(dto.Parts ?? Array.Empty<PartDto>());
+
+        AilmentsLineText = AilmentLineFormatter.Format(dto.Ailments ?? Array.Empty<AilmentDto>());
+    }
+
+    private void TriggerCaptureFlash()
+    {
+        CaptureFlash = false;
+        CaptureFlash = true;
+        _ = ClearCaptureFlashAsync();
+    }
+
+    private async Task ClearCaptureFlashAsync()
+    {
+        await Task.Delay(1600);
+        CaptureFlash = false;
+    }
+
+    private void SyncParts(IReadOnlyList<PartDto> parts)
+    {
+        var previous = Parts.ToDictionary(p => p.Name, StringComparer.Ordinal);
+        var next = new ObservableCollection<PartRowViewModel>();
+        foreach (PartDto p in parts)
+        {
+            previous.TryGetValue(p.Name, out PartRowViewModel? old);
+            bool brokenEdge = p.IsBroken && old is { IsBroken: false };
+            var row = new PartRowViewModel
             {
                 Name = p.Name,
                 CurrentHp = p.CurrentHp,
@@ -404,11 +464,23 @@ public sealed class MonsterHudViewModel : INotifyPropertyChanged
                 IsSeverable = p.IsSeverable,
                 IsBroken = p.IsBroken,
                 IsQurio = p.IsQurio,
+                IsQurioThreshold = p.IsQurioThreshold,
                 IsRecommendedTarget = p.IsRecommendedTarget,
                 WeakElements = new ObservableCollection<ElementId>(p.WeakElements),
-            }));
+                BreakFlash = brokenEdge && _motionEnabled,
+            };
+            next.Add(row);
+            if (row.BreakFlash)
+                _ = ClearBreakFlashAsync(row);
+        }
 
-        AilmentsLineText = AilmentLineFormatter.Format(dto.Ailments ?? Array.Empty<AilmentDto>());
+        Parts = next;
+    }
+
+    private static async Task ClearBreakFlashAsync(PartRowViewModel row)
+    {
+        await Task.Delay(1200);
+        row.BreakFlash = false;
     }
 
     public static MonsterHudViewModel CreateSampleScornedMagnamalo()

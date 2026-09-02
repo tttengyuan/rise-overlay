@@ -16,7 +16,8 @@ public sealed record PartDto(
     bool IsBroken,
     IReadOnlyList<ElementId> WeakElements,
     bool IsQurio = false,
-    bool IsRecommendedTarget = false);
+    bool IsRecommendedTarget = false,
+    bool IsQurioThreshold = false);
 
 public sealed record AilmentDto(
     string Key,

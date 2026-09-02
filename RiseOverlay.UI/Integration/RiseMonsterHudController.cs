@@ -256,7 +256,9 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
     private void FreezeOnActiveDeath(MonsterHudDto lastAliveFrame)
     {
         _hudFrozen = true;
-        _frozenHudDto = lastAliveFrame;
+        // Keep identity/parts from the last combat frame, but show 0 HP after the slay.
+        // Rise often leaves 1 HP in memory through the death animation.
+        _frozenHudDto = lastAliveFrame with { HealthCurrent = 0 };
         ApplyHudPresentation();
     }
 
@@ -375,25 +377,37 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
         var parts = monster.Parts
             .Select(p =>
             {
-                // Afflicted: keep 啮生虫 / Qurio part HP (threshold + infected hitzones).
-                bool useQurio = p is MHRMonsterPart qp
-                                && qp.QurioMaxHealth > 0
-                                && (p.Type.HasFlag(PartType.Qurio)
-                                    || string.Equals(p.Id, "PART_QURIO_THRESHOLD", StringComparison.OrdinalIgnoreCase));
-                double health = useQurio ? ((MHRMonsterPart)p).QurioHealth : p.Health;
-                double maxHealth = useQurio ? ((MHRMonsterPart)p).QurioMaxHealth : p.MaxHealth;
-
-                // Threshold row: game stores remaining until Qurio (full → empty as threshold builds).
+                // Afflicted: 啮生虫 threshold + only *currently* infected hitzones.
+                // Do not use Type==Qurio alone — Type can stick after infection ends and
+                // would keep feeding stale full Qurio bars on already-cleared parts.
                 bool isQurioThreshold = string.Equals(p.Id, "PART_QURIO_THRESHOLD", StringComparison.OrdinalIgnoreCase);
+                var mhrPart = p as MHRMonsterPart;
+                bool useQurio = mhrPart is not null
+                                && (isQurioThreshold
+                                    || (mhrPart.IsQurioInfected && mhrPart.QurioMaxHealth > 0));
+                double health = useQurio ? mhrPart!.QurioHealth : p.Health;
+                double maxHealth = useQurio ? mhrPart!.QurioMaxHealth : p.MaxHealth;
 
-                bool isBreakable = p.Type.HasFlag(PartType.Breakable);
-                bool isSeverable = p.Type.HasFlag(PartType.Severable) || p.MaxSever > 0;
+                // Prefer structural sever/break signals; Type alone is Qurio while infected.
+                bool isSeverable = p.MaxSever > 0 || p.Type.HasFlag(PartType.Severable);
+                bool isBreakable = p.Type.HasFlag(PartType.Breakable)
+                                   || (!isSeverable && (p.MaxHealth > 0 || mhrPart?.IsStructurallyBroken == true));
+                // Rise never increments Count. Keep structural break even while infected so
+                // clearing a Qurio core cannot bring back 「可破」 on an already-broken part.
+                int breakCount = p.Count;
+                bool structurallyBroken = mhrPart?.IsStructurallyBroken == true
+                                          || IsStructurallyBrokenFallback(p, isSeverable, isBreakable);
+                if (breakCount <= 0 && structurallyBroken)
+                    breakCount = 1;
+
+                // Infected: show Qurio HP + 怪异化. Already broken + not infected: 已破坏.
+                // Infected wins status via IsQurio; BreakCount still carried for after-clear.
                 return new MonsterLivePartFixture(
                     Id: p.Id,
                     DisplayName: _localizePart(p.Id),
                     Health: health,
                     MaxHealth: maxHealth,
-                    BreakCount: p.Count,
+                    BreakCount: useQurio ? 0 : breakCount,
                     IsQurio: useQurio,
                     Flinch: p.Flinch,
                     MaxFlinch: p.MaxFlinch,
@@ -450,6 +464,26 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
             Enrage: enrage,
             QuestAllowsCapture: questAllows,
             IsAnomaly: monster is MHRMonster { MonsterType: MonsterType.Qurio });
+    }
+
+    /// <summary>Fallback when the part is not an MHRMonsterPart (tests / other games).</summary>
+    private static bool IsStructurallyBrokenFallback(IMonsterPart p, bool isSeverable, bool isBreakable)
+    {
+        if (p.Count > 0)
+            return true;
+
+        if (isSeverable && p.MaxSever > 0 && p.Sever >= p.MaxSever
+            && p.MaxFlinch > 0 && p.Flinch < p.MaxFlinch)
+            return true;
+
+        if (p.MaxHealth > 0 && p.Health <= 0)
+            return true;
+
+        // Collapsed breakable max after we already knew it was breakable (via isBreakable flag).
+        if (isBreakable && p.MaxHealth <= 0)
+            return true;
+
+        return false;
     }
 
     private sealed class MonsterBinding : IDisposable

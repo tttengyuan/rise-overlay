@@ -16,6 +16,8 @@ public static class RiseHudDisplaySettings
         cfg.ShowParts.PropertyChanged += OnChanged;
         cfg.ShowAilments.PropertyChanged += OnChanged;
         cfg.ShowDps.PropertyChanged += OnChanged;
+        cfg.ThemeId.PropertyChanged += OnChanged;
+        cfg.EnableCombatMotion.PropertyChanged += OnChanged;
 
         void OnChanged(object? sender, PropertyChangedEventArgs e)
         {

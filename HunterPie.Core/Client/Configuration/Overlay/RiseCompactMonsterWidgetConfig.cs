@@ -54,4 +54,14 @@ public class RiseCompactMonsterWidgetConfig : IWidgetSettings, ISettings
     [ConfigurationProperty("SHOW_DPS_STRING", group: CommonConfigurationGroups.CUSTOMIZATIONS)]
     [ConfigurationConditional(name: nameof(Initialize), withValue: true)]
     public Observable<bool> ShowDps { get; set; } = true;
+
+    /// <summary>HUD theme pack id: Classic / Glass / Parchment / Soft / OledCoral / GlassCoral.</summary>
+    [ConfigurationProperty("RISE_HUD_THEME_STRING", group: CommonConfigurationGroups.CUSTOMIZATIONS)]
+    [ConfigurationConditional(name: nameof(Initialize), withValue: true)]
+    public Observable<string> ThemeId { get; set; } = "Classic";
+
+    /// <summary>Master switch for weaken/stun/break/recommend pulse animations.</summary>
+    [ConfigurationProperty("RISE_COMBAT_MOTION_STRING", group: CommonConfigurationGroups.CUSTOMIZATIONS)]
+    [ConfigurationConditional(name: nameof(Initialize), withValue: true)]
+    public Observable<bool> EnableCombatMotion { get; set; } = true;
 }

@@ -135,6 +135,9 @@ public partial class App : System.Windows.Application
         // Keep MainView constructed (hotkeys / theme DI) but never show the old HunterPie chrome.
         _ = MainViewWindow;
 
+        RiseOverlay.UI.Themes.RiseThemeService.InitializeFromConfig(
+            RiseOverlay.UI.Shell.RiseHudDisplaySettings.Config);
+
         _shell = new RiseShellWindow();
         MainWindow = _shell;
         _shell.DesignModeChanged += enabled =>

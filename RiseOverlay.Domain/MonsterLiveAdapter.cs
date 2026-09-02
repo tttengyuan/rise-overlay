@@ -149,28 +149,37 @@ public static class MonsterLiveAdapter
             CurrentHp: cur,
             MaxHp: max,
             IsBroken: broken,
-            IsQurio: p.IsQurio);
+            IsQurio: p.IsQurio,
+            IsQurioThreshold: p.IsQurioThreshold);
     }
 
     /// <summary>
-    /// Prefer breakable HP; else sever; else flinch. Broken breakables often report MaxHealth≤0 in Rise.
+    /// Prefer breakable HP; else sever. Never fall through to flinch for break/sever parts —
+    /// flinch regenerates and looks like the part "healed" after a break.
     /// </summary>
     private static (double Current, double Max) ResolvePartHp(MonsterLivePartFixture p, bool broken)
     {
-        if (p.IsQurio && p.MaxHealth > 0)
+        // Active infection: live Qurio HP. Broken rows never carry IsQurio from the controller.
+        if (p.IsQurio && p.MaxHealth > 0 && !broken)
             return (p.Health, p.MaxHealth);
 
+        if (broken)
+        {
+            if (p.MaxHealth > 0)
+                return (0, p.MaxHealth);
+            if (p.MaxSever > 0)
+                return (0, p.MaxSever);
+            return (0, 1);
+        }
+
         if (p.MaxHealth > 0)
-            return (broken ? 0 : p.Health, p.MaxHealth);
+            return (p.Health, p.MaxHealth);
 
         if (p.MaxSever > 0)
-            return (broken ? 0 : p.Sever, p.MaxSever);
+            return (p.Sever, p.MaxSever);
 
-        if (p.MaxFlinch > 0)
-            return (p.Flinch, p.MaxFlinch);
-
-        // Broken breakable: MaxHealth collapsed to 0 — keep a row with empty bar.
-        if (broken)
+        // Breakable/severable with collapsed max: treat as empty, do not show flinch.
+        if (p.IsBreakable || p.IsSeverable)
             return (0, 1);
 
         return (0, 0);
@@ -183,14 +192,21 @@ public static class MonsterLiveAdapter
             || string.Equals(p.Id, "PART_TO_BE_MAPPED", StringComparison.OrdinalIgnoreCase))
             return false;
 
+        if (p.IsQurioThreshold)
+            return true;
+
         if (p.IsQurio)
             return p.MaxHealth > 0 || IsPartBroken(p);
 
-        // Keep breakable/severable rows after MaxHealth collapses on break (HunterPie Rise behavior).
+        // Hide pure flinch/stagger rows — they clutter the list and look like duplicate parts.
         if (p.IsBreakable || p.IsSeverable)
             return true;
 
-        return p.MaxHealth > 0 || p.MaxSever > 0 || p.MaxFlinch > 0;
+        // Defensive: structural HP without flags still counts as a break/sever row.
+        if (p.MaxHealth > 0 || p.MaxSever > 0)
+            return true;
+
+        return false;
     }
 
     /// <summary>
@@ -211,9 +227,8 @@ public static class MonsterLiveAdapter
         if (p.MaxHealth > 0 && p.Health <= 0 && !p.IsQurio)
             return true;
 
-        if (p.IsBreakable && p.MaxHealth <= 0 && p.MaxFlinch > 0 && p.Flinch < p.MaxFlinch)
-            return true;
-
+        // Rise collapses MaxHealth after a break. BreakCount is latched by the Rise controller
+        // (flinch regenerates and must not un-break the row).
         if (p.IsBreakable && p.MaxHealth <= 0 && p.BreakCount > 0)
             return true;
 

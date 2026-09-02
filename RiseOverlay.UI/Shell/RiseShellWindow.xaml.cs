@@ -1,10 +1,12 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
 using HunterPie.Core.Client;
 using HunterPie.Core.Client.Configuration.Overlay;
+using RiseOverlay.UI.Themes;
 using RiseOverlay.UI.Update;
 
 namespace RiseOverlay.UI.Shell;
@@ -38,6 +40,7 @@ public partial class RiseShellWindow : Window
         SubtitleText.Text =
             $"Monster Hunter Rise · 紧凑战斗 HUD · v{RiseGitHubUpdateService.GetLocalVersionString()}";
         OverlayToggle.IsChecked = ClientConfig.Config.Overlay.IsEnabled;
+        BuildThemeButtons();
         SyncHudTogglesFromConfig();
         RiseHudDisplaySettings.Subscribe(SyncHudTogglesFromConfig);
         UpdateAttachStatus();
@@ -48,6 +51,53 @@ public partial class RiseShellWindow : Window
 
         Closing += OnWindowClosing;
         Closed += (_, _) => _pollTimer.Stop();
+    }
+
+    private void BuildThemeButtons()
+    {
+        ThemeGrid.Children.Clear();
+        foreach (string id in RiseThemeIds.All)
+        {
+            var btn = new Button
+            {
+                Content = RiseThemeIds.DisplayName(id),
+                Tag = id,
+                Margin = new Thickness(0, 0, 6, 6),
+                Padding = new Thickness(8, 6, 8, 6),
+                Background = new SolidColorBrush(Color.FromRgb(0x15, 0x19, 0x22)),
+                Foreground = TextMain,
+                BorderBrush = new SolidColorBrush(Color.FromRgb(0x2A, 0x2F, 0x38)),
+                BorderThickness = new Thickness(1),
+                Cursor = System.Windows.Input.Cursors.Hand,
+                HorizontalContentAlignment = HorizontalAlignment.Left,
+            };
+            btn.Click += OnThemeButtonClick;
+            ThemeGrid.Children.Add(btn);
+        }
+
+        HighlightSelectedTheme();
+    }
+
+    private void OnThemeButtonClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string id })
+            return;
+        HudConfig.ThemeId.Value = id;
+        RiseThemeService.ApplyTheme(id);
+        HighlightSelectedTheme();
+    }
+
+    private void HighlightSelectedTheme()
+    {
+        string current = RiseThemeIds.Normalize(HudConfig.ThemeId.Value);
+        foreach (Button btn in ThemeGrid.Children.OfType<Button>())
+        {
+            bool on = Equals(btn.Tag, current);
+            btn.BorderBrush = new SolidColorBrush(on
+                ? Color.FromRgb(0xFF, 0x4D, 0x6D)
+                : Color.FromRgb(0x2A, 0x2F, 0x38));
+            btn.BorderThickness = new Thickness(on ? 2 : 1);
+        }
     }
 
     private void OnWindowClosing(object? sender, CancelEventArgs e)
@@ -117,6 +167,8 @@ public partial class RiseShellWindow : Window
         cfg.ShowParts.Value = ShowPartsToggle.IsChecked == true;
         cfg.ShowAilments.Value = ShowAilmentsToggle.IsChecked == true;
         cfg.ShowDps.Value = ShowDpsToggle.IsChecked == true;
+        cfg.EnableCombatMotion.Value = CombatMotionToggle.IsChecked == true;
+        RiseThemeService.SetMotionEnabled(cfg.EnableCombatMotion.Value);
     }
 
     private void SyncHudTogglesFromConfig()
@@ -134,6 +186,8 @@ public partial class RiseShellWindow : Window
             ShowPartsToggle.IsChecked = cfg.ShowParts.Value;
             ShowAilmentsToggle.IsChecked = cfg.ShowAilments.Value;
             ShowDpsToggle.IsChecked = cfg.ShowDps.Value;
+            CombatMotionToggle.IsChecked = cfg.EnableCombatMotion.Value;
+            HighlightSelectedTheme();
         }
         finally
         {

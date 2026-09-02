@@ -165,7 +165,8 @@ public static class MonsterHudMapper
                     IsBroken: lp.IsBroken,
                     WeakElements: partWeak,
                     IsQurio: lp.IsQurio,
-                    IsRecommendedTarget: isRecommendedTarget);
+                    IsRecommendedTarget: isRecommendedTarget,
+                    IsQurioThreshold: lp.IsQurioThreshold);
             })
             .ToArray();
 

@@ -5,14 +5,11 @@
              xmlns:converters="clr-namespace:RiseOverlay.UI.Converters"
              xmlns:domain="clr-namespace:RiseOverlay.Domain;assembly=RiseOverlay.Domain"
              xmlns:vm="clr-namespace:RiseOverlay.UI.ViewModels"
-             Width="272"
+             Width="300"
              Focusable="False"
              IsTabStop="False">
     <UserControl.Resources>
         <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="pack://application:,,,/RiseOverlay.UI;component/Themes/CompactTeal.xaml"/>
-            </ResourceDictionary.MergedDictionaries>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
         <converters:FractionToLeftMarginConverter x:Key="FractionToLeftMargin" />
 
@@ -23,85 +20,106 @@
         </DataTemplate>
 
         <DataTemplate DataType="{x:Type vm:PartRowViewModel}">
-            <Grid Margin="0,2,0,0" Opacity="{Binding RowOpacity}">
+            <Grid Margin="0,3,0,0" Opacity="{Binding RowOpacity}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="4" />
-                    <ColumnDefinition Width="44" />
-                    <ColumnDefinition Width="38" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" MinWidth="36" />
-                    <ColumnDefinition Width="52" />
+                    <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <!-- Fixed 4px status rail: gold=break, orange=sever, red=Qurio, grey=complete. -->
-                <Border Grid.Column="0" CornerRadius="1" Margin="0,2,0,2">
+                <Border Grid.Row="0" Grid.RowSpan="2" Grid.Column="0"
+                        CornerRadius="1" Margin="0,1,0,1" MinHeight="20">
                     <Border.Style>
                         <Style TargetType="Border">
                             <Setter Property="Background" Value="#FFB8995F" />
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsSeverable}" Value="True">
-                                    <Setter Property="Background" Value="{StaticResource Brushes.AccentSever}" />
+                                    <Setter Property="Background" Value="{DynamicResource Brushes.AccentSever}" />
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding IsBroken}" Value="True">
                                     <Setter Property="Background" Value="#FF596466" />
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding IsQurio}" Value="True">
-                                    <Setter Property="Background" Value="{StaticResource Brushes.AccentQurio}" />
+                                    <Setter Property="Background" Value="{DynamicResource Brushes.AccentQurio}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding BreakFlash}" Value="True">
+                                    <DataTrigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                 From="1" To="0.35"
+                                                                 Duration="0:0:0.2"
+                                                                 AutoReverse="True"
+                                                                 RepeatBehavior="3x" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </DataTrigger.EnterActions>
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
                     </Border.Style>
                 </Border>
 
-                <TextBlock Grid.Column="1"
-                           Text="{Binding Name}"
-                           FontSize="{StaticResource Fonts.Size.Small}"
-                           VerticalAlignment="Center"
-                           TextTrimming="CharacterEllipsis"
-                           Margin="5,0,0,0">
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Foreground" Value="{StaticResource Brushes.ForegroundMuted}" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsRecommendedTarget}" Value="True">
-                                    <Setter Property="Foreground" Value="{StaticResource Brushes.Foreground}" />
-                                    <Setter Property="FontWeight" Value="SemiBold" />
-                                </DataTrigger>
-                                <DataTrigger Binding="{Binding IsQurio}" Value="True">
-                                    <Setter Property="Foreground" Value="{StaticResource Brushes.AccentQurio}" />
-                                    <Setter Property="FontWeight" Value="SemiBold" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
-                </TextBlock>
-
-                <TextBlock Grid.Column="2"
-                           Text="{Binding StatusText}"
-                           FontSize="9"
-                           VerticalAlignment="Center"
-                           Margin="3,0">
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Foreground" Value="#FFD0B778" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsBroken}" Value="True">
-                                    <Setter Property="Foreground" Value="{StaticResource Brushes.ForegroundMuted}" />
-                                </DataTrigger>
-                                <DataTrigger Binding="{Binding IsQurio}" Value="True">
-                                    <Setter Property="Foreground" Value="{StaticResource Brushes.AccentQurio}" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
-                </TextBlock>
-
-                <StackPanel Grid.Column="3"
-                            Orientation="Horizontal"
-                            VerticalAlignment="Center"
-                            Margin="0,0,4,0"
-                            Visibility="{Binding HasWeakElements, Converter={StaticResource BoolToVis}}">
-                    <ItemsControl ItemsSource="{Binding WeakElements}">
+                <Grid Grid.Row="0" Grid.Column="1" Margin="5,0,0,2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="44" />
+                        <ColumnDefinition Width="38" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0"
+                               Text="{Binding Name}"
+                               FontSize="{DynamicResource Fonts.Size.Small}"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="{DynamicResource Brushes.ForegroundMuted}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsRecommendedTarget}" Value="True">
+                                        <Setter Property="Foreground" Value="{DynamicResource Brushes.Foreground}" />
+                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsQurio}" Value="True">
+                                        <Setter Property="Foreground" Value="{DynamicResource Brushes.AccentQurio}" />
+                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding StatusText}"
+                               FontSize="9"
+                               VerticalAlignment="Center"
+                               Margin="2,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="#FFD0B778" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsBroken}" Value="True">
+                                        <Setter Property="Foreground" Value="{DynamicResource Brushes.ForegroundMuted}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsQurio}" Value="True">
+                                        <Setter Property="Foreground" Value="{DynamicResource Brushes.AccentQurio}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding BreakFlash}" Value="True">
+                                        <Setter Property="Foreground" Value="{DynamicResource Brushes.AccentBreak}" />
+                                        <Setter Property="FontWeight" Value="Bold" />
+                                        <Setter Property="Text" Value="破坏!" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <ItemsControl Grid.Column="2"
+                                  ItemsSource="{Binding WeakElements}"
+                                  VerticalAlignment="Center"
+                                  Height="16"
+                                  Visibility="{Binding HasWeakElements, Converter={StaticResource BoolToVis}}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <StackPanel Orientation="Horizontal" />
@@ -111,30 +129,37 @@
                             <DataTemplate>
                                 <controls:ElementChip Element="{Binding}"
                                                       Small="True"
+                                                      Highlighted="True"
                                                       Margin="0,0,2,0" />
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                </StackPanel>
+                    <TextBlock Grid.Column="3"
+                               Text="{Binding HealthText}"
+                               Foreground="{DynamicResource Brushes.ForegroundMuted}"
+                               FontSize="9"
+                               VerticalAlignment="Center"
+                               Margin="4,0,0,0"
+                               TextAlignment="Right" />
+                </Grid>
 
-                <Border Grid.Column="4"
+                <Border Grid.Row="1" Grid.Column="1"
                         Height="4"
+                        Margin="5,0,0,0"
                         VerticalAlignment="Center"
                         Background="#1A222C"
                         CornerRadius="1"
-                        Margin="0,0,4,0"
                         Visibility="{Binding ShowActiveBar, Converter={StaticResource BoolToVis}}">
-                    <Border CornerRadius="1"
-                            RenderTransformOrigin="0,0.5">
+                    <Border CornerRadius="1" RenderTransformOrigin="0,0.5">
                         <Border.Style>
                             <Style TargetType="Border">
-                                <Setter Property="Background" Value="{StaticResource Brushes.AccentTeal}" />
+                                <Setter Property="Background" Value="{DynamicResource Brushes.AccentTeal}" />
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding IsSeverable}" Value="True">
-                                        <Setter Property="Background" Value="{StaticResource Brushes.AccentSever}" />
+                                        <Setter Property="Background" Value="{DynamicResource Brushes.AccentSever}" />
                                     </DataTrigger>
                                     <DataTrigger Binding="{Binding IsQurio}" Value="True">
-                                        <Setter Property="Background" Value="{StaticResource Brushes.AccentQurio}" />
+                                        <Setter Property="Background" Value="{DynamicResource Brushes.AccentQurio}" />
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
@@ -144,31 +169,22 @@
                         </Border.RenderTransform>
                     </Border>
                 </Border>
-
-                <!-- Completed parts keep their row/weakness but no longer look actionable. -->
-                <Border Grid.Column="4"
+                <Border Grid.Row="1" Grid.Column="1"
                         Height="1"
+                        Margin="5,0,0,0"
                         VerticalAlignment="Center"
                         Background="#FF596466"
-                        Margin="0,0,4,0"
                         Opacity="0.8"
                         Visibility="{Binding ShowCompletedLine, Converter={StaticResource BoolToVis}}" />
-
-                <TextBlock Grid.Column="5"
-                           Text="{Binding HealthText}"
-                           Foreground="{StaticResource Brushes.ForegroundMuted}"
-                           FontSize="9"
-                           VerticalAlignment="Center"
-                           MinWidth="52"
-                           TextAlignment="Right" />
             </Grid>
         </DataTemplate>
+
 
         </ResourceDictionary>
     </UserControl.Resources>
 
     <Border x:Name="PanelRoot"
-            Background="{StaticResource Brushes.PanelBackground}"
+            Background="{DynamicResource Brushes.PanelBackground}"
             Padding="8,6"
             CornerRadius="2"
             BorderThickness="1">
@@ -177,9 +193,18 @@
         </Border.BorderBrush>
         <Border.Style>
             <Style TargetType="Border">
+                <Setter Property="RenderTransform">
+                    <Setter.Value>
+                        <TranslateTransform />
+                    </Setter.Value>
+                </Setter>
                 <Style.Triggers>
-                    <DataTrigger Binding="{Binding CaptureBannerVisible}" Value="True">
-                        <DataTrigger.EnterActions>
+                    <MultiDataTrigger>
+                        <MultiDataTrigger.Conditions>
+                            <Condition Binding="{Binding CaptureBannerVisible}" Value="True" />
+                            <Condition Binding="{Binding MotionEnabled}" Value="True" />
+                        </MultiDataTrigger.Conditions>
+                        <MultiDataTrigger.EnterActions>
                             <BeginStoryboard x:Name="CapturePulse">
                                 <Storyboard RepeatBehavior="Forever" AutoReverse="True">
                                     <ColorAnimation Storyboard.TargetProperty="(Border.BorderBrush).(SolidColorBrush.Color)"
@@ -188,14 +213,51 @@
                                                     Duration="0:0:1.2" />
                                 </Storyboard>
                             </BeginStoryboard>
-                        </DataTrigger.EnterActions>
-                        <DataTrigger.ExitActions>
+                        </MultiDataTrigger.EnterActions>
+                        <MultiDataTrigger.ExitActions>
                             <StopStoryboard BeginStoryboardName="CapturePulse" />
-                        </DataTrigger.ExitActions>
-                    </DataTrigger>
+                        </MultiDataTrigger.ExitActions>
+                    </MultiDataTrigger>
+                    <MultiDataTrigger>
+                        <MultiDataTrigger.Conditions>
+                            <Condition Binding="{Binding CaptureFlash}" Value="True" />
+                            <Condition Binding="{Binding MotionEnabled}" Value="True" />
+                        </MultiDataTrigger.Conditions>
+                        <MultiDataTrigger.EnterActions>
+                            <BeginStoryboard>
+                                <Storyboard>
+                                    <ColorAnimation Storyboard.TargetProperty="(Border.BorderBrush).(SolidColorBrush.Color)"
+                                                    To="#FFFF4D6D"
+                                                    Duration="0:0:0.35"
+                                                    AutoReverse="True"
+                                                    RepeatBehavior="3x" />
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </MultiDataTrigger.EnterActions>
+                    </MultiDataTrigger>
+                    <MultiDataTrigger>
+                        <MultiDataTrigger.Conditions>
+                            <Condition Binding="{Binding StunActive}" Value="True" />
+                            <Condition Binding="{Binding MotionEnabled}" Value="True" />
+                        </MultiDataTrigger.Conditions>
+                        <MultiDataTrigger.EnterActions>
+                            <BeginStoryboard x:Name="StunShakeBoard">
+                                <Storyboard RepeatBehavior="Forever">
+                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                     From="-2" To="2"
+                                                     Duration="0:0:0.08"
+                                                     AutoReverse="True" />
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </MultiDataTrigger.EnterActions>
+                        <MultiDataTrigger.ExitActions>
+                            <StopStoryboard BeginStoryboardName="StunShakeBoard" />
+                        </MultiDataTrigger.ExitActions>
+                    </MultiDataTrigger>
                 </Style.Triggers>
             </Style>
         </Border.Style>
+
 
         <StackPanel>
             <!-- 1. Capture banner -->
@@ -209,7 +271,7 @@
                     HorizontalAlignment="Stretch">
                 <TextBlock Text="可捕获"
                            Foreground="#FFE2CA87"
-                           FontSize="{StaticResource Fonts.Size.Body}"
+                           FontSize="{DynamicResource Fonts.Size.Body}"
                            FontWeight="SemiBold"
                            HorizontalAlignment="Center" />
             </Border>
@@ -223,8 +285,8 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0"
                            Text="{Binding Name}"
-                           Foreground="{StaticResource Brushes.Foreground}"
-                           FontSize="{StaticResource Fonts.Size.Title}"
+                           Foreground="{DynamicResource Brushes.Foreground}"
+                           FontSize="{DynamicResource Fonts.Size.Title}"
                            FontWeight="SemiBold"
                            TextTrimming="CharacterEllipsis"
                            VerticalAlignment="Center" />
@@ -255,7 +317,7 @@
                                FontSize="9">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
-                                <Setter Property="Foreground" Value="{StaticResource Brushes.ForegroundMuted}" />
+                                <Setter Property="Foreground" Value="{DynamicResource Brushes.ForegroundMuted}" />
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding CaptureBadgeIsCapturable}" Value="True">
                                         <Setter Property="Foreground" Value="#FFE0C77F" />
@@ -270,8 +332,8 @@
                 </Border>
                 <TextBlock Grid.Column="2"
                            Text="{Binding HealthPercentText}"
-                           Foreground="{StaticResource Brushes.Foreground}"
-                           FontSize="{StaticResource Fonts.Size.Body}"
+                           Foreground="{DynamicResource Brushes.Foreground}"
+                           FontSize="{DynamicResource Fonts.Size.Body}"
                            Margin="8,0,0,0"
                            VerticalAlignment="Center" />
             </Grid>
@@ -287,8 +349,8 @@
 
                 <TextBlock Grid.Column="0"
                            Text="弱"
-                           Foreground="{StaticResource Brushes.ForegroundMuted}"
-                           FontSize="{StaticResource Fonts.Size.Small}"
+                           Foreground="{DynamicResource Brushes.ForegroundMuted}"
+                           FontSize="{DynamicResource Fonts.Size.Small}"
                            VerticalAlignment="Center"
                            Margin="0,0,4,0" />
                 <ItemsControl Grid.Column="1"
@@ -303,8 +365,8 @@
 
                 <TextBlock Grid.Column="2"
                            Text="推荐"
-                           Foreground="{StaticResource Brushes.ForegroundMuted}"
-                           FontSize="{StaticResource Fonts.Size.Small}"
+                           Foreground="{DynamicResource Brushes.ForegroundMuted}"
+                           FontSize="{DynamicResource Fonts.Size.Small}"
                            VerticalAlignment="Center"
                            Margin="6,0,4,0" />
                 <ItemsControl Grid.Column="3"
@@ -317,7 +379,9 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <controls:ElementChip Element="{Binding}" Margin="0,0,3,0" />
+                            <controls:ElementChip Element="{Binding}"
+                                                  Highlighted="True"
+                                                  Margin="0,0,3,0" />
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
@@ -331,7 +395,7 @@
                     Margin="0,0,0,3"
                     ClipToBounds="True">
                 <Grid>
-                    <Border Background="{StaticResource Brushes.AccentHealth}"
+                    <Border Background="{DynamicResource Brushes.AccentHealth}"
                             CornerRadius="2"
                             RenderTransformOrigin="0,0.5">
                         <Border.RenderTransform>
@@ -361,12 +425,12 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0"
                            Text="{Binding HealthNumbersText}"
-                           Foreground="{StaticResource Brushes.ForegroundMuted}"
-                           FontSize="{StaticResource Fonts.Size.Small}" />
+                           Foreground="{DynamicResource Brushes.ForegroundMuted}"
+                           FontSize="{DynamicResource Fonts.Size.Small}" />
                 <TextBlock Grid.Column="1"
                            Text="已过虚弱线"
-                           Foreground="{StaticResource Brushes.AccentHealth}"
-                           FontSize="{StaticResource Fonts.Size.Small}"
+                           Foreground="{DynamicResource Brushes.AccentHealth}"
+                           FontSize="{DynamicResource Fonts.Size.Small}"
                            Visibility="{Binding PastWeakenLine, Converter={StaticResource BoolToVis}}" />
             </Grid>
 
@@ -382,7 +446,7 @@
                         Padding="5,1"
                         CornerRadius="2"
                         BorderThickness="1"
-                        BorderBrush="{StaticResource Brushes.AccentStun}"
+                        BorderBrush="{DynamicResource Brushes.AccentStun}"
                         Background="#33EAB308"
                         VerticalAlignment="Center"
                         Visibility="{Binding StunActive, Converter={StaticResource BoolToVis}}">
@@ -409,13 +473,13 @@
                     </Border.Style>
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="晕眩中"
-                                   Foreground="{StaticResource Brushes.AccentStun}"
-                                   FontSize="{StaticResource Fonts.Size.Small}"
+                                   Foreground="{DynamicResource Brushes.AccentStun}"
+                                   FontSize="{DynamicResource Fonts.Size.Small}"
                                    FontWeight="SemiBold"
                                    VerticalAlignment="Center" />
                         <TextBlock Text="{Binding StunCountdownText}"
                                    Foreground="#FFFFF7CC"
-                                   FontSize="{StaticResource Fonts.Size.Body}"
+                                   FontSize="{DynamicResource Fonts.Size.Body}"
                                    FontWeight="Bold"
                                    Margin="5,0,0,0"
                                    VerticalAlignment="Center"
@@ -431,7 +495,7 @@
             <!-- 7. Parts -->
             <StackPanel Visibility="{Binding ShowParts, Converter={StaticResource BoolToVis}}">
                 <TextBlock Text="部位 · 状态 · 弱属性 · 剩余值"
-                           Foreground="{StaticResource Brushes.ForegroundMuted}"
+                           Foreground="{DynamicResource Brushes.ForegroundMuted}"
                            FontSize="9"
                            Margin="0,0,0,2" />
                 <ItemsControl ItemsSource="{Binding Parts}" Margin="0,0,0,6" />
@@ -439,8 +503,8 @@
 
             <!-- 8. Ailments: one dense text line, no progress bars. -->
             <TextBlock Text="{Binding AilmentsLineText}"
-                       Foreground="{StaticResource Brushes.ForegroundMuted}"
-                       FontSize="{StaticResource Fonts.Size.Small}"
+                       Foreground="{DynamicResource Brushes.ForegroundMuted}"
+                       FontSize="{DynamicResource Fonts.Size.Small}"
                        TextWrapping="NoWrap"
                        TextTrimming="CharacterEllipsis"
                        Visibility="{Binding ShowAilmentsLine, Converter={StaticResource BoolToVis}}" />

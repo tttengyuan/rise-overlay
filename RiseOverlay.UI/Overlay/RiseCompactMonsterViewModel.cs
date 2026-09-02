@@ -1,9 +1,10 @@
-using System.ComponentModel;
-using System.Windows;
 using HunterPie.Core.Client.Configuration.Overlay;
 using HunterPie.UI.Overlay.Enums;
 using HunterPie.UI.Overlay.ViewModels;
+using RiseOverlay.UI.Themes;
 using RiseOverlay.UI.ViewModels;
+using System.ComponentModel;
+using System.Windows;
 
 namespace RiseOverlay.UI.Overlay;
 
@@ -17,6 +18,8 @@ public sealed class RiseCompactMonsterViewModel : WidgetViewModel
         Config.ShowParts.PropertyChanged += OnDisplayToggleChanged;
         Config.ShowAilments.PropertyChanged += OnDisplayToggleChanged;
         Config.ShowDps.PropertyChanged += OnDisplayToggleChanged;
+        Config.EnableCombatMotion.PropertyChanged += OnDisplayToggleChanged;
+        RiseThemeService.InitializeFromConfig(settings);
     }
 
     public RiseCompactMonsterWidgetConfig Config { get; }
@@ -43,6 +46,7 @@ public sealed class RiseCompactMonsterViewModel : WidgetViewModel
     {
         MonsterHud.ShowParts = Config.ShowParts.Value;
         MonsterHud.ShowAilments = Config.ShowAilments.Value;
+        MonsterHud.MotionEnabled = Config.EnableCombatMotion.Value;
         DpsVisibility = Config.ShowDps.Value ? Visibility.Visible : Visibility.Collapsed;
     }
 

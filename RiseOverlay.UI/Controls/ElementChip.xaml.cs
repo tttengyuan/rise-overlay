@@ -1,18 +1,14 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using RiseOverlay.Domain;
+using RiseOverlay.UI.Themes;
 
 namespace RiseOverlay.UI.Controls;
 
 public partial class ElementChip : UserControl
 {
-    private static readonly Brush FireBrush = CreateFrozenBrush(0xB8, 0x5C, 0x5C);
-    private static readonly Brush WaterBrush = CreateFrozenBrush(0x4F, 0x87, 0xA6);
-    private static readonly Brush ThunderBrush = CreateFrozenBrush(0xB0, 0x9A, 0x4A);
-    private static readonly Brush IceBrush = CreateFrozenBrush(0x5F, 0x97, 0xA8);
-    private static readonly Brush DragonBrush = CreateFrozenBrush(0x7D, 0x6A, 0x96);
-
     public static readonly DependencyProperty ElementProperty = DependencyProperty.Register(
         nameof(Element),
         typeof(ElementId),
@@ -31,9 +27,26 @@ public partial class ElementChip : UserControl
         typeof(ElementChip),
         new PropertyMetadata(false, OnVisualPropertyChanged));
 
+    public static readonly DependencyProperty HighlightedProperty = DependencyProperty.Register(
+        nameof(Highlighted),
+        typeof(bool),
+        typeof(ElementChip),
+        new PropertyMetadata(false, OnVisualPropertyChanged));
+
+    private Storyboard? _pulseBoard;
+
     public ElementChip()
     {
         InitializeComponent();
+        Loaded += (_, _) => ApplyVisualState();
+        RiseThemeService.ThemeChanged += OnThemeOrMotionChanged;
+        RiseThemeService.MotionChanged += OnThemeOrMotionChanged;
+        Unloaded += (_, _) =>
+        {
+            RiseThemeService.ThemeChanged -= OnThemeOrMotionChanged;
+            RiseThemeService.MotionChanged -= OnThemeOrMotionChanged;
+            StopPulse();
+        };
         ApplyVisualState();
     }
 
@@ -55,6 +68,15 @@ public partial class ElementChip : UserControl
         set => SetValue(SmallProperty, value);
     }
 
+    public bool Highlighted
+    {
+        get => (bool)GetValue(HighlightedProperty);
+        set => SetValue(HighlightedProperty, value);
+    }
+
+    private void OnThemeOrMotionChanged() =>
+        Dispatcher.BeginInvoke(ApplyVisualState);
+
     private static void OnVisualPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         if (d is ElementChip chip)
@@ -66,31 +88,87 @@ public partial class ElementChip : UserControl
         if (Root is null || LabelText is null)
             return;
 
-        (Root.Background, LabelText.Text) = Element switch
+        string brushKey = Element switch
         {
-            ElementId.Water => (WaterBrush, "水"),
-            ElementId.Thunder => (ThunderBrush, "雷"),
-            ElementId.Ice => (IceBrush, "冰"),
-            ElementId.Dragon => (DragonBrush, "龙"),
-            _ => (FireBrush, "火"),
+            ElementId.Water => "Brushes.Element.Water",
+            ElementId.Thunder => "Brushes.Element.Thunder",
+            ElementId.Ice => "Brushes.Element.Ice",
+            ElementId.Dragon => "Brushes.Element.Dragon",
+            _ => "Brushes.Element.Fire",
         };
 
-        Opacity = Dimmed ? 0.4 : 1.0;
+        Root.Background = TryFindResource(brushKey) as Brush
+                          ?? CreateFrozenBrush(0xB8, 0x5C, 0x5C);
+        LabelText.Foreground = TryFindResource("Brushes.Element.Foreground") as Brush
+                               ?? Brushes.White;
+        LabelText.Text = Element switch
+        {
+            ElementId.Water => "水",
+            ElementId.Thunder => "雷",
+            ElementId.Ice => "冰",
+            ElementId.Dragon => "龙",
+            _ => "火",
+        };
+
+        Opacity = Dimmed ? 0.38 : 1.0;
 
         if (Small)
         {
+            Height = 15;
+            MinHeight = 15;
             Root.Padding = new Thickness(3, 0, 3, 0);
             Root.MinWidth = 14;
             Root.CornerRadius = new CornerRadius(1);
-            LabelText.FontSize = 10;
+            LabelText.FontSize = 9;
         }
         else
         {
-            Root.Padding = new Thickness(4, 1, 4, 1);
-            Root.MinWidth = 18;
-            Root.CornerRadius = new CornerRadius(2);
-            LabelText.FontSize = 11;
+            Height = 22;
+            MinHeight = 22;
+            Root.Padding = new Thickness(6, 2, 6, 2);
+            Root.MinWidth = 22;
+            Root.CornerRadius = new CornerRadius(3);
+            LabelText.FontSize = 12;
         }
+
+        bool pulse = Highlighted && !Dimmed && RiseThemeService.MotionEnabled;
+        if (pulse)
+            StartPulse();
+        else
+            StopPulse();
+    }
+
+    private void StartPulse()
+    {
+        StopPulse();
+        var scale = new ScaleTransform(1, 1);
+        Root.RenderTransformOrigin = new Point(0.5, 0.5);
+        Root.RenderTransform = scale;
+
+        var sb = new Storyboard { RepeatBehavior = RepeatBehavior.Forever, AutoReverse = true };
+        var anim = new DoubleAnimation(1, 1.12, TimeSpan.FromMilliseconds(650));
+        Storyboard.SetTarget(anim, Root);
+        Storyboard.SetTargetProperty(anim, new PropertyPath("RenderTransform.ScaleX"));
+        var animY = new DoubleAnimation(1, 1.12, TimeSpan.FromMilliseconds(650));
+        Storyboard.SetTarget(animY, Root);
+        Storyboard.SetTargetProperty(animY, new PropertyPath("RenderTransform.ScaleY"));
+        sb.Children.Add(anim);
+        sb.Children.Add(animY);
+        _pulseBoard = sb;
+        sb.Begin();
+        Root.BorderBrush = TryFindResource("Brushes.AccentTeal") as Brush ?? Brushes.Cyan;
+        Root.BorderThickness = new Thickness(1);
+    }
+
+    private void StopPulse()
+    {
+        _pulseBoard?.Stop();
+        _pulseBoard = null;
+        if (Root is null)
+            return;
+        Root.RenderTransform = Transform.Identity;
+        Root.BorderThickness = new Thickness(0);
+        Root.BorderBrush = null;
     }
 
     private static SolidColorBrush CreateFrozenBrush(byte r, byte g, byte b)

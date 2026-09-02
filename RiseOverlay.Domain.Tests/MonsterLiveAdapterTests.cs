@@ -16,8 +16,8 @@ public class MonsterLiveAdapterTests
             IsEnraged: true,
             Parts:
             [
-                new("PART_HEAD", "头部", 620, 1200, 0),
-                new("PART_TAIL", "尾巴", 0, 800, 1),
+                new("PART_HEAD", "头部", 620, 1200, 0, IsBreakable: true),
+                new("PART_TAIL", "尾巴", 0, 800, 1, IsBreakable: true),
             ],
             Ailments:
             [
@@ -78,6 +78,126 @@ public class MonsterLiveAdapterTests
     }
 
     [Fact]
+    public void ToSnapshot_broken_breakable_freezes_hp_bar()
+    {
+        var fixture = new MonsterLiveFixture(
+            Name: "雌火龙",
+            Id: 1,
+            Health: 20,
+            MaxHealth: 67230,
+            Stamina: 1000,
+            MaxStamina: 1000,
+            CaptureThreshold: 0,
+            IsEnraged: false,
+            Parts:
+            [
+                // Rise collapsed MaxHealth after break; BreakCount promoted by controller.
+                new("PART_HEAD", "头部", 0, 0, 1, IsBreakable: true, MaxFlinch: 200, Flinch: 40),
+            ],
+            Ailments: [],
+            Enrage: null,
+            QuestAllowsCapture: false);
+
+        var live = MonsterLiveAdapter.ToSnapshot(fixture);
+        var head = Assert.Single(live.Parts);
+        Assert.True(head.IsBroken);
+        Assert.Equal(0, head.CurrentHp);
+        Assert.False(head.IsQurio);
+    }
+
+    [Fact]
+    public void ToSnapshot_active_qurio_keeps_live_hp_even_if_break_count_set()
+    {
+        var fixture = new MonsterLiveFixture(
+            Name: "雌火龙",
+            Id: 1,
+            Health: 5000,
+            MaxHealth: 67230,
+            Stamina: 1000,
+            MaxStamina: 1000,
+            CaptureThreshold: 0,
+            IsEnraged: false,
+            Parts:
+            [
+                new("PART_HEAD", "头部", 897, 900, 0,
+                    IsQurio: true, IsBreakable: true),
+            ],
+            Ailments: [],
+            Enrage: null,
+            QuestAllowsCapture: false);
+
+        var live = MonsterLiveAdapter.ToSnapshot(fixture);
+        var head = Assert.Single(live.Parts);
+        Assert.False(head.IsBroken);
+        Assert.True(head.IsQurio);
+        Assert.Equal(897, head.CurrentHp);
+        Assert.Equal(900, head.MaxHp);
+    }
+
+    [Fact]
+    public void ToSnapshot_refilled_breakable_after_break_stays_broken()
+    {
+        // Rise keeps MaxHealth and refills Health after a break — must not show 可破 full bar.
+        var fixture = new MonsterLiveFixture(
+            Name: "蛮颚龙",
+            Id: 1,
+            Health: 11,
+            MaxHealth: 7360,
+            Stamina: 800,
+            MaxStamina: 1000,
+            CaptureThreshold: 0.3,
+            IsEnraged: true,
+            Parts:
+            [
+                new("PART_HEAD", "头部", 898, 898, 1,
+                    IsBreakable: true, MaxFlinch: 200, Flinch: 200),
+            ],
+            Ailments: [],
+            Enrage: null,
+            QuestAllowsCapture: true);
+
+        var live = MonsterLiveAdapter.ToSnapshot(fixture);
+        var head = Assert.Single(live.Parts);
+        Assert.True(head.IsBroken);
+        Assert.Equal(0, head.CurrentHp);
+        var state = PartDisplayRules.Resolve(false, head.IsBroken, false);
+        Assert.Equal("已破坏", state.Text);
+        Assert.False(state.ShowActiveBar);
+    }
+
+    [Fact]
+    public void ToSnapshot_collapsed_breakable_does_not_show_regenerating_flinch()
+    {
+        // After a break Rise zeroes MaxHealth; flinch often refills to full.
+        // That must NOT appear as a healed breakable part.
+        var fixture = new MonsterLiveFixture(
+            Name: "雌火龙",
+            Id: 1,
+            Health: 50000,
+            MaxHealth: 67230,
+            Stamina: 1000,
+            MaxStamina: 1000,
+            CaptureThreshold: 0,
+            IsEnraged: false,
+            Parts:
+            [
+                new("PART_WING_LEFT", "左翼", 0, 0, 1,
+                    IsBreakable: true, MaxFlinch: 500, Flinch: 500),
+            ],
+            Ailments: [],
+            Enrage: null,
+            QuestAllowsCapture: false);
+
+        var live = MonsterLiveAdapter.ToSnapshot(fixture);
+        var wing = Assert.Single(live.Parts);
+        Assert.True(wing.IsBroken);
+        Assert.Equal(0, wing.CurrentHp);
+        var state = PartDisplayRules.Resolve(false, wing.IsBroken, wing.IsQurio);
+        Assert.Equal("已破坏", state.Text);
+        Assert.False(state.ShowActiveBar);
+    }
+
+    [Fact]
     public void ToSnapshot_qurio_threshold_full_at_start_is_not_broken()
     {
         var fixture = new MonsterLiveFixture(
@@ -93,7 +213,7 @@ public class MonsterLiveAdapterTests
             [
                 // QurioHealth = MaxThreshold - Threshold → full at hunt start.
                 new("PART_QURIO_THRESHOLD", "啮生虫", 9460, 9460, 0,
-                    IsQurio: true, IsQurioThreshold: true),
+                    IsQurio: true, IsQurioThreshold: true, IsBreakable: false),
             ],
             Ailments: [],
             Enrage: null,
@@ -200,7 +320,7 @@ public class MonsterLiveAdapterTests
             MaxStamina: 0,
             CaptureThreshold: 0.25,
             IsEnraged: false,
-            Parts: [new("PART_HEAD", "头部", 100, 200, 0)],
+            Parts: [new("PART_HEAD", "头部", 100, 200, 0, IsBreakable: true)],
             Ailments: [],
             Enrage: null,
             QuestAllowsCapture: true));

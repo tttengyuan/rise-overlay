@@ -65,11 +65,12 @@ Write-Host "Packed: $zipPath"
 
 if ($SkipPush) {
     Write-Host "SkipPush set — upload manually:"
-    Write-Host "  & `"$gh`" release create `"v$Version`" `"$zipPath`" --repo $Repo --title `"Rise血条 v$Version`" --generate-notes"
+    Write-Host "  & `"$gh`" release create `"v$Version`" `"$zipPath`" --repo $Repo --title `"Rise Overlay v$Version`" --generate-notes"
     exit 0
 }
 
-& $gh release create "v$Version" "$zipPath" --repo $Repo --title "Rise血条 v$Version" --generate-notes
+# Use ASCII title — PowerShell console encoding often mangles Chinese for gh.exe.
+& $gh release create "v$Version" "$zipPath" --repo $Repo --title "Rise Overlay v$Version" --generate-notes
 if ($LASTEXITCODE -ne 0) {
     Write-Host "gh release create failed."
     exit 1
