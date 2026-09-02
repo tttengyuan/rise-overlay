@@ -33,3 +33,6 @@ Installer/installer
 # V1 folder publish output (see README.RiseOverlay.md)
 publish/
 dist/
+
+# Brainstorm visual companion sessions
+.superpowers/
