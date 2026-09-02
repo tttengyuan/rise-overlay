@@ -14,6 +14,7 @@ using HunterPie.Core.Game.Services;
 using HunterPie.Core.Native.IPC.Handlers.Internal.Damage;
 using HunterPie.Core.Native.IPC.Handlers.Internal.Damage.Models;
 using HunterPie.Core.Native.IPC.Models.Common;
+using HunterPie.Core.Observability.Logging;
 using HunterPie.Core.Scan.Service;
 using HunterPie.Core.Utils;
 using HunterPie.Integrations.Datasources.Common;
@@ -29,6 +30,7 @@ using HunterPie.Integrations.Datasources.MonsterHunterRise.Entity.Player;
 using HunterPie.Integrations.Datasources.MonsterHunterRise.Services;
 using HunterPie.Integrations.Datasources.MonsterHunterRise.Utils;
 using System.Text;
+using CoreQuestType = HunterPie.Core.Game.Entity.Game.Quest.QuestType;
 
 namespace HunterPie.Integrations.Datasources.MonsterHunterRise.Entity.Game;
 
@@ -36,6 +38,8 @@ public sealed class MHRGame : CommonGame
 {
     public const int MAXIMUM_MONSTER_ARRAY_SIZE = 5;
     public const int TRAINING_ROOM_ID = 5;
+
+    private static readonly ILogger Logger = LoggerFactory.Create();
 
     private readonly MHRChat _chat = new();
     private readonly MHRPlayer _player;
@@ -46,6 +50,9 @@ public sealed class MHRGame : CommonGame
     private readonly Dictionary<IntPtr, IMonster> _monsters = new();
     private readonly Dictionary<IntPtr, EntityDamageData[]> _damageDone = new();
     private readonly ILocalizationRepository _localizationRepository;
+    private QuestState? _loggedQuestState;
+    private int _loggedQuestId = int.MinValue;
+    private Enums.QuestType _loggedQuestType;
 
     public override IPlayer Player => _player;
     public override List<IMonster> Monsters { get; } = new();
@@ -164,9 +171,20 @@ public sealed class MHRGame : CommonGame
             offsets: AddressMap.GetOffsets("QUEST_TIMER_OFFSETS")
         );
 
-        TimeElapsed = elapsedTime > 0
-            ? elapsedTime
-            : (float)(DateTime.Now - _lastTeleport.Item2).TotalSeconds;
+        // Prefer the real quest timer. Wall-clock fallback is only for hunt/training maps
+        // (village accept would otherwise start "用时" before departing).
+        if (elapsedTime > 0)
+        {
+            TimeElapsed = elapsedTime;
+        }
+        else if (Player.InHuntingZone || Player.StageId == TRAINING_ROOM_ID)
+        {
+            TimeElapsed = (float)(DateTime.Now - _lastTeleport.Item2).TotalSeconds;
+        }
+        else
+        {
+            TimeElapsed = 0;
+        }
 
         if (Player.StageId != _lastTeleport.Item1)
             _lastTeleport = (Player.StageId, DateTime.Now);
@@ -204,34 +222,96 @@ public sealed class MHRGame : CommonGame
         MHRQuestData? currentQuest = await questData.GetCurrentQuestAsync(Memory);
 
         var questType = questStructure.Type.ToQuestType();
-        bool hasQuestStarted = questStructure.State == QuestState.InQuest;
-        bool isQuestOver = questStructure.State.IsQuestOver() || !hasQuestStarted;
-        bool isQuestInvalid = (currentQuest?.Id ?? 0) <= 0 || questType is null;
+        bool hasQuestData = (currentQuest?.Id ?? 0) > 0
+            && questStructure.Type != Enums.QuestType.None;
+
+        // Rise keeps State=Idle on the village "depart" screen after accepting;
+        // Ready/InQuest appear later. Treat Idle+quest data as an accepted quest
+        // so briefing can show before loading in.
+        bool hasQuestStarted = questStructure.State is QuestState.InQuest or QuestState.Ready
+            || (questStructure.State == QuestState.Idle && hasQuestData);
+
+        // Do not treat a brief quest-data read miss as "over" while still InQuest/Ready —
+        // that used to end+restart the quest mid-hunt and wipe native damage via Clear.
+        bool isQuestOver = questStructure.State.IsQuestOver()
+            || questStructure.State is QuestState.Success or QuestState.SuccessSub
+            || (!hasQuestData
+                && questStructure.State is not (QuestState.InQuest or QuestState.Ready));
+
+        if (_loggedQuestState != questStructure.State
+            || _loggedQuestId != (currentQuest?.Id ?? 0)
+            || _loggedQuestType != questStructure.Type)
+        {
+            _loggedQuestState = questStructure.State;
+            _loggedQuestId = currentQuest?.Id ?? 0;
+            _loggedQuestType = questStructure.Type;
+            Logger.Info(
+                $"Rise quest scan: state={questStructure.State}({(int)questStructure.State}), id={_loggedQuestId}, rawType={questStructure.Type}, mapped={questType}, timeLimit={questStructure.TimeLimit:0}, maxDeaths={questStructure.MaxDeaths}, stage={Player.StageId}");
+        }
 
         if (_quest is not null
-            && (isQuestOver || isQuestInvalid))
+            && isQuestOver)
         {
             this.Dispatch(_onQuestEnd, new QuestEndEventArgs(_quest, questStructure.State.ToQuestStatus(), TimeElapsed));
             _quest.Dispose();
             _quest = null;
         }
 
+        // Quest swapped without a clean end (rare) — restart so briefing targets refresh.
+        if (_quest is not null
+            && currentQuest is { } swapped
+            && swapped.Id > 0
+            && swapped.Id != _quest.Id)
+        {
+            this.Dispatch(_onQuestEnd, new QuestEndEventArgs(_quest, QuestStatus.None, TimeElapsed));
+            _quest.Dispose();
+            _quest = null;
+        }
+
+        // Late-fill / refresh anomaly investigation targets when EmType pointers become valid.
+        if (_quest is not null
+            && _quest.Level == QuestLevel.Anomaly
+            && currentQuest is { } pending
+            && pending.TargetMonsterRefs is { Length: > 0 } filledTargets
+            && !BriefingIdsEqual(_quest.BriefingMonsterIds, filledTargets))
+        {
+            _quest.ReplaceBriefingMonsterIds(filledTargets);
+            Logger.Info(
+                $"Rise anomaly targets updated id={_quest.Id} targets=[{string.Join(", ", filledTargets)}]");
+        }
+
         if (_quest is null
-            && !isQuestOver
-            && !isQuestInvalid
+            && hasQuestStarted
+            && hasQuestData
             && currentQuest is { } quest)
         {
             _quest = new MHRQuest(
                 process: Process,
                 scanService: ScanService,
                 id: quest.Id,
-                type: questType!.Value,
+                type: questType ?? CoreQuestType.Hunt,
                 level: quest.Level,
-                stars: quest.Stars
+                stars: quest.Stars,
+                briefingMonsterIds: quest.TargetMonsterRefs ?? []
             );
 
+            Logger.Info(
+                $"Rise OnQuestStart id={quest.Id} state={questStructure.State} targets={(quest.TargetMonsterRefs ?? []).Length}");
             this.Dispatch(_onQuestStart, _quest);
         }
+    }
+
+    private static bool BriefingIdsEqual(IReadOnlyList<string> current, IReadOnlyList<string> next)
+    {
+        if (current.Count != next.Count)
+            return false;
+        for (int i = 0; i < current.Count; i++)
+        {
+            if (!string.Equals(current[i], next[i], StringComparison.OrdinalIgnoreCase))
+                return false;
+        }
+
+        return true;
     }
 
     [ScannableMethod]

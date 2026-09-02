@@ -22,6 +22,9 @@ public sealed class MHWildsQuest(
     public QuestType Type { get; } = details?.ToQuestType() ?? QuestType.Hunt;
 
     /// <inheritdoc />
+    public IReadOnlyList<string> BriefingMonsterIds { get; } = [];
+
+    /// <inheritdoc />
     public QuestStatus Status
     {
         get;

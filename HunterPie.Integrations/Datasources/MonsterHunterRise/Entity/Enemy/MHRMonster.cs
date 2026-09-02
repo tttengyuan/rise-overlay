@@ -28,6 +28,8 @@ public sealed class MHRMonster : CommonMonster
     private readonly nint _address;
     private readonly ILocalizationRepository _localizationRepository;
 
+    public nint Address => _address;
+
     private bool _isLoaded;
     private float _health = -1;
     private bool _isEnraged;
@@ -239,21 +241,15 @@ public sealed class MHRMonster : CommonMonster
         var aliveStatus = (MonsterAliveStatus)await Memory.ReadAsync<int>(monsterStatusPtr + 0x20);
 
         MaxHealth = dto.MaxHealth;
-        Health = dto.Health;
+        Health = aliveStatus == MonsterAliveStatus.Dead ? 0 : dto.Health;
 
-        if (aliveStatus == MonsterAliveStatus.Dead && Health > 0)
+        if (aliveStatus == MonsterAliveStatus.Dead && dto.Health > 0)
             this.Dispatch(_onCapture, EventArgs.Empty);
     }
 
     [ScannableMethod]
     internal async Task GetMonsterCaptureThreshold()
     {
-        if (MonsterType == MonsterType.Qurio)
-        {
-            CaptureThreshold = 0.0f;
-            return;
-        }
-
         if (_definition is { IsNotCapturable: true })
         {
             CaptureThreshold = 0.0f;

@@ -28,7 +28,8 @@ public sealed record LivePartSnapshot(
     string Name,
     double CurrentHp,
     double MaxHp,
-    bool IsBroken);
+    bool IsBroken,
+    bool IsQurio = false);
 
 public sealed record LiveAilmentSnapshot(
     string Key,
@@ -44,7 +45,8 @@ public sealed record LiveMonsterSnapshot(
     StatusLineModel Status,
     bool QuestAllowsCapture,
     /// <summary>Live capture threshold as percent (0–100). When set, preferred over static default.</summary>
-    double? CaptureThresholdPercent = null);
+    double? CaptureThresholdPercent = null,
+    bool IsAnomaly = false);
 
 /// <summary>
 /// Static-derived overlay fields used by briefing and as the base for <see cref="MonsterHudMapper.MergeLive"/>.

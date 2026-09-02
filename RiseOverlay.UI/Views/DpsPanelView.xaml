@@ -6,6 +6,10 @@
              Focusable="False"
              IsTabStop="False">
     <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/RiseOverlay.UI;component/Themes/CompactTeal.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
 
         <DataTemplate DataType="{x:Type vm:DpsEntryRowViewModel}">
@@ -98,6 +102,7 @@
                 </Grid>
             </Border>
         </DataTemplate>
+        </ResourceDictionary>
     </UserControl.Resources>
 
     <Border Background="{StaticResource Brushes.PanelBackground}"
@@ -116,7 +121,7 @@
             <!-- Party: header + flat rows -->
             <StackPanel Visibility="{Binding IsParty, Converter={StaticResource BoolToVis}}">
                 <Grid Margin="0,0,0,2">
-                    <TextBlock Text="队伍"
+                    <TextBlock Text="大型目标累计"
                                Foreground="{StaticResource Brushes.ForegroundMuted}"
                                FontSize="{StaticResource Fonts.Size.Small}"
                                HorizontalAlignment="Left" />

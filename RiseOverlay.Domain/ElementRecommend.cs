@@ -3,7 +3,7 @@ namespace RiseOverlay.Domain;
 public static class ElementRecommend
 {
     // UI display order (not enum ordinal): Fire, Water, Ice, Thunder, Dragon
-    private static readonly ElementId[] DisplayOrder =
+    public static readonly IReadOnlyList<ElementId> DisplayOrder =
     [
         ElementId.Fire,
         ElementId.Water,

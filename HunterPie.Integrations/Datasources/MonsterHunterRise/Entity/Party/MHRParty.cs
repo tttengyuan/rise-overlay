@@ -68,8 +68,11 @@ public sealed class MHRParty : CommonParty, IUpdatable<EntityDamageData>, IUpdat
             Dictionary<int, MHRPartyMember>? localData = data.Entity.Type switch
             {
                 EntityType.PLAYER or
+                EntityType.NPC or
                 EntityType.COMPANION => _partyMembers,
                 EntityType.PET => _partyMemberPets,
+                // Native damageType table is incomplete; followers often arrive as UNKNOWN.
+                EntityType.UNKNOWN => _partyMembers.ContainsKey(data.Entity.Index) ? _partyMembers : null,
                 _ => null
             };
 

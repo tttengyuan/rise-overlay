@@ -1,7 +1,8 @@
 ﻿using HunterPie.Core.Client;
+using HunterPie.Core.Client.Configuration;
+using HunterPie.Core.Client.Configuration.Overlay.Class;
 using HunterPie.Core.Domain.Enums;
 using HunterPie.Core.Game;
-using HunterPie.Core.Settings;
 using HunterPie.UI.Architecture.Overlay;
 using HunterPie.UI.Overlay;
 using HunterPie.UI.Overlay.Service;
@@ -19,13 +20,23 @@ internal class ClassWidgetInitializer(IOverlay overlay) : IWidgetInitializer
     private IContextHandler? _handler;
     private WidgetView? _view;
 
-    public GameProcessType SupportedGames =>
-        GameProcessType.MonsterHunterRise |
-        GameProcessType.MonsterHunterWorld;
+    /// <summary>
+    /// Rise Overlay keeps weapon class widgets off; World may still use them.
+    /// </summary>
+    public GameProcessType SupportedGames => GameProcessType.MonsterHunterWorld;
 
     public Task LoadAsync(IContext context)
     {
-        IWidgetSettings config = ClientConfigHelper.DeferOverlayConfig(context.Process.Type, it => it.LongSwordWidget);
+        if (!AnyClassWidgetEnabled(context.Process.Type))
+            return Task.CompletedTask;
+
+        ClassWidgetConfig config = ClientConfigHelper.DeferOverlayConfig(
+            context.Process.Type,
+            it => it.LongSwordWidget
+        );
+
+        if (!config.Initialize)
+            return Task.CompletedTask;
 
         var viewModel = new ClassViewModel(config);
         _handler = new ClassWidgetContextHandler(
@@ -43,5 +54,15 @@ internal class ClassWidgetInitializer(IOverlay overlay) : IWidgetInitializer
         _overlay.Unregister(_view);
         _handler?.UnhookEvents();
         _handler = null;
+    }
+
+    private static bool AnyClassWidgetEnabled(GameProcessType game)
+    {
+        OverlayConfig overlay = ClientConfigHelper.GetOverlayConfigFrom(game);
+        return overlay.LongSwordWidget.Initialize
+               || overlay.ChargeBladeWidget.Initialize
+               || overlay.InsectGlaiveWidget.Initialize
+               || overlay.DualBladesWidget.Initialize
+               || overlay.SwitchAxeWidget.Initialize;
     }
 }

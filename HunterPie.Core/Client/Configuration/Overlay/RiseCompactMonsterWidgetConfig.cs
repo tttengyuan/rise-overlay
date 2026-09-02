@@ -42,4 +42,16 @@ public class RiseCompactMonsterWidgetConfig : IWidgetSettings, ISettings
     [ConfigurationProperty("WIDGET_POSITION", group: CommonConfigurationGroups.GENERAL)]
     [ConfigurationConditional(name: nameof(Initialize), withValue: true)]
     public Position Position { get; set; } = new(20, 20);
+
+    [ConfigurationProperty("SHOW_PARTS_STRING", group: CommonConfigurationGroups.CUSTOMIZATIONS)]
+    [ConfigurationConditional(name: nameof(Initialize), withValue: true)]
+    public Observable<bool> ShowParts { get; set; } = true;
+
+    [ConfigurationProperty("SHOW_AILMENTS_STRING", group: CommonConfigurationGroups.CUSTOMIZATIONS)]
+    [ConfigurationConditional(name: nameof(Initialize), withValue: true)]
+    public Observable<bool> ShowAilments { get; set; } = true;
+
+    [ConfigurationProperty("SHOW_DPS_STRING", group: CommonConfigurationGroups.CUSTOMIZATIONS)]
+    [ConfigurationConditional(name: nameof(Initialize), withValue: true)]
+    public Observable<bool> ShowDps { get; set; } = true;
 }

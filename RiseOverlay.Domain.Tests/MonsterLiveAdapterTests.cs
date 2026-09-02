@@ -52,6 +52,86 @@ public class MonsterLiveAdapterTests
     }
 
     [Fact]
+    public void ToSnapshot_does_not_mark_uninitialized_breakable_as_broken()
+    {
+        var fixture = new MonsterLiveFixture(
+            Name: "水兽",
+            Id: 47,
+            Health: 4000,
+            MaxHealth: 47300,
+            Stamina: 0,
+            MaxStamina: 1000,
+            CaptureThreshold: 0,
+            IsEnraged: false,
+            Parts:
+            [
+                new("PART_TAIL", "尾巴", 0, 0, 0,
+                    IsSeverable: true, MaxSever: 800, Sever: 800, MaxFlinch: 200, Flinch: 200),
+            ],
+            Ailments: [],
+            Enrage: null,
+            QuestAllowsCapture: false);
+
+        var live = MonsterLiveAdapter.ToSnapshot(fixture);
+        var tail = Assert.Single(live.Parts);
+        Assert.False(tail.IsBroken);
+    }
+
+    [Fact]
+    public void ToSnapshot_qurio_threshold_full_at_start_is_not_broken()
+    {
+        var fixture = new MonsterLiveFixture(
+            Name: "水兽",
+            Id: 47,
+            Health: 53750,
+            MaxHealth: 53750,
+            Stamina: 1000,
+            MaxStamina: 1000,
+            CaptureThreshold: 0,
+            IsEnraged: false,
+            Parts:
+            [
+                // QurioHealth = MaxThreshold - Threshold → full at hunt start.
+                new("PART_QURIO_THRESHOLD", "啮生虫", 9460, 9460, 0,
+                    IsQurio: true, IsQurioThreshold: true),
+            ],
+            Ailments: [],
+            Enrage: null,
+            QuestAllowsCapture: false);
+
+        var live = MonsterLiveAdapter.ToSnapshot(fixture);
+        var qurio = Assert.Single(live.Parts);
+        Assert.False(qurio.IsBroken);
+        Assert.Equal(9460, qurio.CurrentHp);
+        Assert.Equal(9460, qurio.MaxHp);
+    }
+
+    [Fact]
+    public void ToSnapshot_marks_severed_tail()
+    {
+        var fixture = new MonsterLiveFixture(
+            Name: "水兽",
+            Id: 47,
+            Health: 4000,
+            MaxHealth: 47300,
+            Stamina: 0,
+            MaxStamina: 1000,
+            CaptureThreshold: 0,
+            IsEnraged: false,
+            Parts:
+            [
+                new("PART_TAIL", "尾巴", 0, 0, 0,
+                    IsSeverable: true, MaxSever: 800, Sever: 800, MaxFlinch: 200, Flinch: 80),
+            ],
+            Ailments: [],
+            Enrage: null,
+            QuestAllowsCapture: false);
+
+        var live = MonsterLiveAdapter.ToSnapshot(fixture);
+        Assert.True(Assert.Single(live.Parts).IsBroken);
+    }
+
+    [Fact]
     public void ToSnapshot_zero_capture_threshold_leaves_percent_null()
     {
         var fixture = new MonsterLiveFixture(
@@ -73,13 +153,16 @@ public class MonsterLiveAdapterTests
     }
 
     [Theory]
-    [InlineData(null, true)]
-    [InlineData("Hunt", true)]
-    [InlineData("Capture", true)]
-    [InlineData("Slay", false)]
-    [InlineData("Special", true)]
-    public void ResolveQuestAllowsCapture_best_effort(string? questType, bool expected)
-        => Assert.Equal(expected, MonsterLiveAdapter.ResolveQuestAllowsCapture(questType));
+    [InlineData(null, null, true)]
+    [InlineData("Hunt", null, true)]
+    [InlineData("Capture", null, true)]
+    [InlineData("Slay", null, false)]
+    [InlineData("Special", null, false)]
+    [InlineData("Delivery", null, false)]
+    [InlineData("Hunt", "Anomaly", true)]
+    [InlineData(null, "Anomaly", true)]
+    public void ResolveQuestAllowsCapture_best_effort(string? questType, string? questLevel, bool expected)
+        => Assert.Equal(expected, MonsterLiveAdapter.ResolveQuestAllowsCapture(questType, questLevel));
 
     [Fact]
     public void MergeLive_prefers_live_capture_threshold_percent()

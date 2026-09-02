@@ -128,14 +128,16 @@ public sealed class DpsPanelViewModel : INotifyPropertyChanged
 
         long sum = source.Sum(e => e.TotalDamage);
         double ratioBase = sum <= 0 ? 1.0 : sum;
+        string timePrefix = FormatHuntDuration(dto.HuntDurationSeconds);
 
         if (source.Count <= 1)
         {
             IsSolo = true;
             var e = source.FirstOrDefault();
             SoloLineText = e is null
-                ? "DPS 0 · 总伤 0"
-                : $"DPS {FormatDps(e.Dps)} · 总伤 {e.TotalDamage.ToString(CultureInfo.InvariantCulture)}";
+                ? $"{timePrefix}DPS 0 · 全目标 0"
+                : $"{timePrefix}DPS {FormatDps(e.Dps)} · 全目标 {FormatDamage(e.TotalDamage)}";
+
             PartyTotalText = "";
             Entries = new ObservableCollection<DpsEntryRowViewModel>();
             return;
@@ -143,7 +145,7 @@ public sealed class DpsPanelViewModel : INotifyPropertyChanged
 
         IsSolo = false;
         SoloLineText = "";
-        PartyTotalText = $"合计 {sum.ToString(CultureInfo.InvariantCulture)}";
+        PartyTotalText = $"{timePrefix}合计 {FormatDamage(sum)}";
 
         var rows = new ObservableCollection<DpsEntryRowViewModel>();
         for (int i = 0; i < source.Count; i++)
@@ -168,8 +170,9 @@ public sealed class DpsPanelViewModel : INotifyPropertyChanged
         var vm = new DpsPanelViewModel();
         vm.ApplyDto(new DpsPanelDto(
         [
-            new DpsEntryDto("我", true, 186, 42180),
-        ]));
+            new DpsEntryDto("我", true, 32, 18620),
+        ],
+        HuntDurationSeconds: 589));
         return vm;
     }
 
@@ -178,18 +181,32 @@ public sealed class DpsPanelViewModel : INotifyPropertyChanged
         var vm = new DpsPanelViewModel();
         vm.ApplyDto(new DpsPanelDto(
         [
-            new DpsEntryDto("我", true, 172, 42180),
-            new DpsEntryDto("阿飞", false, 141, 34520),
-            new DpsEntryDto("小南", false, 128, 19840),
-            new DpsEntryDto("老", false, 95, 14400),
-        ]));
+            new DpsEntryDto("我", true, 68, 8420),
+            new DpsEntryDto("阿飞", false, 41, 5120),
+            new DpsEntryDto("小南", false, 26, 3210),
+            new DpsEntryDto("老", false, 18, 2190),
+        ],
+        HuntDurationSeconds: 124));
         return vm;
+    }
+
+    private static string FormatHuntDuration(double? seconds)
+    {
+        if (seconds is null or <= 0)
+            return "";
+        var t = TimeSpan.FromSeconds(seconds.Value);
+        return t.TotalHours >= 1
+            ? $"用时 {(int)t.TotalHours}:{t.Minutes:D2}:{t.Seconds:D2} · "
+            : $"用时 {t.Minutes}:{t.Seconds:D2} · ";
     }
 
     private static string FormatDps(double dps) =>
         dps % 1 == 0
             ? ((int)dps).ToString(CultureInfo.InvariantCulture)
             : dps.ToString("0.#", CultureInfo.InvariantCulture);
+
+    private static string FormatDamage(long damage)
+        => damage.ToString(CultureInfo.InvariantCulture);
 
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string? name = null)
     {

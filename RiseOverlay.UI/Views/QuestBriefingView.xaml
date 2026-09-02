@@ -7,6 +7,10 @@
              Focusable="False"
              IsTabStop="False">
     <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/RiseOverlay.UI;component/Themes/CompactTeal.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
 
         <DataTemplate DataType="{x:Type vm:ElementDisplayItem}">
@@ -132,6 +136,7 @@
                            Visibility="{Binding ShowSeparator, Converter={StaticResource BoolToVis}}" />
             </StackPanel>
         </DataTemplate>
+        </ResourceDictionary>
     </UserControl.Resources>
 
     <Border Background="{StaticResource Brushes.PanelBackground}"

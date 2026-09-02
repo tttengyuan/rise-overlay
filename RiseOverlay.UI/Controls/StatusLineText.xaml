@@ -3,6 +3,13 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              Focusable="False"
              IsTabStop="False">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/RiseOverlay.UI;component/Themes/CompactTeal.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
     <TextBlock Text="{Binding Text, RelativeSource={RelativeSource AncestorType=UserControl}}"
                Foreground="{StaticResource Brushes.ForegroundMuted}"
                FontSize="{StaticResource Fonts.Size.Small}"

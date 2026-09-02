@@ -20,11 +20,12 @@ public class ClientConfig : ISettings
 {
     #region Auto Update
     [ConfigurationProperty("ENABLE_SELF_UPDATE", group: CommonConfigurationGroups.SELF_UDPATE)]
-    public Observable<bool> EnableAutoUpdate { get; set; } = true;
+    // Rise Overlay fork: default off so CDN self-update cannot replace our binaries.
+    public Observable<bool> EnableAutoUpdate { get; set; } = false;
 
     [ConfigurationProperty("ENABLE_SELF_UPDATE_CONFIRMATION", group: CommonConfigurationGroups.SELF_UDPATE)]
     [ConfigurationConditional(name: nameof(EnableAutoUpdate), withValue: true)]
-    public Observable<bool> EnableAutoUpdateConfirmation { get; set; } = true;
+    public Observable<bool> EnableAutoUpdateConfirmation { get; set; } = false;
     #endregion
 
     #region Supporter
@@ -34,7 +35,8 @@ public class ClientConfig : ISettings
 
     #region General Settings
     [ConfigurationProperty("LANGUAGE_STRING", requiresRestart: true, group: CommonConfigurationGroups.GENERAL)]
-    public GenericFileSelector Language { get; set; } = new GenericFileSelector("en-us.xml", "*.xml", ClientInfo.LanguagesPath);
+    // Rise Overlay ships for CN users — default Simplified Chinese (requires Languages\zh-cn.xml).
+    public GenericFileSelector Language { get; set; } = new GenericFileSelector("zh-cn.xml", "*.xml", ClientInfo.LanguagesPath);
     #endregion
 
     #region Customization Settings

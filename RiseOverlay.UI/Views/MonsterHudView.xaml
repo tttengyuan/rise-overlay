@@ -9,6 +9,10 @@
              Focusable="False"
              IsTabStop="False">
     <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/RiseOverlay.UI;component/Themes/CompactTeal.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
         <converters:FractionToLeftMarginConverter x:Key="FractionToLeftMargin" />
 
@@ -21,54 +25,82 @@
         <DataTemplate DataType="{x:Type vm:PartRowViewModel}">
             <Grid Margin="0,2,0,0" Opacity="{Binding RowOpacity}">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="48" />
-                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="4" />
+                    <ColumnDefinition Width="44" />
+                    <ColumnDefinition Width="38" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" MinWidth="36" />
-                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="52" />
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Grid.Column="0"
+                <!-- Fixed 4px status rail: gold=break, orange=sever, red=Qurio, grey=complete. -->
+                <Border Grid.Column="0" CornerRadius="1" Margin="0,2,0,2">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Background" Value="#FFB8995F" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsSeverable}" Value="True">
+                                    <Setter Property="Background" Value="{StaticResource Brushes.AccentSever}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding IsBroken}" Value="True">
+                                    <Setter Property="Background" Value="#FF596466" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding IsQurio}" Value="True">
+                                    <Setter Property="Background" Value="{StaticResource Brushes.AccentQurio}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                </Border>
+
+                <TextBlock Grid.Column="1"
                            Text="{Binding Name}"
-                           Foreground="{StaticResource Brushes.Foreground}"
                            FontSize="{StaticResource Fonts.Size.Small}"
                            VerticalAlignment="Center"
-                           TextTrimming="CharacterEllipsis" />
+                           TextTrimming="CharacterEllipsis"
+                           Margin="5,0,0,0">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="{StaticResource Brushes.ForegroundMuted}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsRecommendedTarget}" Value="True">
+                                    <Setter Property="Foreground" Value="{StaticResource Brushes.Foreground}" />
+                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding IsQurio}" Value="True">
+                                    <Setter Property="Foreground" Value="{StaticResource Brushes.AccentQurio}" />
+                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
 
-                <StackPanel Grid.Column="1"
+                <TextBlock Grid.Column="2"
+                           Text="{Binding StatusText}"
+                           FontSize="9"
+                           VerticalAlignment="Center"
+                           Margin="3,0">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="#FFD0B778" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsBroken}" Value="True">
+                                    <Setter Property="Foreground" Value="{StaticResource Brushes.ForegroundMuted}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding IsQurio}" Value="True">
+                                    <Setter Property="Foreground" Value="{StaticResource Brushes.AccentQurio}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+
+                <StackPanel Grid.Column="3"
                             Orientation="Horizontal"
                             VerticalAlignment="Center"
-                            Margin="0,0,3,0">
-                    <Border Visibility="{Binding IsSeverable, Converter={StaticResource BoolToVis}}"
-                            Background="#334A9B9B"
-                            CornerRadius="1"
-                            Padding="3,0"
-                            Margin="0,0,2,0">
-                        <TextBlock Text="断"
-                                   Foreground="{StaticResource Brushes.AccentTeal}"
-                                   FontSize="9"
-                                   FontWeight="SemiBold" />
-                    </Border>
-                    <Border Visibility="{Binding IsBroken, Converter={StaticResource BoolToVis}}"
-                            Background="#33333A44"
-                            CornerRadius="1"
-                            Padding="3,0">
-                        <TextBlock Text="破"
-                                   Foreground="{StaticResource Brushes.ForegroundMuted}"
-                                   FontSize="9"
-                                   FontWeight="SemiBold" />
-                    </Border>
-                </StackPanel>
-
-                <StackPanel Grid.Column="2"
-                            Orientation="Horizontal"
-                            VerticalAlignment="Center"
-                            Margin="0,0,4,0">
-                    <TextBlock Text="弱"
-                               Foreground="{StaticResource Brushes.ForegroundMuted}"
-                               FontSize="9"
-                               VerticalAlignment="Center"
-                               Margin="0,0,2,0" />
+                            Margin="0,0,4,0"
+                            Visibility="{Binding HasWeakElements, Converter={StaticResource BoolToVis}}">
                     <ItemsControl ItemsSource="{Binding WeakElements}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -85,12 +117,13 @@
                     </ItemsControl>
                 </StackPanel>
 
-                <Border Grid.Column="3"
+                <Border Grid.Column="4"
                         Height="4"
                         VerticalAlignment="Center"
                         Background="#1A222C"
                         CornerRadius="1"
-                        Margin="0,0,4,0">
+                        Margin="0,0,4,0"
+                        Visibility="{Binding ShowActiveBar, Converter={StaticResource BoolToVis}}">
                     <Border CornerRadius="1"
                             RenderTransformOrigin="0,0.5">
                         <Border.Style>
@@ -99,6 +132,9 @@
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding IsSeverable}" Value="True">
                                         <Setter Property="Background" Value="{StaticResource Brushes.AccentSever}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsQurio}" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource Brushes.AccentQurio}" />
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
@@ -109,7 +145,16 @@
                     </Border>
                 </Border>
 
-                <TextBlock Grid.Column="4"
+                <!-- Completed parts keep their row/weakness but no longer look actionable. -->
+                <Border Grid.Column="4"
+                        Height="1"
+                        VerticalAlignment="Center"
+                        Background="#FF596466"
+                        Margin="0,0,4,0"
+                        Opacity="0.8"
+                        Visibility="{Binding ShowCompletedLine, Converter={StaticResource BoolToVis}}" />
+
+                <TextBlock Grid.Column="5"
                            Text="{Binding HealthText}"
                            Foreground="{StaticResource Brushes.ForegroundMuted}"
                            FontSize="9"
@@ -119,44 +164,7 @@
             </Grid>
         </DataTemplate>
 
-        <DataTemplate DataType="{x:Type vm:AilmentRowViewModel}">
-            <Grid Margin="0,2,0,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="36" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-
-                <TextBlock Grid.Column="0"
-                           Text="{Binding DisplayName}"
-                           Foreground="{StaticResource Brushes.Foreground}"
-                           FontSize="{StaticResource Fonts.Size.Small}"
-                           VerticalAlignment="Center" />
-
-                <Border Grid.Column="1"
-                        Height="4"
-                        VerticalAlignment="Center"
-                        Background="#1A222C"
-                        CornerRadius="1"
-                        Margin="0,0,4,0">
-                    <Border Background="{StaticResource Brushes.AccentTeal}"
-                            CornerRadius="1"
-                            RenderTransformOrigin="0,0.5">
-                        <Border.RenderTransform>
-                            <ScaleTransform ScaleX="{Binding BarRatio}" />
-                        </Border.RenderTransform>
-                    </Border>
-                </Border>
-
-                <TextBlock Grid.Column="2"
-                           Text="{Binding ValueText}"
-                           Foreground="{StaticResource Brushes.ForegroundMuted}"
-                           FontSize="9"
-                           VerticalAlignment="Center"
-                           MinWidth="32"
-                           TextAlignment="Right" />
-            </Grid>
-        </DataTemplate>
+        </ResourceDictionary>
     </UserControl.Resources>
 
     <Border x:Name="PanelRoot"
@@ -175,8 +183,8 @@
                             <BeginStoryboard x:Name="CapturePulse">
                                 <Storyboard RepeatBehavior="Forever" AutoReverse="True">
                                     <ColorAnimation Storyboard.TargetProperty="(Border.BorderBrush).(SolidColorBrush.Color)"
-                                                    From="#FF2A6B6B"
-                                                    To="#FF4A9B9B"
+                                                     From="#FF725E39"
+                                                     To="#FFC9AA62"
                                                     Duration="0:0:1.2" />
                                 </Storyboard>
                             </BeginStoryboard>
@@ -192,15 +200,15 @@
         <StackPanel>
             <!-- 1. Capture banner -->
             <Border Visibility="{Binding CaptureBannerVisible, Converter={StaticResource BoolToVis}}"
-                    BorderBrush="{StaticResource Brushes.AccentTeal}"
+                    BorderBrush="#FFC9AA62"
                     BorderThickness="1"
-                    Background="#1A4A9B9B"
+                    Background="#24B8995F"
                     CornerRadius="2"
                     Padding="6,2"
                     Margin="0,0,0,6"
                     HorizontalAlignment="Stretch">
                 <TextBlock Text="可捕获"
-                           Foreground="{StaticResource Brushes.AccentTeal}"
+                           Foreground="#FFE2CA87"
                            FontSize="{StaticResource Fonts.Size.Body}"
                            FontWeight="SemiBold"
                            HorizontalAlignment="Center" />
@@ -221,15 +229,44 @@
                            TextTrimming="CharacterEllipsis"
                            VerticalAlignment="Center" />
                 <Border Grid.Column="1"
-                        Visibility="{Binding ShowUncapturableBadge, Converter={StaticResource BoolToVis}}"
-                        Background="#33333A44"
                         CornerRadius="2"
                         Padding="4,1"
                         Margin="6,0,0,0"
-                        VerticalAlignment="Center">
-                    <TextBlock Text="不可捕"
-                               Foreground="{StaticResource Brushes.ForegroundMuted}"
-                               FontSize="{StaticResource Fonts.Size.Small}" />
+                        VerticalAlignment="Center"
+                        Visibility="{Binding CaptureBadgeVisible, Converter={StaticResource BoolToVis}}">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Background" Value="#26333A44" />
+                            <Setter Property="BorderBrush" Value="#303F4854" />
+                            <Setter Property="BorderThickness" Value="1" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding CaptureBadgeIsCapturable}" Value="True">
+                                    <Setter Property="Background" Value="#24B8995F" />
+                                    <Setter Property="BorderBrush" Value="#55B8995F" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding CaptureBadgeIsAnomaly}" Value="True">
+                                    <Setter Property="Background" Value="#24E11D48" />
+                                    <Setter Property="BorderBrush" Value="#66E11D48" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <TextBlock Text="{Binding CaptureBadgeText}"
+                               FontSize="9">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="{StaticResource Brushes.ForegroundMuted}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CaptureBadgeIsCapturable}" Value="True">
+                                        <Setter Property="Foreground" Value="#FFE0C77F" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding CaptureBadgeIsAnomaly}" Value="True">
+                                        <Setter Property="Foreground" Value="#FFFF8A80" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                 </Border>
                 <TextBlock Grid.Column="2"
                            Text="{Binding HealthPercentText}"
@@ -286,7 +323,7 @@
                 </ItemsControl>
             </Grid>
 
-            <!-- 4. HP bar + weaken line -->
+            <!-- 4. HP bar + weaken line (主血条始终红色；部位条另用青色) -->
             <Border x:Name="HpTrack"
                     Height="8"
                     Background="#1A222C"
@@ -294,7 +331,7 @@
                     Margin="0,0,0,3"
                     ClipToBounds="True">
                 <Grid>
-                    <Border Background="{StaticResource Brushes.AccentTeal}"
+                    <Border Background="{StaticResource Brushes.AccentHealth}"
                             CornerRadius="2"
                             RenderTransformOrigin="0,0.5">
                         <Border.RenderTransform>
@@ -304,7 +341,7 @@
                     <Border Width="2"
                             Height="8"
                             HorizontalAlignment="Left"
-                            Background="#FF5EC8C8"
+                            Background="#FFFFF1F2"
                             Visibility="{Binding WeakenLineVisible, Converter={StaticResource BoolToVis}}">
                         <Border.Margin>
                             <MultiBinding Converter="{StaticResource FractionToLeftMargin}">
@@ -328,23 +365,85 @@
                            FontSize="{StaticResource Fonts.Size.Small}" />
                 <TextBlock Grid.Column="1"
                            Text="已过虚弱线"
-                           Foreground="{StaticResource Brushes.AccentTeal}"
+                           Foreground="{StaticResource Brushes.AccentHealth}"
                            FontSize="{StaticResource Fonts.Size.Small}"
                            Visibility="{Binding PastWeakenLine, Converter={StaticResource BoolToVis}}" />
             </Grid>
 
-            <!-- 6. Status line -->
-            <controls:StatusLineText Text="{Binding StatusLineText}" Margin="0,0,0,6" />
+            <!-- 6. Status + active stun chip -->
+            <Grid Margin="0,0,0,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0"
+                        Margin="0,0,6,0"
+                        Padding="5,1"
+                        CornerRadius="2"
+                        BorderThickness="1"
+                        BorderBrush="{StaticResource Brushes.AccentStun}"
+                        Background="#33EAB308"
+                        VerticalAlignment="Center"
+                        Visibility="{Binding StunActive, Converter={StaticResource BoolToVis}}">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Opacity" Value="1" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding StunActive}" Value="True">
+                                    <DataTrigger.EnterActions>
+                                        <BeginStoryboard x:Name="StunPulseBoard">
+                                            <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                 From="1" To="0.42"
+                                                                 Duration="0:0:0.45" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </DataTrigger.EnterActions>
+                                    <DataTrigger.ExitActions>
+                                        <StopStoryboard BeginStoryboardName="StunPulseBoard" />
+                                    </DataTrigger.ExitActions>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="晕眩中"
+                                   Foreground="{StaticResource Brushes.AccentStun}"
+                                   FontSize="{StaticResource Fonts.Size.Small}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding StunCountdownText}"
+                                   Foreground="#FFFFF7CC"
+                                   FontSize="{StaticResource Fonts.Size.Body}"
+                                   FontWeight="Bold"
+                                   Margin="5,0,0,0"
+                                   VerticalAlignment="Center"
+                                   MinWidth="28" />
+                    </StackPanel>
+                </Border>
+
+                <controls:StatusLineText Grid.Column="1"
+                                         Text="{Binding StatusLineText}"
+                                         VerticalAlignment="Center" />
+            </Grid>
 
             <!-- 7. Parts -->
-            <TextBlock Text="弱× = 属性弱点（非吸收）"
-                       Foreground="{StaticResource Brushes.ForegroundMuted}"
-                       FontSize="9"
-                       Margin="0,0,0,2" />
-            <ItemsControl ItemsSource="{Binding Parts}" Margin="0,0,0,6" />
+            <StackPanel Visibility="{Binding ShowParts, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="部位 · 状态 · 弱属性 · 剩余值"
+                           Foreground="{StaticResource Brushes.ForegroundMuted}"
+                           FontSize="9"
+                           Margin="0,0,0,2" />
+                <ItemsControl ItemsSource="{Binding Parts}" Margin="0,0,0,6" />
+            </StackPanel>
 
-            <!-- 8. Ailments -->
-            <ItemsControl ItemsSource="{Binding Ailments}" />
+            <!-- 8. Ailments: one dense text line, no progress bars. -->
+            <TextBlock Text="{Binding AilmentsLineText}"
+                       Foreground="{StaticResource Brushes.ForegroundMuted}"
+                       FontSize="{StaticResource Fonts.Size.Small}"
+                       TextWrapping="NoWrap"
+                       TextTrimming="CharacterEllipsis"
+                       Visibility="{Binding ShowAilmentsLine, Converter={StaticResource BoolToVis}}" />
         </StackPanel>
     </Border>
 </UserControl>

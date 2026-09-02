@@ -109,22 +109,24 @@ internal class LocalizationRepository : ILocalizationRepository
         XmlDocument otherLanguage = new();
         otherLanguage.Load(selectedLanguageDocument);
 
+        // Merge selected language ONTO en-us (same direction as legacy Localization).
         XmlDocument finalDocument = MergeDocuments(
             source: otherLanguage,
             target: document
         );
 
-        Logger.Info($"Loaded localization {Path.GetFileNameWithoutExtension(defaultDocument)} successfully");
+        Logger.Info(
+            $"Loaded localization {Path.GetFileNameWithoutExtension(selectedLanguageDocument)} successfully");
 
         return finalDocument;
     }
 
     private static XmlDocument MergeDocuments(XmlDocument source, XmlDocument target)
     {
-        if (target.DocumentElement?.SelectNodes("//*") is not { } defaultNodes)
+        if (source.DocumentElement?.SelectNodes("//*") is not { } sourceNodes)
             return target;
 
-        foreach (XmlNode node in defaultNodes)
+        foreach (XmlNode node in sourceNodes)
         {
             string? id = node.Attributes?["Id"]?.Value;
 
@@ -132,13 +134,16 @@ internal class LocalizationRepository : ILocalizationRepository
                 continue;
 
             string path = GetFullParentPath(node);
-            XmlNode? match = source.DocumentElement?.SelectSingleNode($"//{path}/*[@Id='{id}']");
+            XmlNode? match = target.DocumentElement?.SelectSingleNode($"//{path}/*[@Id='{id}']");
 
-            if (match?.Attributes?["String"] is { } stringAttribute)
-                node.Attributes!["String"]!.Value = stringAttribute.Value;
+            if (match is null)
+                continue;
 
-            if (match?.Attributes?["Description"] is { } descriptionAttribute)
-                node.Attributes!["Description"]!.Value = descriptionAttribute.Value;
+            if (match.Attributes?["String"] is not null && node.Attributes?["String"] is { } stringAttribute)
+                match.Attributes["String"]!.Value = stringAttribute.Value;
+
+            if (match.Attributes?["Description"] is not null && node.Attributes?["Description"] is { } descriptionAttribute)
+                match.Attributes["Description"]!.Value = descriptionAttribute.Value;
         }
 
         return target;

@@ -31,6 +31,9 @@ public class MHWQuest(
     public QuestType Type { get; } = questType;
 
     /// <inheritdoc />
+    public IReadOnlyList<string> BriefingMonsterIds { get; } = [];
+
+    /// <inheritdoc />
     public QuestStatus Status
     {
         get;

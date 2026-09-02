@@ -15,8 +15,8 @@ internal class SystemTrayInitializer : IInitializer, IDisposable
     public Task Init()
     {
         TrayService.Initialize(
-            "HunterPie",
-            "HunterPie",
+            "Rise血条",
+            "Rise血条",
             Icon.ExtractAssociatedIcon(
                 Path.Combine(ClientInfo.ClientPath, "HunterPie.exe")
             )

@@ -28,4 +28,20 @@ public class CaptureRulesTests
     {
         Assert.Equal(expected, CaptureRules.ShowCaptureUi(speciesCapturable, questAllowsCapture));
     }
+
+    [Theory]
+    [InlineData(true, true, false, CaptureDisplayState.Capturable)]
+    [InlineData(false, true, false, CaptureDisplayState.SpeciesUncapturable)]
+    [InlineData(true, false, false, CaptureDisplayState.QuestRestricted)]
+    [InlineData(true, false, true, CaptureDisplayState.Anomaly)]
+    public void ResolveDisplayState_distinguishes_capture_restriction_reason(
+        bool speciesCapturable,
+        bool questAllowsCapture,
+        bool isAnomaly,
+        CaptureDisplayState expected)
+    {
+        Assert.Equal(
+            expected,
+            CaptureRules.ResolveDisplayState(speciesCapturable, questAllowsCapture, isAnomaly));
+    }
 }

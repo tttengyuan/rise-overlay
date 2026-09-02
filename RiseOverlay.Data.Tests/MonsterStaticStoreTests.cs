@@ -49,6 +49,20 @@ public class MonsterStaticStoreTests
     }
 
     [Fact]
+    public void FindByTitle_resolves_kulu_localization_alias()
+    {
+        var store = MonsterStaticStore.Load(ResolveJsonPath());
+        var byCanonical = store.FindByTitle("搔鸟");
+        Assert.NotNull(byCanonical);
+        Assert.Equal("monster_107_00", byCanonical.Id);
+
+        // HunterPie zh-cn uses 骚鸟 for the same monster.
+        var byAlias = store.FindByTitle("骚鸟");
+        Assert.NotNull(byAlias);
+        Assert.Same(byCanonical, byAlias);
+    }
+
+    [Fact]
     public void FindById_returns_same_entry()
     {
         var store = MonsterStaticStore.Load(ResolveJsonPath());

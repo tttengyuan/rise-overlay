@@ -40,6 +40,8 @@ public sealed class PartRowViewModel : INotifyPropertyChanged
     private double _maxHp = 1;
     private bool _isSeverable;
     private bool _isBroken;
+    private bool _isQurio;
+    private bool _isRecommendedTarget;
     private ObservableCollection<ElementId> _weakElements = new();
 
     public string Name
@@ -71,7 +73,11 @@ public sealed class PartRowViewModel : INotifyPropertyChanged
     public bool IsSeverable
     {
         get => _isSeverable;
-        set => SetField(ref _isSeverable, value);
+        set
+        {
+            if (SetField(ref _isSeverable, value))
+                NotifyDerived();
+        }
     }
 
     public bool IsBroken
@@ -84,19 +90,50 @@ public sealed class PartRowViewModel : INotifyPropertyChanged
         }
     }
 
+    public bool IsQurio
+    {
+        get => _isQurio;
+        set
+        {
+            if (SetField(ref _isQurio, value))
+                NotifyDerived();
+        }
+    }
+
+    public bool IsRecommendedTarget
+    {
+        get => _isRecommendedTarget;
+        set => SetField(ref _isRecommendedTarget, value);
+    }
+
+    public bool HasWeakElements => _weakElements.Count > 0;
+
     public ObservableCollection<ElementId> WeakElements
     {
         get => _weakElements;
-        set => SetField(ref _weakElements, value);
+        set
+        {
+            if (SetField(ref _weakElements, value))
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasWeakElements)));
+        }
     }
 
     public double HealthRatio => _maxHp <= 0 ? 0 : Math.Clamp(_currentHp / _maxHp, 0, 1);
 
-    public string HealthText => _isBroken
-        ? "已破坏"
+    private PartDisplayState DisplayState =>
+        PartDisplayRules.Resolve(_isSeverable, _isBroken, _isQurio);
+
+    public string StatusText => DisplayState.Text;
+
+    public bool ShowActiveBar => DisplayState.ShowActiveBar;
+
+    public bool ShowCompletedLine => DisplayState.IsComplete;
+
+    public string HealthText => DisplayState.IsComplete
+        ? "完成"
         : $"{FormatHp(_currentHp)}/{FormatHp(_maxHp)}";
 
-    public double RowOpacity => _isBroken ? 0.45 : 1.0;
+    public double RowOpacity => DisplayState.IsComplete ? 0.64 : 1.0;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -105,67 +142,12 @@ public sealed class PartRowViewModel : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HealthRatio)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HealthText)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(RowOpacity)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(StatusText)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowActiveBar)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowCompletedLine)));
     }
 
     private static string FormatHp(double v) => v % 1 == 0 ? ((int)v).ToString() : v.ToString("0.#");
-
-    private bool SetField<T>(ref T field, T value, [CallerMemberName] string? name = null)
-    {
-        if (Equals(field, value))
-            return false;
-        field = value;
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
-        return true;
-    }
-}
-
-public sealed class AilmentRowViewModel : INotifyPropertyChanged
-{
-    private string _key = "";
-    private string _displayName = "";
-    private double _percent;
-    private bool _isActive;
-
-    public string Key
-    {
-        get => _key;
-        set => SetField(ref _key, value);
-    }
-
-    public string DisplayName
-    {
-        get => _displayName;
-        set => SetField(ref _displayName, value);
-    }
-
-    public double Percent
-    {
-        get => _percent;
-        set
-        {
-            if (SetField(ref _percent, value))
-            {
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ValueText)));
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(BarRatio)));
-            }
-        }
-    }
-
-    public bool IsActive
-    {
-        get => _isActive;
-        set
-        {
-            if (SetField(ref _isActive, value))
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ValueText)));
-        }
-    }
-
-    public string ValueText => _isActive ? "触发" : $"{Math.Round(_percent):0}%";
-
-    public double BarRatio => Math.Clamp(_percent / 100.0, 0, 1);
-
-    public event PropertyChangedEventHandler? PropertyChanged;
 
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string? name = null)
     {
@@ -188,11 +170,32 @@ public sealed class MonsterHudViewModel : INotifyPropertyChanged
     private bool _weakenLineVisible;
     private double _weakenLinePosition;
     private bool _pastWeakenLine;
+    private bool _stunActive;
+    private string _stunCountdownText = "";
     private string _statusLineText = "";
+    private string _ailmentsLineText = "";
+    private CaptureDisplayState _captureState = CaptureDisplayState.Capturable;
     private ObservableCollection<ElementDisplayItem> _overallElements = new();
     private ObservableCollection<ElementId> _recommended = new();
     private ObservableCollection<PartRowViewModel> _parts = new();
-    private ObservableCollection<AilmentRowViewModel> _ailments = new();
+    private bool _showParts = true;
+    private bool _showAilments = true;
+
+    public bool ShowParts
+    {
+        get => _showParts;
+        set => SetField(ref _showParts, value);
+    }
+
+    public bool ShowAilments
+    {
+        get => _showAilments;
+        set
+        {
+            if (SetField(ref _showAilments, value))
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowAilmentsLine)));
+        }
+    }
 
     public bool CaptureBannerVisible
     {
@@ -211,6 +214,37 @@ public sealed class MonsterHudViewModel : INotifyPropertyChanged
         get => _showUncapturableBadge;
         set => SetField(ref _showUncapturableBadge, value);
     }
+
+    public CaptureDisplayState CaptureState
+    {
+        get => _captureState;
+        set
+        {
+            if (!SetField(ref _captureState, value))
+                return;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CaptureBadgeText)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CaptureBadgeVisible)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CaptureBadgeIsCapturable)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CaptureBadgeIsAnomaly)));
+        }
+    }
+
+    /// <summary>
+    /// Slay/special quests on otherwise-capturable species: no badge (capture UI already hidden).
+    /// </summary>
+    public bool CaptureBadgeVisible => _captureState is not CaptureDisplayState.QuestRestricted;
+
+    public string CaptureBadgeText => _captureState switch
+    {
+        CaptureDisplayState.Capturable => "当前任务可捕",
+        CaptureDisplayState.SpeciesUncapturable => "不可捕",
+        CaptureDisplayState.Anomaly => "怪异化",
+        _ => "不可捕",
+    };
+
+    public bool CaptureBadgeIsCapturable => _captureState == CaptureDisplayState.Capturable;
+
+    public bool CaptureBadgeIsAnomaly => _captureState == CaptureDisplayState.Anomaly;
 
     public double HealthPercent
     {
@@ -263,11 +297,35 @@ public sealed class MonsterHudViewModel : INotifyPropertyChanged
         set => SetField(ref _pastWeakenLine, value);
     }
 
+    public bool StunActive
+    {
+        get => _stunActive;
+        set => SetField(ref _stunActive, value);
+    }
+
+    public string StunCountdownText
+    {
+        get => _stunCountdownText;
+        set => SetField(ref _stunCountdownText, value);
+    }
+
     public string StatusLineText
     {
         get => _statusLineText;
         set => SetField(ref _statusLineText, value);
     }
+
+    public string AilmentsLineText
+    {
+        get => _ailmentsLineText;
+        set
+        {
+            if (SetField(ref _ailmentsLineText, value))
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowAilmentsLine)));
+        }
+    }
+
+    public bool ShowAilmentsLine => _showAilments && !string.IsNullOrWhiteSpace(_ailmentsLineText);
 
     public ObservableCollection<ElementDisplayItem> OverallElements
     {
@@ -287,12 +345,6 @@ public sealed class MonsterHudViewModel : INotifyPropertyChanged
         set => SetField(ref _parts, value);
     }
 
-    public ObservableCollection<AilmentRowViewModel> Ailments
-    {
-        get => _ailments;
-        set => SetField(ref _ailments, value);
-    }
-
     public double HealthRatio => Math.Clamp(_healthPercent / 100.0, 0, 1);
 
     public string HealthPercentText => $"{Math.Round(_healthPercent):0}%";
@@ -309,15 +361,17 @@ public sealed class MonsterHudViewModel : INotifyPropertyChanged
         HealthMax = dto.HealthMax;
         HealthPercent = dto.HealthMax <= 0 ? 0 : dto.HealthCurrent / dto.HealthMax * 100.0;
 
+        CaptureState = dto.CaptureState;
         ShowUncapturableBadge = !dto.IsCapturable;
 
         var threshold = dto.CaptureThresholdPercent;
-        WeakenLineVisible = dto.IsCapturable && threshold is > 0;
+        // Restricted and anomaly quests receive no capture line from the mapper.
+        WeakenLineVisible = threshold is > 0;
         WeakenLinePosition = threshold is { } t ? Math.Clamp(t / 100.0, 0, 1) : 0;
-        PastWeakenLine = dto.IsCapturable
-            && threshold is { } th
+        PastWeakenLine = threshold is { } th
             && CaptureRules.IsPastThreshold(HealthPercent, th);
-        CaptureBannerVisible = PastWeakenLine;
+        // Capture banner only when actually capturable.
+        CaptureBannerVisible = dto.IsCapturable && PastWeakenLine;
 
         var recommended = dto.Recommended ?? Array.Empty<ElementId>();
         Recommended = new ObservableCollection<ElementId>(recommended);
@@ -330,7 +384,16 @@ public sealed class MonsterHudViewModel : INotifyPropertyChanged
                 IsDimmed = !recommended.Contains(e),
             }));
 
-        StatusLineText = StatusLineFormatter.Format(dto.Status);
+        StunActive = dto.Status.StunActive && dto.Status.StunActiveRemaining is { TotalSeconds: > 0 };
+        StunCountdownText = dto.Status.StunActiveRemaining is { } rem
+            ? StatusLineFormatter.FormatStunCountdown(rem)
+            : "";
+
+        // Active stun is shown as a pulsing chip; keep the rest of the status line without duplicating it.
+        var statusForLine = StunActive
+            ? dto.Status with { StunActive = false, StunActiveRemaining = null, StunBuildupPercent = null }
+            : dto.Status;
+        StatusLineText = StatusLineFormatter.Format(statusForLine);
 
         Parts = new ObservableCollection<PartRowViewModel>(
             (dto.Parts ?? Array.Empty<PartDto>()).Select(p => new PartRowViewModel
@@ -340,20 +403,12 @@ public sealed class MonsterHudViewModel : INotifyPropertyChanged
                 MaxHp = p.MaxHp,
                 IsSeverable = p.IsSeverable,
                 IsBroken = p.IsBroken,
+                IsQurio = p.IsQurio,
+                IsRecommendedTarget = p.IsRecommendedTarget,
                 WeakElements = new ObservableCollection<ElementId>(p.WeakElements),
             }));
 
-        Ailments = new ObservableCollection<AilmentRowViewModel>(
-            (dto.Ailments ?? Array.Empty<AilmentDto>())
-                .Where(a => !string.Equals(a.Key, "stun", StringComparison.OrdinalIgnoreCase))
-                .Where(a => a.IsActive || a.Percent > 0)
-                .Select(a => new AilmentRowViewModel
-                {
-                    Key = a.Key,
-                    DisplayName = a.DisplayName,
-                    Percent = a.Percent,
-                    IsActive = a.IsActive,
-                }));
+        AilmentsLineText = AilmentLineFormatter.Format(dto.Ailments ?? Array.Empty<AilmentDto>());
     }
 
     public static MonsterHudViewModel CreateSampleScornedMagnamalo()

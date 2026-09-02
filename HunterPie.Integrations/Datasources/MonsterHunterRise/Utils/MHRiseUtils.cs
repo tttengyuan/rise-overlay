@@ -158,7 +158,7 @@ public static class MHRiseUtils
         return state switch
         {
             QuestState.InQuest => QuestStatus.InProgress,
-            QuestState.Success => QuestStatus.Success,
+            QuestState.Success or QuestState.SuccessSub => QuestStatus.Success,
             QuestState.Failed => QuestStatus.Fail,
             QuestState.Reset or QuestState.Returning => QuestStatus.Quit,
             _ => QuestStatus.None
@@ -182,16 +182,26 @@ public static class MHRiseUtils
 
     public static QuestType? ToQuestType(this QuestTypeRise type)
     {
-        return type switch
-        {
-            QuestTypeRise.Normal => QuestType.Hunt,
-            QuestTypeRise.Kill => QuestType.Slay,
-            QuestTypeRise.Capture => QuestType.Capture,
-            QuestTypeRise.Gather => QuestType.Delivery,
-            QuestTypeRise.Arena or
-            QuestTypeRise.Boss or
-            QuestTypeRise.Special => QuestType.Special,
-            _ => null
-        };
+        // Rise stores this as flags; exact-match switch misses Normal|Kill etc.
+        if (type == QuestTypeRise.None)
+            return null;
+
+        if (type.HasFlag(QuestTypeRise.Capture))
+            return QuestType.Capture;
+
+        if (type.HasFlag(QuestTypeRise.Kill))
+            return QuestType.Slay;
+
+        if (type.HasFlag(QuestTypeRise.Gather))
+            return QuestType.Delivery;
+
+        if (type.HasFlag(QuestTypeRise.Arena)
+            || type.HasFlag(QuestTypeRise.Boss)
+            || type.HasFlag(QuestTypeRise.Special)
+            || type.HasFlag(QuestTypeRise.Rampage))
+            return QuestType.Special;
+
+        // Normal / Expedition / Training / Kyousei / unknown non-zero
+        return QuestType.Hunt;
     }
 }

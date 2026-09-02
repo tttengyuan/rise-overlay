@@ -16,23 +16,33 @@ public static class MonsterLiveAdapter
             ["AILMENT_EXHAUST"] = ("exhaust", "减气"),
             ["AILMENT_STUN"] = ("stun", "晕眩"),
             ["STATUS_ENRAGE"] = ("enrage", "愤怒"),
+            ["AILMENT_RIDE"] = ("ride", "骑乘"),
+            ["AILMENT_MOUNT"] = ("mount", "骑乘"),
+            ["AILMENT_FIRE"] = ("fire", "火异"),
+            ["AILMENT_WATER"] = ("water", "水异"),
+            ["AILMENT_ICE"] = ("ice", "冰异"),
+            ["AILMENT_THUNDER"] = ("thunder", "雷异"),
         };
+
+    /// <summary>Combat HUD only lists these status bars (plus stun on the status line).</summary>
+    private static readonly HashSet<string> VisibleAilmentKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "poison", "paralysis", "sleep", "blast", "exhaust",
+    };
 
     public static LiveMonsterSnapshot ToSnapshot(MonsterLiveFixture fixture)
     {
         ArgumentNullException.ThrowIfNull(fixture);
 
         var parts = (fixture.Parts ?? Array.Empty<MonsterLivePartFixture>())
-            .Select(p => new LivePartSnapshot(
-                Name: string.IsNullOrWhiteSpace(p.DisplayName) ? p.Id : p.DisplayName,
-                CurrentHp: p.Health,
-                MaxHp: p.MaxHealth,
-                IsBroken: IsPartBroken(p)))
+            .Where(IsRenderablePart)
+            .Select(MapPart)
             .ToArray();
 
         var ailments = (fixture.Ailments ?? Array.Empty<MonsterLiveAilmentFixture>())
             .Where(a => !IsEnrageId(a.Id) && !IsStunId(a.Id))
             .Select(MapAilment)
+            .Where(a => VisibleAilmentKeys.Contains(a.Key))
             .ToArray();
 
         var stun = (fixture.Ailments ?? Array.Empty<MonsterLiveAilmentFixture>())
@@ -76,19 +86,26 @@ public static class MonsterLiveAdapter
                 StaminaPercent: staminaPercent,
                 DownRemaining: null),
             QuestAllowsCapture: fixture.QuestAllowsCapture,
-            CaptureThresholdPercent: capturePercent);
+            CaptureThresholdPercent: capturePercent,
+            IsAnomaly: fixture.IsAnomaly);
     }
 
     /// <summary>
-    /// Best-effort: Slay quests disallow capture; Hunt/Capture allow; unknown/null defaults to true.
-    /// Species capturability (elder etc.) is applied later via static data + <see cref="CaptureRules"/>.
+    /// Rise memory maps Kill flag → Slay (讨伐). Only Hunt and Capture quests show capture UI.
     /// </summary>
-    public static bool ResolveQuestAllowsCapture(string? questTypeName)
+    public static bool ResolveQuestAllowsCapture(string? questTypeName, string? questLevelName = null)
     {
+        _ = questLevelName;
+
         if (string.IsNullOrWhiteSpace(questTypeName))
             return true;
 
-        return !string.Equals(questTypeName, "Slay", StringComparison.OrdinalIgnoreCase);
+        return questTypeName switch
+        {
+            "Hunt" or "Capture" => true,
+            "Slay" or "Special" or "Delivery" => false,
+            _ => true,
+        };
     }
 
     private static LiveAilmentSnapshot MapAilment(MonsterLiveAilmentFixture a)
@@ -117,10 +134,91 @@ public static class MonsterLiveAdapter
         return (key, name);
     }
 
+    private static LivePartSnapshot MapPart(MonsterLivePartFixture p)
+    {
+        bool broken = !p.IsQurioThreshold && IsPartBroken(p);
+        var (cur, max) = ResolvePartHp(p, broken);
+        var name = string.IsNullOrWhiteSpace(p.DisplayName) || p.DisplayName == "???"
+            ? p.Id
+            : PartNameSanitizer.Clean(p.DisplayName);
+        if (string.IsNullOrWhiteSpace(name))
+            name = p.Id;
+
+        return new LivePartSnapshot(
+            Name: name,
+            CurrentHp: cur,
+            MaxHp: max,
+            IsBroken: broken,
+            IsQurio: p.IsQurio);
+    }
+
+    /// <summary>
+    /// Prefer breakable HP; else sever; else flinch. Broken breakables often report MaxHealth≤0 in Rise.
+    /// </summary>
+    private static (double Current, double Max) ResolvePartHp(MonsterLivePartFixture p, bool broken)
+    {
+        if (p.IsQurio && p.MaxHealth > 0)
+            return (p.Health, p.MaxHealth);
+
+        if (p.MaxHealth > 0)
+            return (broken ? 0 : p.Health, p.MaxHealth);
+
+        if (p.MaxSever > 0)
+            return (broken ? 0 : p.Sever, p.MaxSever);
+
+        if (p.MaxFlinch > 0)
+            return (p.Flinch, p.MaxFlinch);
+
+        // Broken breakable: MaxHealth collapsed to 0 — keep a row with empty bar.
+        if (broken)
+            return (0, 1);
+
+        return (0, 0);
+    }
+
+    private static bool IsRenderablePart(MonsterLivePartFixture p)
+    {
+        if (string.Equals(p.DisplayName, "???", StringComparison.Ordinal)
+            || string.Equals(p.Id, "PART_UNKNOWN", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(p.Id, "PART_TO_BE_MAPPED", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (p.IsQurio)
+            return p.MaxHealth > 0 || IsPartBroken(p);
+
+        // Keep breakable/severable rows after MaxHealth collapses on break (HunterPie Rise behavior).
+        if (p.IsBreakable || p.IsSeverable)
+            return true;
+
+        return p.MaxHealth > 0 || p.MaxSever > 0 || p.MaxFlinch > 0;
+    }
+
+    /// <summary>
+    /// Rise break detection — avoid init false positives when MaxHealth is still 0.
+    /// </summary>
     private static bool IsPartBroken(MonsterLivePartFixture p)
-        => p.BreakCount > 0
-           || (p.MaxHealth > 0 && p.Health <= 0)
-           || (p.MaxHealth <= 0 && p.BreakCount > 0);
+    {
+        if (p.IsQurioThreshold)
+            return false;
+
+        if (p.BreakCount > 0)
+            return true;
+
+        if (p.IsSeverable && p.MaxSever > 0 && p.Sever >= p.MaxSever
+            && p.MaxFlinch > 0 && p.Flinch < p.MaxFlinch)
+            return true;
+
+        if (p.MaxHealth > 0 && p.Health <= 0 && !p.IsQurio)
+            return true;
+
+        if (p.IsBreakable && p.MaxHealth <= 0 && p.MaxFlinch > 0 && p.Flinch < p.MaxFlinch)
+            return true;
+
+        if (p.IsBreakable && p.MaxHealth <= 0 && p.BreakCount > 0)
+            return true;
+
+        return false;
+    }
 
     private static bool IsEnrageId(string id)
         => string.Equals(id, "STATUS_ENRAGE", StringComparison.OrdinalIgnoreCase)
@@ -136,7 +234,15 @@ public sealed record MonsterLivePartFixture(
     string DisplayName,
     double Health,
     double MaxHealth,
-    int BreakCount);
+    int BreakCount,
+    bool IsQurio = false,
+    double Flinch = 0,
+    double MaxFlinch = 0,
+    double Sever = 0,
+    double MaxSever = 0,
+    bool IsBreakable = false,
+    bool IsSeverable = false,
+    bool IsQurioThreshold = false);
 
 public sealed record MonsterLiveAilmentFixture(
     string Id,
@@ -159,4 +265,5 @@ public sealed record MonsterLiveFixture(
     IReadOnlyList<MonsterLivePartFixture> Parts,
     IReadOnlyList<MonsterLiveAilmentFixture> Ailments,
     MonsterLiveAilmentFixture? Enrage,
-    bool QuestAllowsCapture);
+    bool QuestAllowsCapture,
+    bool IsAnomaly = false);

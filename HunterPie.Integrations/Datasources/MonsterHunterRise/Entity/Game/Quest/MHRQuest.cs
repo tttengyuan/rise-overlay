@@ -12,23 +12,47 @@ using HunterPie.Integrations.Datasources.MonsterHunterRise.Utils;
 
 namespace HunterPie.Integrations.Datasources.MonsterHunterRise.Entity.Game.Quest;
 
-public class MHRQuest(
-    IGameProcess process,
-    IScanService scanService,
-    int id,
-    QuestType type,
-    QuestLevel level,
-    int stars
-    ) : Scannable(process, scanService), IQuest, IDisposable, IEventDispatcher
+public class MHRQuest : Scannable, IQuest, IDisposable, IEventDispatcher
 {
+    private readonly List<string> _briefingMonsterIds = [];
+
+    public MHRQuest(
+        IGameProcess process,
+        IScanService scanService,
+        int id,
+        QuestType type,
+        QuestLevel level,
+        int stars,
+        IReadOnlyList<string>? briefingMonsterIds = null
+    ) : base(process, scanService)
+    {
+        Id = id;
+        Type = type;
+        Level = level;
+        Stars = stars;
+        if (briefingMonsterIds is { Count: > 0 })
+            _briefingMonsterIds.AddRange(briefingMonsterIds);
+    }
+
     /// <inheritdoc />
-    public int Id { get; } = id;
+    public int Id { get; }
 
     /// <inheritdoc />
     public string Name => string.Empty;
 
     /// <inheritdoc />
-    public QuestType Type { get; } = type;
+    public QuestType Type { get; }
+
+    /// <inheritdoc />
+    public IReadOnlyList<string> BriefingMonsterIds => _briefingMonsterIds;
+
+    /// <summary>Update anomaly investigation targets when memory becomes available after accept.</summary>
+    public void ReplaceBriefingMonsterIds(IReadOnlyList<string> ids)
+    {
+        _briefingMonsterIds.Clear();
+        if (ids.Count > 0)
+            _briefingMonsterIds.AddRange(ids);
+    }
 
     /// <inheritdoc />
     public QuestStatus Status
@@ -63,10 +87,10 @@ public class MHRQuest(
     public int MaxDeaths { get; private set; }
 
     /// <inheritdoc />
-    public QuestLevel Level { get; } = level;
+    public QuestLevel Level { get; }
 
     /// <inheritdoc />
-    public int Stars { get; } = stars;
+    public int Stars { get; }
 
     /// <inheritdoc />
     public TimeSpan TimeLeft

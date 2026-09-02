@@ -8,6 +8,8 @@
     <StackPanel>
         <!-- Prefer VM shape with MonsterHud / DpsPanel (RiseCompactMonsterViewModel); playground may override child DataContext. -->
         <views:MonsterHudView x:Name="MonsterHud" DataContext="{Binding MonsterHud}" />
-        <views:DpsPanelView x:Name="DpsPanel" DataContext="{Binding DpsPanel}" Margin="0,5,0,0" />
+        <Border Visibility="{Binding DpsVisibility}" Margin="0,5,0,0">
+            <views:DpsPanelView x:Name="DpsPanel" DataContext="{Binding DpsPanel}" />
+        </Border>
     </StackPanel>
 </UserControl>

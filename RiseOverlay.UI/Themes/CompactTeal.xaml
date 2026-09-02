@@ -21,11 +21,22 @@
     <Color x:Key="Colors.AccentTeal">#FF4A9B9B</Color>
     <SolidColorBrush x:Key="Brushes.AccentTeal" Color="{StaticResource Colors.AccentTeal}" />
 
+    <!-- Main monster HP bar (normal + anomaly) -->
+    <Color x:Key="Colors.AccentHealth">#FFD94B43</Color>
+    <SolidColorBrush x:Key="Brushes.AccentHealth" Color="{StaticResource Colors.AccentHealth}" />
+
+    <!-- Qurio / 啮生虫 + infected parts -->
+    <Color x:Key="Colors.AccentQurio">#FFE11D48</Color>
+    <SolidColorBrush x:Key="Brushes.AccentQurio" Color="{StaticResource Colors.AccentQurio}" />
+
     <!-- Severable part bar (mockup .bar > i.sever) -->
     <LinearGradientBrush x:Key="Brushes.AccentSever" StartPoint="0,0.5" EndPoint="1,0.5">
         <GradientStop Color="#FFEA580C" Offset="0" />
         <GradientStop Color="#FFFB923C" Offset="1" />
     </LinearGradientBrush>
+
+    <Color x:Key="Colors.AccentStun">#FFEAB308</Color>
+    <SolidColorBrush x:Key="Brushes.AccentStun" Color="{StaticResource Colors.AccentStun}" />
 
     <!-- Typography (10–12) -->
     <sys:Double x:Key="Fonts.Size.Small">10</sys:Double>

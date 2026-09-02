@@ -53,6 +53,59 @@ public static class MonsterHudMapper
     }
 
     /// <summary>
+    /// Fresh hunt shell after quest reset — empty HP, capture/weaken line from static, no live combat residue.
+    /// </summary>
+    public static MonsterHudDto ToResetHud(MonsterStaticMapped mapped, bool questAllowsCapture)
+    {
+        ArgumentNullException.ThrowIfNull(mapped);
+
+        bool showCapture = CaptureRules.ShowCaptureUi(mapped.IsCapturable, questAllowsCapture);
+        double? weakenThreshold = CaptureRules.ResolveWeakenThresholdPercent(
+            mapped.IsCapturable,
+            isAnomaly: false,
+            liveThresholdPercent: null,
+            mapped.CaptureThresholdPercent,
+            DefaultCaptureThresholdPercent);
+
+        return new MonsterHudDto(
+            Name: mapped.Name,
+            HealthCurrent: 0,
+            HealthMax: 0,
+            IsCapturable: showCapture,
+            CaptureThresholdPercent: weakenThreshold,
+            OverallElementsOrdered: mapped.OverallElementsOrdered,
+            Recommended: mapped.Recommended ?? Array.Empty<ElementId>(),
+            Status: EmptyStatus,
+            Parts: Array.Empty<PartDto>(),
+            Ailments: Array.Empty<AilmentDto>(),
+            CaptureState: CaptureRules.ResolveDisplayState(
+                mapped.IsCapturable,
+                questAllowsCapture,
+                isAnomaly: false));
+    }
+
+    public static MonsterHudDto ToEmptyHud()
+        => new(
+            Name: "",
+            HealthCurrent: 0,
+            HealthMax: 0,
+            IsCapturable: false,
+            CaptureThresholdPercent: null,
+            OverallElementsOrdered: OverallDisplayOrder,
+            Recommended: Array.Empty<ElementId>(),
+            Status: EmptyStatus,
+            Parts: Array.Empty<PartDto>(),
+            Ailments: Array.Empty<AilmentDto>());
+
+    private static readonly StatusLineModel EmptyStatus = new(
+        EnrageRemaining: null,
+        StunBuildupPercent: null,
+        StunActive: false,
+        StunActiveRemaining: null,
+        StaminaPercent: null,
+        DownRemaining: null);
+
+    /// <summary>
     /// Fallback when static table miss: HP/parts/ailments still render; no weakness chips.
     /// </summary>
     public static MonsterStaticMapped CreateFallbackStatic(
@@ -77,25 +130,42 @@ public static class MonsterHudMapper
         ArgumentNullException.ThrowIfNull(live);
 
         var showCapture = CaptureRules.ShowCaptureUi(staticSnapshot.IsCapturable, live.QuestAllowsCapture);
-        var threshold = showCapture
-            ? live.CaptureThresholdPercent ?? staticSnapshot.CaptureThresholdPercent
+        // Capture banner only when quest allows capture and live memory reports a threshold.
+        bool canCapture = showCapture && live.CaptureThresholdPercent is > 0;
+
+        double? weakenThreshold = CaptureRules.ResolveWeakenThresholdPercent(
+            staticSnapshot.IsCapturable,
+            live.IsAnomaly,
+            live.CaptureThresholdPercent,
+            staticSnapshot.CaptureThresholdPercent,
+            DefaultCaptureThresholdPercent);
+
+        var recommended = staticSnapshot.Recommended ?? Array.Empty<ElementId>();
+        var recommendedSet = recommended.Count > 0
+            ? new HashSet<ElementId>(recommended)
             : null;
 
-        var staticByName = staticSnapshot.Parts
-            .GroupBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        var staticParts = staticSnapshot.Parts ?? Array.Empty<MappedPartStatic>();
 
         var parts = (live.Parts ?? Array.Empty<LivePartSnapshot>())
             .Select(lp =>
             {
-                staticByName.TryGetValue(lp.Name, out var sp);
+                var sp = FindStaticPart(staticParts, lp.Name);
+                var partWeak = sp?.WeakElements ?? Array.Empty<ElementId>();
+                bool isRecommendedTarget = recommendedSet is not null
+                    && partWeak.Any(recommendedSet.Contains);
+                var displayName = PartNameSanitizer.Clean(lp.Name);
+                if (string.IsNullOrWhiteSpace(displayName))
+                    displayName = lp.Name;
                 return new PartDto(
-                    Name: lp.Name,
+                    Name: displayName,
                     CurrentHp: lp.CurrentHp,
                     MaxHp: lp.MaxHp,
                     IsSeverable: sp?.IsSeverable ?? false,
                     IsBroken: lp.IsBroken,
-                    WeakElements: sp?.WeakElements ?? Array.Empty<ElementId>());
+                    WeakElements: partWeak,
+                    IsQurio: lp.IsQurio,
+                    IsRecommendedTarget: isRecommendedTarget);
             })
             .ToArray();
 
@@ -109,13 +179,28 @@ public static class MonsterHudMapper
             Name: staticSnapshot.Name,
             HealthCurrent: live.HealthCurrent,
             HealthMax: live.HealthMax,
-            IsCapturable: showCapture,
-            CaptureThresholdPercent: threshold,
+            IsCapturable: canCapture,
+            CaptureThresholdPercent: weakenThreshold,
             OverallElementsOrdered: staticSnapshot.OverallElementsOrdered,
-            Recommended: staticSnapshot.Recommended,
+            Recommended: recommended,
             Status: live.Status,
             Parts: parts,
-            Ailments: ailments);
+            Ailments: ailments,
+            CaptureState: CaptureRules.ResolveDisplayState(
+                staticSnapshot.IsCapturable,
+                live.QuestAllowsCapture,
+                live.IsAnomaly));
+    }
+
+    private static MappedPartStatic? FindStaticPart(IReadOnlyList<MappedPartStatic> parts, string liveName)
+    {
+        foreach (var sp in parts)
+        {
+            if (PartNameSanitizer.Matches(sp.Name, liveName))
+                return sp;
+        }
+
+        return null;
     }
 
     private static Dictionary<ElementId, int> AggregateMaxElements(IReadOnlyList<StaticHitzoneRow> hitzones)
@@ -143,28 +228,52 @@ public static class MonsterHudMapper
 
     private static IReadOnlyList<MappedPartStatic> BuildParts(StaticMonsterSnapshot monster)
     {
+        var hitzones = monster.Hitzones ?? Array.Empty<StaticHitzoneRow>();
         var partRows = monster.Parts ?? Array.Empty<StaticPartRow>();
-        if (partRows.Count == 0)
+
+        // Union break/sever table with every hitzone part name — Parts alone is often only
+        // breakable/severable rows, which dropped WeakElements chips on other live parts.
+        var orderedNames = new List<string>();
+        var seenKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        void Consider(string? raw)
         {
-            // Fall back to unique hitzone part names when Parts table is empty.
-            partRows = (monster.Hitzones ?? Array.Empty<StaticHitzoneRow>())
-                .Select(h => h.Part)
-                .Where(n => !string.IsNullOrWhiteSpace(n))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Select(n => new StaticPartRow(n, null, null))
-                .ToArray();
+            var cleaned = PartNameSanitizer.Clean(raw);
+            if (string.IsNullOrWhiteSpace(cleaned))
+                return;
+            // Placeholder rows from bad converters — never map to live PART_* names.
+            if (cleaned is "肉质" or "damage")
+                return;
+
+            var key = PartNameSanitizer.NormalizeKey(cleaned);
+            if (key.Length == 0 || !seenKeys.Add(key))
+                return;
+
+            orderedNames.Add(cleaned);
         }
 
-        return partRows
-            .Select(p =>
+        foreach (var p in partRows)
+            Consider(p.Part);
+        foreach (var h in hitzones)
+            Consider(h.Part);
+
+        if (orderedNames.Count == 0 && partRows.Count > 0)
+        {
+            foreach (var p in partRows)
+                Consider(p.Part);
+        }
+
+        return orderedNames
+            .Select(name =>
             {
-                var elements = AggregateMaxElements(
-                    (monster.Hitzones ?? Array.Empty<StaticHitzoneRow>())
-                        .Where(h => string.Equals(h.Part, p.Part, StringComparison.OrdinalIgnoreCase))
-                        .ToArray());
+                var matchedRows = hitzones
+                    .Where(h => PartNameSanitizer.Matches(h.Part, name))
+                    .ToArray();
+                var elements = AggregateMaxElements(matchedRows);
+                var meta = partRows.FirstOrDefault(p => PartNameSanitizer.Matches(p.Part, name));
                 return new MappedPartStatic(
-                    Name: p.Part,
-                    IsSeverable: IsSeverable(p),
+                    Name: name,
+                    IsSeverable: meta is not null && IsSeverable(meta),
                     WeakElements: PartWeakness.ForPart(elements));
             })
             .ToArray();
@@ -182,7 +291,7 @@ public static class MonsterHudMapper
         var bestScore = -1;
 
         foreach (var group in (monster.Hitzones ?? Array.Empty<StaticHitzoneRow>())
-                     .GroupBy(h => h.Part, StringComparer.OrdinalIgnoreCase))
+                     .GroupBy(h => PartNameSanitizer.Clean(h.Part), StringComparer.OrdinalIgnoreCase))
         {
             var max = AggregateMaxElements(group.ToArray());
             var score = max.Values.DefaultIfEmpty(0).Max();
@@ -190,6 +299,9 @@ public static class MonsterHudMapper
                 continue;
 
             var name = group.Key;
+            if (string.IsNullOrWhiteSpace(name))
+                continue;
+
             if (score > bestScore || (score == bestScore && IsHeadLike(name) && !IsHeadLike(bestName)))
             {
                 bestScore = score;
@@ -203,7 +315,7 @@ public static class MonsterHudMapper
         var breakable = (monster.Parts ?? Array.Empty<StaticPartRow>())
             .FirstOrDefault(p => !string.IsNullOrWhiteSpace(p.Break));
         if (breakable is not null)
-            return ToShortLabel(breakable.Part);
+            return ToShortLabel(PartNameSanitizer.Clean(breakable.Part));
 
         return parts.FirstOrDefault()?.Name is { } n ? ToShortLabel(n) : null;
     }
@@ -214,9 +326,10 @@ public static class MonsterHudMapper
 
     private static string ToShortLabel(string partName)
     {
+        var cleaned = PartNameSanitizer.Clean(partName);
         // Keep simple: "头部" → "头"; otherwise use the part name as-is.
-        if (partName.EndsWith("部", StringComparison.Ordinal) && partName.Length >= 2)
-            return partName[..^1];
-        return partName;
+        if (cleaned.EndsWith("部", StringComparison.Ordinal) && cleaned.Length >= 2)
+            return cleaned[..^1];
+        return cleaned;
     }
 }

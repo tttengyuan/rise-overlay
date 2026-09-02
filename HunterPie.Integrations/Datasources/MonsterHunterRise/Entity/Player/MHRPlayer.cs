@@ -645,13 +645,19 @@ public sealed class MHRPlayer : CommonPlayer
             nint weaponPtr = playerWeaponsPtr[index];
             string name = await Memory.ReadAsync(data.NamePointer + 0x14, 32, Encoding.Unicode);
 
-            if (!isValid || weaponPtr.IsNullPointer())
+            if (!isValid)
             {
                 if (isOnlineSession)
                     _party.Remove(index);
 
                 continue;
             }
+
+            // Missing SESSION weapon ptr is common in solo village/hub hunts.
+            // Do NOT Remove — that recreates the member at Damage=0 and IPC may skip
+            // duplicate hunt-stat packets afterward (DPS stuck at 0).
+            if (weaponPtr.IsNullPointer())
+                continue;
 
             int weapon = await Memory.ReadAsync<int>(weaponPtr + 0x134);
 
@@ -675,6 +681,34 @@ public sealed class MHRPlayer : CommonPlayer
 
             _party.Update(memberData);
         }
+
+        EnsureLocalPlayerInParty();
+    }
+
+    private void EnsureLocalPlayerInParty()
+    {
+        if (string.IsNullOrEmpty(Name))
+            return;
+
+        if (_party.Members.Any(m => m.IsMyself && m.Type == MemberType.Player))
+            return;
+
+        _party.Update(new MHRPartyMemberData
+        {
+            Index = 0,
+            Slot = 0,
+            Name = Name,
+            HighRank = HighRank,
+            MasterRank = MasterRank,
+            WeaponId = _weaponId,
+            IsMyself = true,
+            MemberType = MemberType.Player,
+            Status = new(
+                RawDamage: (float)_status.RawDamage,
+                ElementalDamage: (float)_status.ElementalDamage,
+                Affinity: (int)_status.Affinity
+            )
+        });
     }
 
     private async Task<PartyMemberMetadata[]> GetServantsDataAsync(int realPlayersCount)

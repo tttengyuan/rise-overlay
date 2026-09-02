@@ -2,30 +2,15 @@ using RiseOverlay.Domain;
 
 public class DpsPanelMapperTests
 {
-    [Theory]
-    [InlineData(1000, 10, 100.0)]
-    [InlineData(1000, 0, 1000.0)]
-    [InlineData(1000, 0.5, 1000.0)]
-    [InlineData(0, 30, 0.0)]
-    [InlineData(500, 1, 500.0)]
-    public void CalculateDps_divides_by_elapsed_with_floor_of_one(
-        long totalDamage,
-        double questElapsedSeconds,
-        double expected)
-    {
-        Assert.Equal(expected, DpsPanelMapper.CalculateDps(totalDamage, questElapsedSeconds));
-    }
-
     [Fact]
     public void FromSnapshots_sorts_by_total_damage_descending()
     {
         var dto = DpsPanelMapper.FromSnapshots(
         [
-            new DpsMemberSnapshot("C", false, 100),
-            new DpsMemberSnapshot("A", true, 300),
-            new DpsMemberSnapshot("B", false, 200),
-        ],
-        questElapsedSeconds: 10);
+            new DpsMemberSnapshot("C", false, 100, 10),
+            new DpsMemberSnapshot("A", true, 300, 30),
+            new DpsMemberSnapshot("B", false, 200, 20),
+        ]);
 
         Assert.Equal(3, dto.Entries.Count);
         Assert.Equal(["A", "B", "C"], dto.Entries.Select(e => e.Name).ToArray());
@@ -37,21 +22,13 @@ public class DpsPanelMapperTests
     public void FromSnapshots_takes_top_four_by_damage()
     {
         var members = Enumerable.Range(1, 6)
-            .Select(i => new DpsMemberSnapshot($"P{i}", false, i * 10L))
+            .Select(i => new DpsMemberSnapshot($"P{i}", false, i * 10L, i))
             .ToArray();
 
-        var dto = DpsPanelMapper.FromSnapshots(members, questElapsedSeconds: 5);
+        var dto = DpsPanelMapper.FromSnapshots(members);
 
         Assert.Equal(4, dto.Entries.Count);
         Assert.Equal(["P6", "P5", "P4", "P3"], dto.Entries.Select(e => e.Name).ToArray());
-    }
-
-    [Fact]
-    public void ToEntry_uses_question_mark_for_blank_name()
-    {
-        var entry = DpsPanelMapper.ToEntry("  ", isSelf: false, totalDamage: 50, questElapsedSeconds: 10);
-        Assert.Equal("?", entry.Name);
-        Assert.Equal(5.0, entry.Dps);
     }
 
     [Fact]
@@ -59,11 +36,58 @@ public class DpsPanelMapperTests
     {
         var dto = DpsPanelMapper.FromSnapshots(
         [
-            new DpsMemberSnapshot("X", true, -10),
-        ],
-        questElapsedSeconds: 2);
+            new DpsMemberSnapshot("X", true, -10, -5),
+        ]);
 
         Assert.Equal(0, dto.Entries[0].TotalDamage);
         Assert.Equal(0.0, dto.Entries[0].Dps);
+    }
+
+    [Fact]
+    public void FromSnapshots_uses_question_mark_for_blank_name()
+    {
+        var dto = DpsPanelMapper.FromSnapshots(
+        [
+            new DpsMemberSnapshot("  ", false, 50, 12.5),
+        ]);
+
+        Assert.Equal("?", dto.Entries[0].Name);
+        Assert.Equal(12.5, dto.Entries[0].Dps);
+    }
+}
+
+public class OriginalDpsCalculatorTests
+{
+    [Theory]
+    [InlineData(DpsCalculationMode.RelativeToQuest, 0, 0, 100)]
+    [InlineData(DpsCalculationMode.RelativeToJoin, 5, 0, 200)]
+    [InlineData(DpsCalculationMode.RelativeToFirstHit, 0, 8, 500)]
+    public void Calculate_matches_original_three_strategies(
+        DpsCalculationMode mode,
+        double joinedAt,
+        double firstHitAt,
+        double expected)
+    {
+        Assert.Equal(
+            expected,
+            OriginalDpsCalculator.Calculate(
+                totalDamage: 1000,
+                questElapsed: 10,
+                joinedAt,
+                firstHitAt,
+                mode));
+    }
+
+    [Fact]
+    public void Calculate_clamps_denominator_to_one_second_like_original()
+    {
+        Assert.Equal(
+            1000,
+            OriginalDpsCalculator.Calculate(
+                totalDamage: 1000,
+                questElapsed: 10,
+                joinedAt: 10,
+                firstHitAt: 10,
+                DpsCalculationMode.RelativeToJoin));
     }
 }

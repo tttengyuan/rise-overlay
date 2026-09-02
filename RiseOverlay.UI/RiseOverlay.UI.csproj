@@ -10,6 +10,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Resource Include="Resources\rise-hp-icon.png" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\RiseOverlay.Domain\RiseOverlay.Domain.csproj" />
     <ProjectReference Include="..\RiseOverlay.Data\RiseOverlay.Data.csproj" />
     <ProjectReference Include="..\HunterPie.Core\HunterPie.Core.csproj" />

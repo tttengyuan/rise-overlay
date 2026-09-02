@@ -14,7 +14,9 @@ public sealed record PartDto(
     double MaxHp,
     bool IsSeverable,
     bool IsBroken,
-    IReadOnlyList<ElementId> WeakElements);
+    IReadOnlyList<ElementId> WeakElements,
+    bool IsQurio = false,
+    bool IsRecommendedTarget = false);
 
 public sealed record AilmentDto(
     string Key,
@@ -32,11 +34,14 @@ public sealed record MonsterHudDto(
     IReadOnlyList<ElementId> Recommended,
     StatusLineModel Status,
     IReadOnlyList<PartDto> Parts,
-    IReadOnlyList<AilmentDto> Ailments);
+    IReadOnlyList<AilmentDto> Ailments,
+    CaptureDisplayState CaptureState = CaptureDisplayState.Capturable);
 
 public sealed record DpsEntryDto(string Name, bool IsSelf, double Dps, long TotalDamage);
 
-public sealed record DpsPanelDto(IReadOnlyList<DpsEntryDto> Entries);
+public sealed record DpsPanelDto(
+    IReadOnlyList<DpsEntryDto> Entries,
+    double? HuntDurationSeconds = null);
 
 public sealed record QuestBriefingTargetDto(
     string Name,

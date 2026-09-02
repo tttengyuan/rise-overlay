@@ -3,6 +3,7 @@ using HunterPie.Core.Client.Configuration.Overlay;
 using HunterPie.Core.Client.Localization;
 using HunterPie.Core.Domain.Enums;
 using HunterPie.Core.Game;
+using HunterPie.Core.Observability.Logging;
 using HunterPie.UI.Architecture.Overlay;
 using HunterPie.UI.Overlay;
 using HunterPie.UI.Overlay.Service;
@@ -23,6 +24,7 @@ internal class RiseCompactMonsterWidgetInitializer(
     IOverlay overlay,
     ILocalizationRepository localizationRepository) : IWidgetInitializer
 {
+    private readonly ILogger _logger = LoggerFactory.Create();
     private readonly IOverlay _overlay = overlay;
     private readonly ILocalizationRepository _localizationRepository = localizationRepository;
 
@@ -39,9 +41,16 @@ internal class RiseCompactMonsterWidgetInitializer(
             game: context.Process.Type,
             overlay => ((MHROverlayConfig)overlay).RiseCompactMonsterWidget
         );
+        DamageMeterWidgetConfig damageConfig = ClientConfigHelper.DeferOverlayConfig(
+            game: context.Process.Type,
+            overlay => overlay.DamageMeterWidget
+        );
 
         if (!config.Initialize)
+        {
+            _logger.Info("RiseCompactMonsterWidget Initialize=false — skipped");
             return Task.CompletedTask;
+        }
 
         MonsterStaticStore store;
         try
@@ -54,26 +63,41 @@ internal class RiseCompactMonsterWidgetInitializer(
             store = MonsterStaticStore.LoadEmpty();
         }
 
+        QuestStaticStore questStore;
+        try
+        {
+            questStore = QuestStaticStore.Load(QuestStaticStore.DefaultJsonPath());
+        }
+        catch (Exception)
+        {
+            questStore = QuestStaticStore.LoadEmpty();
+        }
+
         var viewModel = new RiseCompactMonsterViewModel(config);
 
         string LocalizePart(string id)
         {
             string path = $"//Strings/Monsters/Shared/Part[@Id='{id}']";
-            return _localizationRepository.ExistsBy(path)
+            string raw = _localizationRepository.ExistsBy(path)
                 ? _localizationRepository.FindStringBy(path)
                 : id;
+            string cleaned = RiseOverlay.Domain.PartNameSanitizer.Clean(raw);
+            return string.IsNullOrWhiteSpace(cleaned) ? raw : cleaned;
         }
 
         _monsterHandler = new RiseMonsterHudController(
             context: context,
             viewModel: viewModel,
             staticStore: store,
-            localizePart: LocalizePart
+            localizePart: LocalizePart,
+            questStore: questStore
         );
-        _dpsHandler = new RiseDpsController(context, viewModel);
-        _briefingHandler = new QuestBriefingController(context, viewModel, store);
+        _dpsHandler = new RiseDpsController(context, viewModel, damageConfig);
+        _briefingHandler = new QuestBriefingController(context, viewModel, store, questStore);
 
         _view = _overlay.Register(viewModel);
+        _logger.Info(
+            $"Rise compact overlay registered at ({config.Position.X:0},{config.Position.Y:0}) (briefing + combat HUD)");
         return Task.CompletedTask;
     }
 

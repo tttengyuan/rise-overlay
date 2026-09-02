@@ -98,10 +98,19 @@ V1 ships as a **folder** from `dotnet publish` (no installer required). Native a
 dotnet build HunterPie/HunterPie.csproj -c Release
 ```
 
-3. **Publish folder (V1):**
+3. **Publish folder (V1):** Prefer the sync script (copies Languages + binaries; `dotnet publish` alone often **omits** `Languages\*.xml` and the client will start with no window):
+
+```powershell
+dotnet build HunterPie/HunterPie.csproj -c Release
+powershell -ExecutionPolicy Bypass -File Scripts\sync-publish.ps1
+```
+
+Or after a raw `dotnet publish`, always copy languages:
 
 ```powershell
 dotnet publish HunterPie/HunterPie.csproj -c Release -o F:\rise-overlay\publish\RiseOverlay
+mkdir F:\rise-overlay\publish\RiseOverlay\Languages -Force
+copy F:\rise-overlay\Localization\localization\*.xml F:\rise-overlay\publish\RiseOverlay\Languages\
 ```
 
 4. **Native DLL** — injector loads `libs/HunterPie.Native.dll` (see `IPCInjectorInitializer`). After a VS Native x64 build, copy into both run and publish trees:
@@ -127,4 +136,19 @@ Launch `HunterPie.exe` from the publish folder, start Monster Hunter Rise, then 
 
 Manual acceptance checklist (spec §7 + known gaps):  
 `docs/superpowers/specs/2026-08-31-rise-overlay-qa-checklist.md`
+
+## Updates (GitHub Releases)
+
+Repo: https://github.com/tttengyuan/rise-overlay
+
+**You (publisher):**
+
+```powershell
+powershell -ExecutionPolicy Bypass -File Scripts\release.ps1
+# or pin version:
+powershell -ExecutionPolicy Bypass -File Scripts\release.ps1 -Version 1.0.1
+```
+
+**Friends:** open the shell window → **检查更新** (needs network access to GitHub; VPN may help in CN).  
+First install still needs one manual download from Releases.
 

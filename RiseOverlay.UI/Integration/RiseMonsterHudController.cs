@@ -3,6 +3,7 @@ using HunterPie.Core.Game.Entity.Enemy;
 using HunterPie.Core.Game.Entity.Game.Quest;
 using HunterPie.Core.Game.Enums;
 using HunterPie.Core.Game.Events;
+using HunterPie.Integrations.Datasources.MonsterHunterRise.Entity.Enemy;
 using HunterPie.UI.Overlay;
 using RiseOverlay.Data;
 using RiseOverlay.Domain;
@@ -19,19 +20,30 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
     private readonly IContext _context;
     private readonly RiseCompactMonsterViewModel _viewModel;
     private readonly MonsterStaticStore _staticStore;
+    private readonly QuestStaticStore _questStore;
     private readonly Func<string, string> _localizePart;
     private readonly Dictionary<IMonster, MonsterBinding> _bindings = new();
     private IMonster? _active;
+    private bool _hudFrozen;
+    private MonsterHudDto? _frozenHudDto;
+    /// <summary>Last in-combat HUD frame — used when quest end already wiped memory HP to 0.</summary>
+    private MonsterHudDto? _lastLiveHudDto;
+    private IMonster? _lastLiveMonster;
+
+    private bool IsOnHuntMap()
+        => _context.Game.Player.InHuntingZone || _context.Game.Player.StageId == 5;
 
     public RiseMonsterHudController(
         IContext context,
         RiseCompactMonsterViewModel viewModel,
         MonsterStaticStore staticStore,
-        Func<string, string>? localizePart = null)
+        Func<string, string>? localizePart = null,
+        QuestStaticStore? questStore = null)
     {
         _context = context;
         _viewModel = viewModel;
         _staticStore = staticStore;
+        _questStore = questStore ?? QuestStaticStore.LoadEmpty();
         _localizePart = localizePart ?? (id => id);
 
         HookEvents();
@@ -45,6 +57,7 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
         _context.Game.OnMonsterDespawn += OnMonsterDespawn;
         _context.Game.OnQuestStart += OnQuestChanged;
         _context.Game.OnQuestEnd += OnQuestEnded;
+        _context.Game.Player.OnStageUpdate += OnStageUpdate;
     }
 
     public void UnhookEvents()
@@ -53,6 +66,7 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
         _context.Game.OnMonsterDespawn -= OnMonsterDespawn;
         _context.Game.OnQuestStart -= OnQuestChanged;
         _context.Game.OnQuestEnd -= OnQuestEnded;
+        _context.Game.Player.OnStageUpdate -= OnStageUpdate;
 
         foreach (var binding in _bindings.Values)
             binding.Dispose();
@@ -87,10 +101,48 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
         });
 
     private void OnQuestChanged(object? sender, IQuest e)
-        => _viewModel.UIThread.BeginInvoke(PushActiveHud);
+        => _viewModel.UIThread.BeginInvoke(() =>
+        {
+            ClearHudFreeze();
+            _lastLiveHudDto = null;
+            _lastLiveMonster = null;
+            _active = null;
+            ApplyResetHudForQuest(e);
+            RefreshActiveMonster();
+        });
 
     private void OnQuestEnded(object? sender, QuestEndEventArgs e)
-        => _viewModel.UIThread.BeginInvoke(PushActiveHud);
+    {
+        // Prefer an already-held death freeze, then last combat frame.
+        // Never rebuild from whatever map invader is currently Target.Self at quest-end.
+        MonsterHudDto? captured = ChooseFreezeSnapshot(liveNow: null);
+
+        _viewModel.UIThread.BeginInvoke(() =>
+        {
+            if (IsOnHuntMap())
+            {
+                _hudFrozen = true;
+                if (captured is not null)
+                    _frozenHudDto = captured;
+                ApplyHudPresentation();
+                return;
+            }
+
+            ClearHudFreeze();
+            RefreshActiveMonster();
+        });
+    }
+
+    private void OnStageUpdate(object? sender, EventArgs e)
+        => _viewModel.UIThread.BeginInvoke(() =>
+        {
+            bool leftHunt = !IsOnHuntMap();
+            if (!_hudFrozen || !leftHunt || _context.Game.Quest is not null)
+                return;
+
+            ClearHudFreeze();
+            RefreshActiveMonster();
+        });
 
     private void AttachMonster(IMonster monster)
     {
@@ -104,6 +156,27 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
     private void OnMonsterDataChanged(IMonster monster)
         => _viewModel.UIThread.BeginInvoke(() =>
         {
+            if (_hudFrozen)
+            {
+                // Multi-target hunts: unlock only when the player locks onto another *alive* monster.
+                // Map invaders briefly stealing Target after a kill must not replace the hold.
+                if (_context.Game.Quest is not null)
+                {
+                    IMonster? lockedAlive = SelectAliveLockedMonster();
+                    if (lockedAlive is not null && !ReferenceEquals(lockedAlive, _active))
+                    {
+                        ClearHudFreeze();
+                        _active = lockedAlive;
+                        _viewModel.HasActiveMonster = true;
+                        PushActiveHud();
+                        return;
+                    }
+                }
+
+                ApplyHudPresentation();
+                return;
+            }
+
             if (!ReferenceEquals(_active, monster))
             {
                 RefreshActiveMonster();
@@ -115,34 +188,153 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
 
     private void RefreshActiveMonster()
     {
+        if (_hudFrozen)
+        {
+            ApplyHudPresentation();
+            return;
+        }
+
         IMonster? next = SelectActiveMonster();
         _active = next;
-        _viewModel.HasActiveMonster = next is not null && next.Health > 0;
+        _viewModel.HasActiveMonster = next is not null;
         PushActiveHud();
     }
 
     private IMonster? SelectActiveMonster()
     {
-        var alive = _bindings.Keys.Where(m => m.Health > 0).ToArray();
-        if (alive.Length == 0)
-            return null;
+        if (_hudFrozen && _active is not null)
+            return _active;
 
-        var targeted = alive.FirstOrDefault(m => m.Target == Target.Self)
-                       ?? alive.FirstOrDefault(m => m.ManualTarget == Target.Self);
-        return targeted ?? alive[0];
+        // Only real camera lock-on (Target.Self) among alive monsters.
+        // Never fall back to "any alive map monster" — that swaps the panel to invasions
+        // the moment the hunted target dies.
+        return SelectAliveLockedMonster();
+    }
+
+    private IMonster? SelectAliveLockedMonster()
+        => _bindings.Keys.FirstOrDefault(m =>
+            m.Target == Target.Self
+            && m.MaxHealth > 0
+            && MonsterHealthDisplay.ForHud(m.Health, m.MaxHealth) > 0);
+
+    private void ApplyHudPresentation()
+    {
+        if (_hudFrozen && _frozenHudDto is not null)
+        {
+            _viewModel.MonsterHud.ApplyDto(_frozenHudDto);
+            _viewModel.HasActiveMonster = true;
+            return;
+        }
+
+        PushActiveHud();
+    }
+
+    private void ClearHudFreeze()
+    {
+        _hudFrozen = false;
+        _frozenHudDto = null;
+    }
+
+    /// <summary>
+    /// Prefer the pre-death combat frame. Live quest-end memory is often already 0 HP
+    /// or points at an unrelated map monster.
+    /// </summary>
+    private MonsterHudDto? ChooseFreezeSnapshot(MonsterHudDto? liveNow)
+    {
+        if (_frozenHudDto is not null)
+            return _frozenHudDto;
+
+        if (_lastLiveHudDto is { HealthCurrent: > 0 })
+            return _lastLiveHudDto;
+
+        if (liveNow is { HealthCurrent: > 0 })
+            return liveNow;
+
+        return _lastLiveHudDto ?? liveNow;
+    }
+
+    private void FreezeOnActiveDeath(MonsterHudDto lastAliveFrame)
+    {
+        _hudFrozen = true;
+        _frozenHudDto = lastAliveFrame;
+        ApplyHudPresentation();
+    }
+
+    private void ApplyResetHudForQuest(IQuest quest)
+    {
+        MonsterStaticMapped? mapped = ResolvePrimaryTargetStatic(quest);
+        bool questAllows = MonsterLiveAdapter.ResolveQuestAllowsCapture(
+            quest.Type.ToString(),
+            quest.Level.ToString());
+
+        MonsterHudDto dto = mapped is not null
+            ? MonsterHudMapper.ToResetHud(mapped, questAllows)
+            : MonsterHudMapper.ToEmptyHud();
+
+        _viewModel.MonsterHud.ApplyDto(dto);
+        _viewModel.HasActiveMonster = false;
+    }
+
+    private MonsterStaticMapped? ResolvePrimaryTargetStatic(IQuest quest)
+    {
+        foreach (string monsterRef in quest.BriefingMonsterIds)
+        {
+            MonsterStaticMapped? mapped = MapStaticRef(monsterRef);
+            if (mapped is not null)
+                return mapped;
+        }
+
+        QuestStaticDto? staticQuest = _questStore.FindById(quest.Id);
+        if (staticQuest is not null)
+        {
+            foreach (string monsterRef in staticQuest.Monsters)
+            {
+                MonsterStaticMapped? mapped = MapStaticRef(monsterRef);
+                if (mapped is not null)
+                    return mapped;
+            }
+        }
+
+        return null;
+    }
+
+    private MonsterStaticMapped? MapStaticRef(string monsterRef)
+    {
+        MonsterStaticDto? dto = _staticStore.FindById(monsterRef);
+        return dto is null
+            ? null
+            : MonsterHudMapper.BuildFromStatic(MonsterStaticAdapter.ToSnapshot(dto));
     }
 
     private void PushActiveHud()
     {
-        if (_active is null || _active.Health <= 0)
+        if (_active is null)
         {
             _viewModel.HasActiveMonster = false;
             return;
         }
 
         var staticMapped = ResolveStatic(_active);
-        var live = MonsterLiveAdapter.ToSnapshot(BuildFixture(_active));
+        var fixture = BuildFixture(_active);
+        var live = MonsterLiveAdapter.ToSnapshot(fixture);
         var dto = MonsterHudMapper.MergeLive(staticMapped, live);
+
+        // Target just died: freeze the last non-zero combat frame immediately so the panel
+        // cannot jump to a full-HP invader that briefly becomes Target.Self.
+        if (dto.HealthCurrent <= 0
+            && _lastLiveHudDto is { HealthCurrent: > 0 } lastAlive
+            && ReferenceEquals(_lastLiveMonster, _active))
+        {
+            FreezeOnActiveDeath(lastAlive);
+            return;
+        }
+
+        if (dto.HealthCurrent > 0)
+        {
+            _lastLiveHudDto = dto;
+            _lastLiveMonster = _active;
+        }
+
         _viewModel.MonsterHud.ApplyDto(dto);
         _viewModel.HasActiveMonster = true;
     }
@@ -181,12 +373,36 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
     private MonsterLiveFixture BuildFixture(IMonster monster)
     {
         var parts = monster.Parts
-            .Select(p => new MonsterLivePartFixture(
-                Id: p.Id,
-                DisplayName: _localizePart(p.Id),
-                Health: p.Health,
-                MaxHealth: p.MaxHealth,
-                BreakCount: p.Count))
+            .Select(p =>
+            {
+                // Afflicted: keep 啮生虫 / Qurio part HP (threshold + infected hitzones).
+                bool useQurio = p is MHRMonsterPart qp
+                                && qp.QurioMaxHealth > 0
+                                && (p.Type.HasFlag(PartType.Qurio)
+                                    || string.Equals(p.Id, "PART_QURIO_THRESHOLD", StringComparison.OrdinalIgnoreCase));
+                double health = useQurio ? ((MHRMonsterPart)p).QurioHealth : p.Health;
+                double maxHealth = useQurio ? ((MHRMonsterPart)p).QurioMaxHealth : p.MaxHealth;
+
+                // Threshold row: game stores remaining until Qurio (full → empty as threshold builds).
+                bool isQurioThreshold = string.Equals(p.Id, "PART_QURIO_THRESHOLD", StringComparison.OrdinalIgnoreCase);
+
+                bool isBreakable = p.Type.HasFlag(PartType.Breakable);
+                bool isSeverable = p.Type.HasFlag(PartType.Severable) || p.MaxSever > 0;
+                return new MonsterLivePartFixture(
+                    Id: p.Id,
+                    DisplayName: _localizePart(p.Id),
+                    Health: health,
+                    MaxHealth: maxHealth,
+                    BreakCount: p.Count,
+                    IsQurio: useQurio,
+                    Flinch: p.Flinch,
+                    MaxFlinch: p.MaxFlinch,
+                    Sever: p.Sever,
+                    MaxSever: p.MaxSever,
+                    IsBreakable: isBreakable,
+                    IsSeverable: isSeverable,
+                    IsQurioThreshold: isQurioThreshold);
+            })
             .ToArray();
 
         var ailments = monster.Ailments
@@ -211,13 +427,19 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
                 MaxBuildUp: e.MaxBuildUp);
         }
 
+        IQuest? quest = _context.Game.Quest;
         bool questAllows = MonsterLiveAdapter.ResolveQuestAllowsCapture(
-            _context.Game.Quest?.Type.ToString());
+            quest?.Type.ToString(),
+            quest?.Level.ToString());
+
+        // Afflicted (Qurio) monsters are slay-only — same as HunterPie capture threshold wipe.
+        if (monster is MHRMonster { MonsterType: MonsterType.Qurio })
+            questAllows = false;
 
         return new MonsterLiveFixture(
             Name: monster.Name,
             Id: monster.Id,
-            Health: monster.Health,
+            Health: MonsterHealthDisplay.ForHud(monster.Health, monster.MaxHealth),
             MaxHealth: monster.MaxHealth,
             Stamina: monster.Stamina,
             MaxStamina: monster.MaxStamina,
@@ -226,7 +448,8 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
             Parts: parts,
             Ailments: ailments,
             Enrage: enrage,
-            QuestAllowsCapture: questAllows);
+            QuestAllowsCapture: questAllows,
+            IsAnomaly: monster is MHRMonster { MonsterType: MonsterType.Qurio });
     }
 
     private sealed class MonsterBinding : IDisposable
