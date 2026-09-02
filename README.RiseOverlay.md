@@ -1,8 +1,10 @@
-# Rise Overlay（Rise血条）
+# Rise Overlay — 补充说明（开发者）
+
+面向日常使用的说明已写在仓库根目录 **[README.md](README.md)**。本文保留构建、叠层附着模型等偏开发细节。
 
 **当前版本：2.0.0** · [GitHub Releases](https://github.com/tttengyuan/rise-overlay/releases/latest)
 
-基于 **[HunterPie](https://github.com/HunterPie/HunterPie)** 的 Monster Hunter Rise 专用紧凑叠层。
+基于 **[HunterPie](https://github.com/HunterPie/HunterPie)** 的 Monster Hunter Rise 专用紧凑叠层（「Rise血条」）。
 
 ## 归属与许可
 

@@ -1,89 +1,101 @@
+# Rise Overlay（Rise血条）
 
-> **This fork ships as Rise Overlay（Rise血条）v2.0.**  
-> 说明与主题 / 动效 / 发版：**[README.RiseOverlay.md](README.RiseOverlay.md)** · 下载：[GitHub Releases](https://github.com/tttengyuan/rise-overlay/releases/latest)  
-> Upstream HunterPie notes below remain for context.
+[![Release](https://img.shields.io/github/v/release/tttengyuan/rise-overlay?label=Release&color=4A9B9B)](https://github.com/tttengyuan/rise-overlay/releases/latest)
+[![License](https://img.shields.io/github/license/tttengyuan/rise-overlay?color=725E39)](LICENSE)
 
-<img src="https://cdn.hunterpie.com/Static/banner2-0.png"/>
-<div align = center>
+**Monster Hunter Rise 专用紧凑战斗叠层** · 当前版本 **2.0.0**
 
-[![Badge Discord]][Discord]
-[![Badge Patreon]][Patreon]
-[![Badge PayPal]][PayPal]
-
-[![Badge License]][License]
-![Badge Wakatime]
-
-[![Badge Version]][Nexus]
+> 本项目是 [HunterPie](https://github.com/HunterPie/HunterPie) 的瘦身 Fork：只做 Rise，默认关掉多游戏客户端、Discord 以及大量非必要控件。  
+> 上游代码仍遵循其许可证，见 [`LICENSE`](LICENSE)。
 
 ---
 
-**[<kbd> <br> 🚀 Install <br> </kbd>][Installation]** 
-**[<kbd> <br> 📘 Documentation <br> </kbd>][Documentation]** 
-**[<kbd> <br> 🕹 Features <br> </kbd>][Features]** 
-**[<kbd> <br> 💙 Contribute <br> </kbd>][Contribution]**  
+## 下载
+
+1. 打开 [Releases](https://github.com/tttengyuan/rise-overlay/releases/latest)，下载 `RiseOverlay-*.zip`
+2. 解压到有写权限的目录（**不要放桌面**）
+3. 安装 [.NET Desktop Runtime 10](https://dotnet.microsoft.com/en-us/download/dotnet/thank-you/runtime-desktop-10.0.3-windows-x64-installer)（若尚未安装）
+4. 运行 `HunterPie.exe`，再启动《怪物猎人：崛起》
+5. **Ctrl+Alt+O** 开关叠层
+
+壳窗口可点 **检查更新**（读取本仓库 GitHub Releases）。
 
 ---
-</div>
 
-# HunterPie
+## 功能
 
-## About
+| 模块 | 说明 |
+| --- | --- |
+| 任务简报 | 接任务后显示弱属性 / 推荐属性、可否捕获、断尾等 |
+| 战斗 HUD | 怪物血量、虚弱线、愤怒 / 晕眩 / 耐力、异常积累 |
+| 部位 | 可破 / 可断、已破坏 / 已断尾锁定；怪异化啮生虫与感染部位 |
+| DPS | 单人 / 组队总伤与占比 |
+| 主题 | 六套 HUD 主题，简报 + 战斗 + DPS 共用并持久化 |
+| 动效 | 虚弱越过线、晕眩、破部位、推荐弱属性脉冲（可关） |
 
-HunterPie v2 is a version of HunterPie completely rewritten from scratch, however, it follows the same principles of its predecessor: being a modern, powerful and easy to use overlay with support for plugins, modules and custom widgets for Monster Hunter games.
+**仅支持 Monster Hunter Rise / 破晓。** 不附带 World、Wilds。
 
-### Requirements
+---
 
-- [.NET Desktop Runtime 10.0](https://dotnet.microsoft.com/en-us/download/dotnet/thank-you/runtime-desktop-10.0.3-windows-x64-installer)
+## 2.0 要点
 
-### Installation
+- 六套主题：`Classic` / `Glass` / `Parchment` / `Soft` / `OledCoral` / `GlassCoral`
+- 壳窗口主题网格 + 战斗动效开关
+- 怪异化：啮生虫阈值、感染部位红轨；打掉虫核不会把已破部位变回「可破」
+- 部位破坏 / 断尾状态锁定；讨伐后内存残血 1 点显示为 0
+- 简报内边距与属性 chip 加大
 
-1. Download the binaries from either [Nexus Mods](https://www.nexusmods.com/monsterhunterrise/mods/181) or [GitHub](https://github.com/Haato3o/HunterPie-v2/releases/latest)
-2. Extract it somewhere, except Desktop, as that is known for giving some people issues due to lack of permissions to write to files.
-3. Run `HunterPie.exe`
+---
 
-## Documentation
+## 主题一览
 
-HunterPie's official documentation can be found [here](https://docs.hunterpie.com).
+| ThemeId | 名称 |
+| --- | --- |
+| `Classic` | 现版金青（默认） |
+| `Glass` | 玻璃 |
+| `Parchment` | 羊皮纸 |
+| `Soft` | 日系浅色 |
+| `OledCoral` | OLED 珊瑚 |
+| `GlassCoral` | 玻璃珊瑚 |
 
-## Features
+设计说明：[`docs/superpowers/specs/2026-09-02-rise-overlay-themes-motion-design.md`](docs/superpowers/specs/2026-09-02-rise-overlay-themes-motion-design.md)
 
-- [Monster Widget](https://docs.hunterpie.com/posts/monster-widget/)
-- [Abnormality Tray Widget](https://docs.hunterpie.com/posts/abnormality-tray-widget/)
-- [Wirebug Widget](https://docs.hunterpie.com/posts/wirebug-widget/)
-- [Activities Widget](https://docs.hunterpie.com/posts/activities-widget/)
-- [Chat Widget](https://docs.hunterpie.com/posts/chat-widget/)
-- [Damage Meter Widget](https://docs.hunterpie.com/posts/damage-meter-widget/)
-- [Specialized Tool Widget](https://docs.hunterpie.com/posts/specialized-tools-widget/)
-- [Player HUD Widget](https://docs.hunterpie.com/posts/player-hud-widget/)
-- Clock Widget
-- Discord Rich Presence
-- Automatic save backups
-- Export completed quests
+---
 
-## Suggestions & PRs
+## 快捷键
 
-Suggestions and pull requests are welcome, just keep in mind to:
-1. Open an issue before opening a PR, so we can discuss the best strategy to implement a new feature
-2. Follow the project coding style to keep everything consistent
+| 操作 | 默认 |
+| --- | --- |
+| 显示 / 隐藏叠层 | **Ctrl+Alt+O** |
+| 设计模式（拖拽位置） | ScrollLock |
 
-<!------- { Summary } ------>
-[Installation]: https://github.com/Haato3o/HunterPie-v2#installation
-[Documentation]: https://github.com/Haato3o/HunterPie-v2#documentation
-[Features]: https://github.com/Haato3o/HunterPie-v2#features
-[Contribution]: https://github.com/Haato3o/HunterPie-v2#suggestions--prs
+改键后需重启客户端。配置一般在程序目录 `config.json`。
 
-<!------- { Links } -------->
-[Discord]: https://discord.gg/5pdDq4Q
-[Patreon]: https://www.patreon.com/HunterPie
-[PayPal]: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=F2QA6HEQZ366A&source=url
-[License]: https://github.com/Haato3o/HunterPie-v2/blob/main/LICENSE
-[Wakatime]: https://wakatime.com/badge/github/Haato3o/HunterPie
-[Nexus]: https://www.nexusmods.com/monsterhunterrise/mods/181
+---
 
-<!------- { Badges } ------->
-[Badge Discord]: https://img.shields.io/discord/678286768046342147?color=7289DA&label=Discord&logo=discord&logoColor=white
-[Badge Patreon]: https://img.shields.io/badge/Support-Patreon-blue.svg?color=fc8362&logo=patreon&logoColor=white
-[Badge PayPal]: https://img.shields.io/badge/donate-Paypal-blue.svg?color=62b2fc&logo=paypal&label=Support
-[Badge License]: https://img.shields.io/github/license/Haato3o/HunterPie-v2?color=c20067
-[Badge Wakatime]: https://wakatime.com/badge/github/Haato3o/HunterPie.svg
-[Badge Version]: https://img.shields.io/badge/dynamic/json?color=%2303a9fc&label=Version&prefix=v&query=latest_version&url=https%3A%2F%2Fapi.hunterpie.com%2Fv1%2Fversion
+## 构建（开发者）
+
+```powershell
+dotnet build HunterPie/HunterPie.csproj -c Release
+powershell -ExecutionPolicy Bypass -File Scripts\sync-publish.ps1
+```
+
+发版：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File Scripts\release.ps1 -Version 2.0.0
+```
+
+Native 模块需用 VS2022 单独编译 `HunterPie.Native`，输出放到 `libs\HunterPie.Native.dll`。更多细节见 [`README.RiseOverlay.md`](README.RiseOverlay.md)。
+
+---
+
+## 与上游的关系
+
+| | Rise Overlay（本仓库） | HunterPie 原版 |
+| --- | --- | --- |
+| 定位 | Rise 专用紧凑 HUD | 多游戏全能叠层 |
+| 下载 | [本仓库 Releases](https://github.com/tttengyuan/rise-overlay/releases) | [HunterPie 官网 / Releases](https://github.com/HunterPie/HunterPie) |
+| 文档 | 本文 + `README.RiseOverlay.md` | [docs.hunterpie.com](https://docs.hunterpie.com) |
+
+感谢 [HunterPie](https://github.com/HunterPie/HunterPie) 作者与社区提供的架构与 Rise 数据源。
