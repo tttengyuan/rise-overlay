@@ -1,5 +1,7 @@
 
-> **This fork ships as Rise Overlay（Rise血条）.** See **[README.RiseOverlay.md](README.RiseOverlay.md)** for attribution, Rise-only scope, HUD themes, and usage. Upstream HunterPie notes below remain for context.
+> **This fork ships as Rise Overlay（Rise血条）v2.0.**  
+> 说明与主题 / 动效 / 发版：**[README.RiseOverlay.md](README.RiseOverlay.md)** · 下载：[GitHub Releases](https://github.com/tttengyuan/rise-overlay/releases/latest)  
+> Upstream HunterPie notes below remain for context.
 
 <img src="https://cdn.hunterpie.com/Static/banner2-0.png"/>
 <div align = center>
