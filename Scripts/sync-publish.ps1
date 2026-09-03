@@ -16,14 +16,18 @@ if (-not (Test-Path (Join-Path $rel 'HunterPie.exe'))) {
 New-Item -ItemType Directory -Force -Path $pub | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $pub 'libs') | Out-Null
 
-# Languages: post-build copies from Localization submodule; ensure present
+# Languages: base from Localization submodule, then overlay Rise Overlay pack (tracked in-repo)
 $langSrc = Join-Path $root 'Localization\localization'
+$langOverride = Join-Path $root 'Languages'
 $langDst = Join-Path $pub 'Languages'
 New-Item -ItemType Directory -Force -Path $langDst | Out-Null
 if (Test-Path $langSrc) {
     Copy-Item -Force (Join-Path $langSrc '*.xml') $langDst
 } elseif (Test-Path (Join-Path $rel 'Languages')) {
     Copy-Item -Recurse -Force (Join-Path $rel 'Languages\*') $langDst
+}
+if (Test-Path $langOverride) {
+    Copy-Item -Force (Join-Path $langOverride '*.xml') $langDst
 }
 
 # Core runtime files
