@@ -33,7 +33,7 @@ jobs:
       run: dotnet build HunterPie --nologo -v q --property WarningLevel=0 /clp:ErrorsOnly
 
     - name: Run unit tests
-      run: dotnet test *.Tests
+      run: dotnet test HunterPie.sln --nologo -v q --property WarningLevel=0
 
     - name: Run formatter
       run: dotnet format --verify-no-changes
