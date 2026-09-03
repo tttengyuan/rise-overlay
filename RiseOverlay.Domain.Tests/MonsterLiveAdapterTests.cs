@@ -106,6 +106,37 @@ public class MonsterLiveAdapterTests
     }
 
     [Fact]
+    public void ToSnapshot_active_qurio_overlays_broken_part_keeping_break_latch()
+    {
+        var fixture = new MonsterLiveFixture(
+            Name: "妃蜘蛛",
+            Id: 107,
+            Health: 50000,
+            MaxHealth: 84760,
+            Stamina: 1000,
+            MaxStamina: 1000,
+            CaptureThreshold: 0,
+            IsEnraged: true,
+            Parts:
+            [
+                // Already broken (BreakCount) but Qurio core is active — one row, Qurio HP.
+                new("PART_L_FORELEG", "左前肢", 505, 735, 1,
+                    IsQurio: true, IsBreakable: true, Flinch: 180, MaxFlinch: 400),
+            ],
+            Ailments: [],
+            Enrage: null,
+            QuestAllowsCapture: false);
+
+        var live = MonsterLiveAdapter.ToSnapshot(fixture);
+        var leg = Assert.Single(live.Parts);
+        Assert.True(leg.IsBroken);
+        Assert.True(leg.IsQurio);
+        Assert.Equal(505, leg.CurrentHp);
+        Assert.Equal(735, leg.MaxHp);
+        Assert.Equal("怪异化", PartDisplayRules.Resolve(false, leg.IsBroken, leg.IsQurio).Text);
+    }
+
+    [Fact]
     public void ToSnapshot_active_qurio_keeps_live_hp_even_if_break_count_set()
     {
         var fixture = new MonsterLiveFixture(

@@ -17,7 +17,9 @@ public sealed record PartDto(
     IReadOnlyList<ElementId> WeakElements,
     bool IsQurio = false,
     bool IsRecommendedTarget = false,
-    bool IsQurioThreshold = false);
+    bool IsQurioThreshold = false,
+    double Flinch = 0,
+    double MaxFlinch = 0);
 
 public sealed record AilmentDto(
     string Key,

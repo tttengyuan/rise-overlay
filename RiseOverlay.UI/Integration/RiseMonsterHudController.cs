@@ -107,6 +107,13 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
             _lastLiveHudDto = null;
             _lastLiveMonster = null;
             _active = null;
+            // Drop any leftover bindings from the previous hunt so Qurio part state
+            // cannot leak into the next quest's first lock-on frame.
+            foreach (var binding in _bindings.Values)
+                binding.Dispose();
+            _bindings.Clear();
+            foreach (IMonster monster in _context.Game.Monsters)
+                AttachMonster(monster);
             ApplyResetHudForQuest(e);
             RefreshActiveMonster();
         });
@@ -136,12 +143,17 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
     private void OnStageUpdate(object? sender, EventArgs e)
         => _viewModel.UIThread.BeginInvoke(() =>
         {
-            bool leftHunt = !IsOnHuntMap();
-            if (!_hudFrozen || !leftHunt || _context.Game.Quest is not null)
-                return;
-
-            ClearHudFreeze();
-            RefreshActiveMonster();
+            // Always drop the post-hunt freeze when leaving the hunting zone.
+            // Do not wait for Quest==null — accepting the next quest in the hub while
+            // freeze is still held used to keep showing the previous monster's panel.
+            if (_hudFrozen && !IsOnHuntMap())
+            {
+                ClearHudFreeze();
+                _lastLiveHudDto = null;
+                _lastLiveMonster = null;
+                _active = null;
+                RefreshActiveMonster();
+            }
         });
 
     private void AttachMonster(IMonster monster)
@@ -406,12 +418,14 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
                 if (breakCount <= 0 && structurallyBroken)
                     breakCount = 1;
 
+                // Keep BreakCount under Qurio overlay so after the core clears the row
+                // still resolves to 「已破坏」(HunterPie: infection replaces the view, not the latch).
                 return new MonsterLivePartFixture(
                     Id: p.Id,
                     DisplayName: _localizePart(p.Id),
                     Health: health,
                     MaxHealth: maxHealth,
-                    BreakCount: useQurio ? 0 : breakCount,
+                    BreakCount: breakCount,
                     IsQurio: useQurio,
                     Flinch: p.Flinch,
                     MaxFlinch: p.MaxFlinch,
@@ -538,6 +552,8 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
                 part.OnBreakCountUpdate -= OnPart;
                 part.OnFlinchUpdate -= OnPart;
                 part.OnSeverUpdate -= OnPart;
+                if (part is MHRMonsterPart mhr)
+                    mhr.OnQurioHealthChange -= OnQurioPart;
             }
 
             foreach (var ailment in _hookedAilments)
@@ -554,6 +570,7 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
         private void OnCaptureThreshold(object? sender, IMonster e) => _onChanged(_monster);
         private void OnTarget(object? sender, MonsterTargetEventArgs e) => _onChanged(_monster);
         private void OnPart(object? sender, IMonsterPart e) => _onChanged(_monster);
+        private void OnQurioPart(object? sender, IMonsterPart e) => _onChanged(_monster);
         private void OnAilment(object? sender, IMonsterAilment e) => _onChanged(_monster);
 
         private void OnNewPart(object? sender, IMonsterPart part)
@@ -576,6 +593,10 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
             part.OnBreakCountUpdate += OnPart;
             part.OnFlinchUpdate += OnPart;
             part.OnSeverUpdate += OnPart;
+            // Afflicted Qurio HP does not raise OnHealthUpdate — must hook explicitly
+            // or 啮生虫 / 怪异化 bars stay frozen while breakable (可破) bars still move.
+            if (part is MHRMonsterPart mhr)
+                mhr.OnQurioHealthChange += OnQurioPart;
             _hookedParts.Add(part);
         }
 

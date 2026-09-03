@@ -149,14 +149,12 @@ public sealed class DpsPanelViewModel : INotifyPropertyChanged
             IsSolo = true;
             var e = source.FirstOrDefault();
             SoloLineText = e is null
-                ? $"{timePrefix}DPS 0 · 当前目标 0"
-                : $"{timePrefix}DPS {FormatDps(e.Dps)} · 当前目标 {FormatDamage(e.TotalDamage)}";
+                ? $"{timePrefix}DPS 0 · 合计 0"
+                : $"{timePrefix}DPS {FormatDps(e.Dps)} · 合计 {FormatDamage(e.TotalDamage)}";
 
             PartyTotalText = "";
-            ScopeLineText = string.IsNullOrWhiteSpace(dto.LockedTargetName)
-                ? ""
-                : dto.LockedTargetName!;
-            ShowScopeLine = !string.IsNullOrEmpty(ScopeLineText);
+            ScopeLineText = "";
+            ShowScopeLine = false;
             Entries = new ObservableCollection<DpsEntryRowViewModel>();
             return;
         }
@@ -164,10 +162,8 @@ public sealed class DpsPanelViewModel : INotifyPropertyChanged
         IsSolo = false;
         SoloLineText = "";
         PartyTotalText = $"{timePrefix}合计 {FormatDamage(sum)}";
-        ScopeLineText = string.IsNullOrWhiteSpace(dto.LockedTargetName)
-            ? ""
-            : dto.LockedTargetName!;
-        ShowScopeLine = !string.IsNullOrEmpty(ScopeLineText);
+        ScopeLineText = "";
+        ShowScopeLine = false;
 
         var rows = new ObservableCollection<DpsEntryRowViewModel>();
         for (int i = 0; i < source.Count; i++)

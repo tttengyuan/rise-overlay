@@ -44,6 +44,8 @@ public sealed class PartRowViewModel : INotifyPropertyChanged
     private bool _isQurioThreshold;
     private bool _isRecommendedTarget;
     private bool _breakFlash;
+    private double _flinch;
+    private double _maxFlinch;
     private ObservableCollection<ElementId> _weakElements = new();
 
     public string Name
@@ -124,6 +126,26 @@ public sealed class PartRowViewModel : INotifyPropertyChanged
         set => SetField(ref _isRecommendedTarget, value);
     }
 
+    public double Flinch
+    {
+        get => _flinch;
+        set
+        {
+            if (SetField(ref _flinch, value))
+                NotifyDerived();
+        }
+    }
+
+    public double MaxFlinch
+    {
+        get => _maxFlinch;
+        set
+        {
+            if (SetField(ref _maxFlinch, value))
+                NotifyDerived();
+        }
+    }
+
     public bool HasWeakElements => _weakElements.Count > 0;
 
     public ObservableCollection<ElementId> WeakElements
@@ -138,34 +160,40 @@ public sealed class PartRowViewModel : INotifyPropertyChanged
 
     public double HealthRatio => _maxHp <= 0 ? 0 : Math.Clamp(_currentHp / _maxHp, 0, 1);
 
+    public double FlinchRatio => _maxFlinch <= 0 ? 0 : Math.Clamp(_flinch / _maxFlinch, 0, 1);
+
     private PartDisplayState DisplayState =>
         PartDisplayRules.Resolve(_isSeverable, _isBroken, _isQurio, _isQurioThreshold);
 
     public string StatusText => DisplayState.Text;
 
-    public bool ShowActiveBar => DisplayState.ShowActiveBar;
+    /// <summary>Upper thin flinch rail (HunterPie-style dual track).</summary>
+    public bool ShowFlinchBar => _maxFlinch > 0;
 
-    public bool ShowCompletedLine => DisplayState.IsComplete;
+    /// <summary>Lower rail: break/sever, or Qurio overlay (including on already-broken parts).</summary>
+    public bool ShowBreakBar => _maxHp > 0 && (_isQurio || !_isBroken);
 
-    public string HealthText => DisplayState.IsComplete
-        ? "完成"
-        : $"{FormatHp(_currentHp)}/{FormatHp(_maxHp)}";
+    /// <summary>Grey lower rail after break once Qurio overlay has cleared.</summary>
+    public bool ShowBrokenRail => _isBroken && !_isQurio && _maxFlinch > 0;
 
-    public double RowOpacity => DisplayState.IsComplete ? 0.64 : 1.0;
+    public string HealthText => PartHealthText.Format(
+        _isBroken, _currentHp, _maxHp, _flinch, _maxFlinch, _isQurio);
+
+    public double RowOpacity => _isBroken && !_isQurio ? 0.72 : 1.0;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
     private void NotifyDerived()
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HealthRatio)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(FlinchRatio)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HealthText)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(RowOpacity)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(StatusText)));
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowActiveBar)));
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowCompletedLine)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowFlinchBar)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowBreakBar)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowBrokenRail)));
     }
-
-    private static string FormatHp(double v) => v % 1 == 0 ? ((int)v).ToString() : v.ToString("0.#");
 
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string? name = null)
     {
@@ -450,11 +478,17 @@ public sealed class MonsterHudViewModel : INotifyPropertyChanged
 
     private void SyncParts(IReadOnlyList<PartDto> parts)
     {
-        var previous = Parts.ToDictionary(p => p.Name, StringComparer.Ordinal);
+        // Key by name + Qurio kind — never by display name alone. Afflicted monsters
+        // commonly expose 「右前肢」 as both 可破 and 怪异化; a name-only ToDictionary
+        // throws and leaves the part list frozen while main HP still updates.
+        var previous = new Dictionary<string, PartRowViewModel>(StringComparer.Ordinal);
+        foreach (PartRowViewModel existing in Parts)
+            previous[PartRowSyncKey.For(existing.Name, existing.IsQurio, existing.IsQurioThreshold)] = existing;
+
         var next = new ObservableCollection<PartRowViewModel>();
         foreach (PartDto p in parts)
         {
-            previous.TryGetValue(p.Name, out PartRowViewModel? old);
+            previous.TryGetValue(PartRowSyncKey.For(p.Name, p.IsQurio, p.IsQurioThreshold), out PartRowViewModel? old);
             bool brokenEdge = p.IsBroken && old is { IsBroken: false };
             var row = new PartRowViewModel
             {
@@ -466,6 +500,8 @@ public sealed class MonsterHudViewModel : INotifyPropertyChanged
                 IsQurio = p.IsQurio,
                 IsQurioThreshold = p.IsQurioThreshold,
                 IsRecommendedTarget = p.IsRecommendedTarget,
+                Flinch = p.Flinch,
+                MaxFlinch = p.MaxFlinch,
                 WeakElements = new ObservableCollection<ElementId>(p.WeakElements),
                 BreakFlash = brokenEdge && _motionEnabled,
             };

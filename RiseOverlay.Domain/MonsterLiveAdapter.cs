@@ -151,17 +151,19 @@ public static class MonsterLiveAdapter
             IsBroken: broken,
             IsQurio: p.IsQurio,
             IsQurioThreshold: p.IsQurioThreshold,
-            IsSeverable: p.IsSeverable);
+            IsSeverable: p.IsSeverable,
+            Flinch: p.Flinch,
+            MaxFlinch: p.MaxFlinch);
     }
 
     /// <summary>
-    /// HunterPie priority: Qurio &gt; Sever &gt; Break. Never fall through to flinch for
-    /// break/sever parts — flinch regenerates and looks like the part "healed".
+    /// HunterPie priority: Qurio (even on already-broken parts) &gt; Sever &gt; Break.
+    /// Never fall through to flinch for break/sever pools — flinch regenerates.
     /// </summary>
     private static (double Current, double Max) ResolvePartHp(MonsterLivePartFixture p, bool broken)
     {
-        // Active infection: live Qurio HP. Broken rows never carry IsQurio from the controller.
-        if (p.IsQurio && p.MaxHealth > 0 && !broken)
+        // Active infection overlays the row — keep Qurio HP even if the part is already broken.
+        if (p.IsQurio && p.MaxHealth > 0)
             return (p.Health, p.MaxHealth);
 
         if (broken)

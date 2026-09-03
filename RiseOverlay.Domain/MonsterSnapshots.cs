@@ -31,7 +31,9 @@ public sealed record LivePartSnapshot(
     bool IsBroken,
     bool IsQurio = false,
     bool IsQurioThreshold = false,
-    bool IsSeverable = false);
+    bool IsSeverable = false,
+    double Flinch = 0,
+    double MaxFlinch = 0);
 
 public sealed record LiveAilmentSnapshot(
     string Key,

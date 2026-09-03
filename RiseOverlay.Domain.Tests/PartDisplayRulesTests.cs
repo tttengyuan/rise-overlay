@@ -8,7 +8,8 @@ public class PartDisplayRulesTests
     [InlineData(true, false, false, "可断", true, false)]
     [InlineData(true, true, false, "已断尾", false, true)]
     [InlineData(false, false, true, "怪异化", true, false)]
-    [InlineData(false, true, true, "已破坏", false, true)] // broken wins for display freeze when both set
+    // Qurio overlays broken — same row, not a second 「已破坏」 line.
+    [InlineData(false, true, true, "怪异化", true, false)]
     [InlineData(false, false, true, "啮生虫", true, false, true)]
     public void Resolve_returns_unambiguous_part_status(
         bool isSeverable,

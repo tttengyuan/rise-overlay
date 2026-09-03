@@ -964,6 +964,8 @@
                 <Weakness Name="Ice" />
             </Weaknesses>
             <Parts>
+                <!-- Indices must match Rise part array order. 7–11 are silk/cocoon slots —
+                     reusing FORELEG/ABDOMEN labels caused duplicate 「左前肢」rows in the HUD. -->
                 <Part Id="0"
                       String="PART_HEAD" />
                 <Part Id="1"
@@ -979,15 +981,15 @@
                 <Part Id="6"
                       String="PART_ABDOMEN" />
                 <Part Id="7"
-                      String="PART_L_FORELEG" />
+                      String="PART_L_FORELEG_THREAD" />
                 <Part Id="8"
-                      String="PART_R_FORELEG" />
+                      String="PART_R_FORELEG_THREAD" />
                 <Part Id="9"
-                      String="PART_L_H_LEG" />
+                      String="PART_L_H_LEG_THREAD" />
                 <Part Id="10"
-                      String="PART_R_H_LEG" />
+                      String="PART_R_H_LEG_THREAD" />
                 <Part Id="11"
-                      String="PART_ABDOMEN" />
+                      String="PART_ABDOMEN_COCOON" />
                 <Part Id="12"
                       String="PART_CHEST" />
             </Parts>
@@ -1785,15 +1787,15 @@
                 <Part Id="6"
                       String="PART_ABDOMEN" />
                 <Part Id="7"
-                      String="PART_L_FORELEG" />
+                      String="PART_L_FORELEG_THREAD" />
                 <Part Id="8"
-                      String="PART_R_FORELEG" />
+                      String="PART_R_FORELEG_THREAD" />
                 <Part Id="9"
-                      String="PART_L_H_LEG" />
+                      String="PART_L_H_LEG_THREAD" />
                 <Part Id="10"
-                      String="PART_R_H_LEG" />
+                      String="PART_R_H_LEG_THREAD" />
                 <Part Id="11"
-                      String="PART_ABDOMEN" />
+                      String="PART_ABDOMEN_COCOON" />
                 <Part Id="12"
                       String="PART_CHEST" />
             </Parts>

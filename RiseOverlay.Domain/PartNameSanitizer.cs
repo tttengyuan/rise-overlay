@@ -194,8 +194,8 @@ public static partial class PartNameSanitizer
         ["Veil"] = "水膜",
         ["Veil: Head (Left)"] = "水膜（头部左侧）",
         ["Veil: Head (Right)"] = "水膜（头部右侧）",
-        ["Veil: Left Foreleg"] = "水膜（左前脚）",
-        ["Veil: Right Foreleg"] = "水膜（右前脚）",
+        ["Veil: Left Foreleg"] = "水膜（左前肢）",
+        ["Veil: Right Foreleg"] = "水膜（右前肢）",
         ["Veil: Tail (Left)"] = "水膜（尾巴左侧）",
         ["Veil: Tail (Middle)"] = "水膜（尾巴）",
         ["Veil: Tail (Right)"] = "水膜（尾巴右侧）",
@@ -206,6 +206,80 @@ public static partial class PartNameSanitizer
         ["Wings (Ice)"] = "翼（冰）",
         ["Wing"] = "翅膀",
         ["Cutwing"] = "刃翼",
+    };
+
+    /// <summary>Whole labels that still use JP/Traditional forms after prefix stripping.</summary>
+    private static readonly Dictionary<string, string> JapaneseOrTraditionalToSimplified =
+        new(StringComparer.Ordinal)
+        {
+            ["髪"] = "鬃毛",
+            ["髮"] = "鬃毛",
+            ["胴体"] = "躯干",
+            ["前脚"] = "前肢",
+            ["后脚"] = "后肢",
+            ["後脚"] = "后肢",
+            ["左前脚"] = "左前肢",
+            ["右前脚"] = "右前肢",
+            ["左后脚"] = "左后肢",
+            ["右后脚"] = "右后肢",
+            ["左後脚"] = "左后肢",
+            ["右後脚"] = "右后肢",
+            ["左右前脚"] = "左右前肢",
+            ["脚"] = "肢",
+            ["腳"] = "肢",
+        };
+
+    /// <summary>Longest-first phrase replacements for JP forms embedded in compound labels.</summary>
+    private static readonly (string From, string To)[] JapanesePhraseReplacements =
+    [
+        ("左右前脚", "左右前肢"),
+        ("左前脚", "左前肢"),
+        ("右前脚", "右前肢"),
+        ("左后脚", "左后肢"),
+        ("右后脚", "右后肢"),
+        ("左後脚", "左后肢"),
+        ("右後脚", "右后肢"),
+        ("前脚", "前肢"),
+        ("后脚", "后肢"),
+        ("後脚", "后肢"),
+        ("胴体", "躯干"),
+        ("尻尾", "尾巴"),
+        ("髪", "鬃毛"),
+        ("髮", "鬃毛"),
+    ];
+
+    /// <summary>Character-level JP/Traditional → Simplified for leftover glyphs in part names.</summary>
+    private static readonly Dictionary<char, char> KanjiToSimplified = new()
+    {
+        ['體'] = '体',
+        ['撃'] = '击',
+        ['擊'] = '击',
+        ['戦'] = '战',
+        ['戰'] = '战',
+        ['対'] = '对',
+        ['對'] = '对',
+        ['獣'] = '兽',
+        ['獸'] = '兽',
+        ['氣'] = '气',
+        ['脳'] = '脑',
+        ['腦'] = '脑',
+        ['邊'] = '边',
+        ['達'] = '达',
+        ['遠'] = '远',
+        ['過'] = '过',
+        ['還'] = '还',
+        ['開'] = '开',
+        ['關'] = '关',
+        ['屬'] = '属',
+        ['腳'] = '脚',
+        ['後'] = '后',
+        ['亜'] = '亚',
+        ['強'] = '强',
+        ['龍'] = '龙',
+        ['頭'] = '头',
+        ['長'] = '长',
+        ['無'] = '无',
+        ['発'] = '发',
     };
 
     public static string Clean(string? name)
@@ -238,7 +312,46 @@ public static partial class PartNameSanitizer
         if (EnglishToChinese.TryGetValue(s, out var zh))
             return zh;
 
+        if (JapaneseOrTraditionalToSimplified.TryGetValue(s, out var simp))
+            return simp;
+
+        s = ReplaceJapanesePhrases(s);
+        return ToSimplifiedKanji(s);
+    }
+
+    private static string ReplaceJapanesePhrases(string s)
+    {
+        foreach (var (from, to) in JapanesePhraseReplacements)
+        {
+            if (s.Contains(from, StringComparison.Ordinal))
+                s = s.Replace(from, to, StringComparison.Ordinal);
+        }
+
         return s;
+    }
+
+    private static string ToSimplifiedKanji(string s)
+    {
+        if (s.Length == 0)
+            return s;
+
+        Span<char> buf = stackalloc char[s.Length];
+        var changed = false;
+        for (var i = 0; i < s.Length; i++)
+        {
+            var c = s[i];
+            if (KanjiToSimplified.TryGetValue(c, out var repl))
+            {
+                buf[i] = repl;
+                changed = true;
+            }
+            else
+            {
+                buf[i] = c;
+            }
+        }
+
+        return changed ? new string(buf) : s;
     }
 
     public static string NormalizeKey(string? name)

@@ -115,23 +115,13 @@
                        VerticalAlignment="Center"
                        Visibility="{Binding IsSolo, Converter={StaticResource BoolToVis}}" />
 
-            <!-- Party: header + flat rows -->
+            <!-- Party: time/total + flat rows（怪名已在 HUD，不再重复「当前目标」） -->
             <StackPanel Visibility="{Binding IsParty, Converter={StaticResource BoolToVis}}">
-                <Grid Margin="0,0,0,2">
-                    <TextBlock Text="当前目标"
-                               Foreground="{DynamicResource Brushes.ForegroundMuted}"
-                               FontSize="{DynamicResource Fonts.Size.Small}"
-                               HorizontalAlignment="Left" />
-                    <TextBlock Text="{Binding PartyTotalText}"
-                               Foreground="{DynamicResource Brushes.ForegroundMuted}"
-                               FontSize="{DynamicResource Fonts.Size.Small}"
-                               HorizontalAlignment="Right" />
-                </Grid>
-                <TextBlock Text="{Binding ScopeLineText}"
-                           Foreground="{DynamicResource Brushes.AccentTeal}"
+                <TextBlock Text="{Binding PartyTotalText}"
+                           Foreground="{DynamicResource Brushes.ForegroundMuted}"
                            FontSize="{DynamicResource Fonts.Size.Small}"
-                           Margin="0,0,0,2"
-                           Visibility="{Binding ShowScopeLine, Converter={StaticResource BoolToVis}}" />
+                           HorizontalAlignment="Right"
+                           Margin="0,0,0,2" />
                 <ItemsControl ItemsSource="{Binding Entries}" />
             </StackPanel>
         </Grid>
