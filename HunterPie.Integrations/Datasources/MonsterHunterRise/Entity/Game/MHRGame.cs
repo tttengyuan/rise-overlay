@@ -268,16 +268,24 @@ public sealed class MHRGame : CommonGame
             _quest = null;
         }
 
-        // Late-fill / refresh anomaly investigation targets when EmType pointers become valid.
-        if (_quest is not null
-            && _quest.Level == QuestLevel.Anomaly
-            && currentQuest is { } pending
-            && pending.TargetMonsterRefs is { Length: > 0 } filledTargets
-            && !BriefingIdsEqual(_quest.BriefingMonsterIds, filledTargets))
+        // Late-fill / refresh targets when EmType pointers become valid (anomaly + normal multi).
+        if (_quest is not null && currentQuest is { } pending)
         {
-            _quest.ReplaceBriefingMonsterIds(filledTargets);
-            Logger.Info(
-                $"Rise anomaly targets updated id={_quest.Id} targets=[{string.Join(", ", filledTargets)}]");
+            string[] filledTargets = pending.TargetMonsterRefs ?? [];
+            bool idsChanged = filledTargets.Length > 0
+                && !BriefingIdsEqual(_quest.BriefingMonsterIds, filledTargets);
+            bool hintChanged = pending.TargetCountHint > _quest.TargetCountHint;
+
+            if (idsChanged || hintChanged)
+            {
+                if (filledTargets.Length > 0)
+                    _quest.ReplaceBriefingMonsterIds(filledTargets, pending.TargetCountHint);
+                else if (hintChanged)
+                    _quest.ReplaceBriefingMonsterIds(_quest.BriefingMonsterIds, pending.TargetCountHint);
+
+                Logger.Info(
+                    $"Rise quest targets updated id={_quest.Id} level={_quest.Level} targets=[{string.Join(", ", filledTargets)}] hint={pending.TargetCountHint}");
+            }
         }
 
         if (_quest is null
@@ -292,11 +300,12 @@ public sealed class MHRGame : CommonGame
                 type: questType ?? CoreQuestType.Hunt,
                 level: quest.Level,
                 stars: quest.Stars,
-                briefingMonsterIds: quest.TargetMonsterRefs ?? []
+                briefingMonsterIds: quest.TargetMonsterRefs ?? [],
+                targetCountHint: quest.TargetCountHint
             );
 
             Logger.Info(
-                $"Rise OnQuestStart id={quest.Id} state={questStructure.State} targets={(quest.TargetMonsterRefs ?? []).Length}");
+                $"Rise OnQuestStart id={quest.Id} state={questStructure.State} targets={(quest.TargetMonsterRefs ?? []).Length} hint={quest.TargetCountHint}");
             this.Dispatch(_onQuestStart, _quest);
         }
     }
@@ -326,6 +335,39 @@ public sealed class MHRGame : CommonGame
             return;
 
         await DamageMessageHandler.RequestHuntStatisticsAsync(CommonConstants.AllTargets);
+
+        // Per-monster stats so DPS can scope to the locked target (no dual-monster sum).
+        foreach (IMonster monster in Monsters)
+        {
+            if (monster is MHRMonster mhr)
+                await DamageMessageHandler.RequestHuntStatisticsAsync(mhr.Address);
+        }
+    }
+
+    /// <summary>Damage dealt to a specific monster address (native per-target tracker).</summary>
+    public long GetDamageDealtTo(nint monsterAddress)
+    {
+        if (!_damageDone.TryGetValue(monsterAddress, out EntityDamageData[]? entities) || entities is null)
+            return 0;
+
+        return (long)entities.Sum(e => e.RawDamage + e.ElementalDamage);
+    }
+
+    /// <summary>Per entity-index damage against one monster (party Index / pet Index).</summary>
+    public Dictionary<int, long> GetDamageByEntityIndex(nint monsterAddress)
+    {
+        var result = new Dictionary<int, long>();
+        if (!_damageDone.TryGetValue(monsterAddress, out EntityDamageData[]? entities) || entities is null)
+            return result;
+
+        foreach (IGrouping<int, EntityDamageData> group in entities.GroupBy(e => e.Entity.Index))
+        {
+            long sum = (long)group.Sum(e => e.RawDamage + e.ElementalDamage);
+            if (sum > 0 || group.Key >= 0)
+                result[group.Key] = Math.Max(0, sum);
+        }
+
+        return result;
     }
 
     [ScannableMethod]
@@ -438,7 +480,13 @@ public sealed class MHRGame : CommonGame
 
         _damageDone[target] = e.Entities;
 
-        EntityDamageData[] damages = _damageDone.Values.SelectMany(entity => entity)
+        // Party meters use AllTargets only. Per-monster keys are for locked-target scopes —
+        // summing every dict value would double-count once those are requested too.
+        if (!_damageDone.TryGetValue(CommonConstants.AllTargets, out EntityDamageData[]? all)
+            || all is null)
+            return;
+
+        EntityDamageData[] damages = all
             .GroupBy(entity => entity.Entity.Index)
             .Select(group =>
             {

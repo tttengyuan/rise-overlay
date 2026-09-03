@@ -227,6 +227,86 @@ public class MonsterLiveAdapterTests
     }
 
     [Fact]
+    public void ToSnapshot_broken_head_is_not_labeled_severable()
+    {
+        var fixture = new MonsterLiveFixture(
+            Name: "土砂龙",
+            Id: 15,
+            Health: 29000,
+            MaxHealth: 43000,
+            Stamina: 1000,
+            MaxStamina: 1000,
+            CaptureThreshold: 0,
+            IsEnraged: false,
+            Parts:
+            [
+                // MaxSever noise / wrong Type must not make the head 「已断尾」.
+                new("PART_HEAD", "头部", 0, 1200, 1,
+                    IsBreakable: true, IsSeverable: false, MaxSever: 100, Sever: 100),
+                new("PART_HEAD_MUD", "头部(泥)", 0, 0, 1,
+                    IsBreakable: true, IsSeverable: false),
+                new("PART_TAIL", "尾巴", 640, 800, 0,
+                    IsSeverable: true, MaxSever: 800, Sever: 640),
+                new("PART_TAIL_MUD", "尾巴(泥)", 0, 500, 1,
+                    IsBreakable: true, IsSeverable: false),
+            ],
+            Ailments: [],
+            Enrage: null,
+            QuestAllowsCapture: false);
+
+        var live = MonsterLiveAdapter.ToSnapshot(fixture);
+        var head = Assert.Single(live.Parts, p => p.Name == "头部");
+        Assert.True(head.IsBroken);
+        Assert.False(head.IsSeverable);
+        Assert.Equal("已破坏", PartDisplayRules.Resolve(head.IsSeverable, head.IsBroken, false).Text);
+
+        var headMud = Assert.Single(live.Parts, p => p.Name.Contains("头") && p.Name.Contains("泥"));
+        Assert.True(headMud.IsBroken);
+        Assert.False(headMud.IsSeverable);
+        Assert.Equal("已破坏", PartDisplayRules.Resolve(headMud.IsSeverable, headMud.IsBroken, false).Text);
+
+        var tail = Assert.Single(live.Parts, p => p.Name == "尾巴");
+        Assert.True(tail.IsSeverable);
+        Assert.Equal("可断", PartDisplayRules.Resolve(tail.IsSeverable, tail.IsBroken, false).Text);
+
+        var tailMud = Assert.Single(live.Parts, p => p.Name.Contains("尾") && p.Name.Contains("泥"));
+        Assert.True(tailMud.IsBroken);
+        Assert.False(tailMud.IsSeverable);
+        Assert.Equal("已破坏", PartDisplayRules.Resolve(tailMud.IsSeverable, tailMud.IsBroken, false).Text);
+    }
+
+    [Fact]
+    public void ToSnapshot_severable_tail_prefers_sever_bar_over_break_health()
+    {
+        var fixture = new MonsterLiveFixture(
+            Name: "角龙",
+            Id: 7,
+            Health: 40000,
+            MaxHealth: 50000,
+            Stamina: 1000,
+            MaxStamina: 1000,
+            CaptureThreshold: 0.3,
+            IsEnraged: false,
+            Parts:
+            [
+                // Live Diablos tail often exposes both MaxHealth and MaxSever.
+                new("PART_TAIL", "尾巴", 500, 500, 0,
+                    IsBreakable: true, IsSeverable: true,
+                    MaxSever: 800, Sever: 640, MaxFlinch: 200, Flinch: 200),
+            ],
+            Ailments: [],
+            Enrage: null,
+            QuestAllowsCapture: true);
+
+        var live = MonsterLiveAdapter.ToSnapshot(fixture);
+        var tail = Assert.Single(live.Parts);
+        Assert.True(tail.IsSeverable);
+        Assert.False(tail.IsBroken);
+        Assert.Equal(640, tail.CurrentHp);
+        Assert.Equal(800, tail.MaxHp);
+    }
+
+    [Fact]
     public void ToSnapshot_marks_severed_tail()
     {
         var fixture = new MonsterLiveFixture(

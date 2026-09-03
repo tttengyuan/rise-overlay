@@ -44,6 +44,23 @@ public class DpsPanelMapperTests
     }
 
     [Fact]
+    public void FromSnapshots_passes_quest_and_locked_damage_scopes()
+    {
+        var dto = DpsPanelMapper.FromSnapshots(
+        [
+            new DpsMemberSnapshot("我", true, 1000, 50),
+        ],
+        huntDurationSeconds: 20,
+        questTotalDamage: 2500,
+        lockedTargetDamage: 900,
+        lockedTargetName: "千刃龙");
+
+        Assert.Equal(2500, dto.QuestTotalDamage);
+        Assert.Equal(900, dto.LockedTargetDamage);
+        Assert.Equal("千刃龙", dto.LockedTargetName);
+    }
+
+    [Fact]
     public void FromSnapshots_uses_question_mark_for_blank_name()
     {
         var dto = DpsPanelMapper.FromSnapshots(

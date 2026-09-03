@@ -30,7 +30,8 @@ public sealed record LivePartSnapshot(
     double MaxHp,
     bool IsBroken,
     bool IsQurio = false,
-    bool IsQurioThreshold = false);
+    bool IsQurioThreshold = false,
+    bool IsSeverable = false);
 
 public sealed record LiveAilmentSnapshot(
     string Key,

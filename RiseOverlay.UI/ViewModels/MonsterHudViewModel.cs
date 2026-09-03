@@ -405,8 +405,8 @@ public sealed class MonsterHudViewModel : INotifyPropertyChanged
         if (pastWeaken && !_pastWeakenLine && _motionEnabled)
             TriggerCaptureFlash();
         PastWeakenLine = pastWeaken;
-        // Capture banner only when actually capturable.
-        CaptureBannerVisible = dto.IsCapturable && PastWeakenLine;
+        // Capture banner only while alive — hide after slay/cart (0 HP), even if past weaken line.
+        CaptureBannerVisible = dto.IsCapturable && PastWeakenLine && HealthCurrent > 0;
 
         var recommended = dto.Recommended ?? Array.Empty<ElementId>();
         Recommended = new ObservableCollection<ElementId>(recommended);

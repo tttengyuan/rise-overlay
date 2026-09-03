@@ -13,7 +13,10 @@ public static class DpsPanelMapper
     /// </summary>
     public static DpsPanelDto FromSnapshots(
         IEnumerable<DpsMemberSnapshot> members,
-        double? huntDurationSeconds = null)
+        double? huntDurationSeconds = null,
+        long? questTotalDamage = null,
+        long? lockedTargetDamage = null,
+        string? lockedTargetName = null)
     {
         ArgumentNullException.ThrowIfNull(members);
 
@@ -24,9 +27,19 @@ public static class DpsPanelMapper
             .Take(MaxDisplayedEntries)
             .ToArray();
 
+        long? questTotal = questTotalDamage;
+        if (questTotal is null)
+        {
+            long sum = entries.Sum(e => e.TotalDamage);
+            questTotal = sum > 0 ? sum : null;
+        }
+
         return new DpsPanelDto(
             entries,
-            huntDurationSeconds is > 0 ? huntDurationSeconds : null);
+            huntDurationSeconds is > 0 ? huntDurationSeconds : null,
+            QuestTotalDamage: questTotal,
+            LockedTargetDamage: lockedTargetDamage is >= 0 ? lockedTargetDamage : null,
+            LockedTargetName: string.IsNullOrWhiteSpace(lockedTargetName) ? null : lockedTargetName);
     }
 
     private static DpsEntryDto ToEntry(DpsMemberSnapshot member)

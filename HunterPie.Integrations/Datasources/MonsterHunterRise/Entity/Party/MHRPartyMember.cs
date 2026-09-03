@@ -44,6 +44,9 @@ public sealed class MHRPartyMember : CommonPartyMember, IUpdatable<MHRPartyMembe
 
     public override int Slot { get; protected set; }
 
+    /// <summary>Party entity index used by native damage IPC (<see cref="Entity.Index"/>).</summary>
+    public int EntityIndex { get; private set; }
+
     public override bool IsMyself { get; protected set; } = true;
     public override MemberType Type { get; protected set; }
 
@@ -67,6 +70,7 @@ public sealed class MHRPartyMember : CommonPartyMember, IUpdatable<MHRPartyMembe
         Weapon = data.WeaponId;
         IsMyself = data.IsMyself;
         Slot = data.Slot;
+        EntityIndex = data.Index;
         Type = data.MemberType;
         HighRank = data.HighRank;
         MasterRank = data.MasterRank;

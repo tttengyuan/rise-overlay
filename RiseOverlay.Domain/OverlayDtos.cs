@@ -42,7 +42,18 @@ public sealed record DpsEntryDto(string Name, bool IsSelf, double Dps, long Tota
 
 public sealed record DpsPanelDto(
     IReadOnlyList<DpsEntryDto> Entries,
-    double? HuntDurationSeconds = null);
+    double? HuntDurationSeconds = null,
+    /// <summary>Quest-wide total damage across large targets.</summary>
+    long? QuestTotalDamage = null,
+    /// <summary>Damage against the currently locked monster, when known.</summary>
+    long? LockedTargetDamage = null,
+    string? LockedTargetName = null);
+
+public enum BriefingTargetKind
+{
+    Quest,
+    Invasion,
+}
 
 public sealed record QuestBriefingTargetDto(
     string Name,
@@ -50,6 +61,8 @@ public sealed record QuestBriefingTargetDto(
     bool HasSeverableTail,
     string? FocusPartLabel,
     IReadOnlyList<ElementId> OverallElementsOrdered,
-    IReadOnlyList<ElementId> Recommended);
+    IReadOnlyList<ElementId> Recommended,
+    BriefingTargetKind Kind = BriefingTargetKind.Quest,
+    bool IsDefeated = false);
 
 public sealed record QuestBriefingDto(IReadOnlyList<QuestBriefingTargetDto> Targets);

@@ -122,6 +122,25 @@ public class MonsterHudMapperTests
     }
 
     [Fact]
+    public void MergeLive_zero_health_hides_capture_banner_flag()
+    {
+        var mapped = MonsterHudMapper.BuildFromStatic(MagnamaloStatic());
+        var live = new LiveMonsterSnapshot(
+            HealthCurrent: 0,
+            HealthMax: 20000,
+            Parts: [],
+            Ailments: [],
+            Status: new StatusLineModel(null, null, false, null, null, null),
+            QuestAllowsCapture: true,
+            CaptureThresholdPercent: 25);
+
+        var dto = MonsterHudMapper.MergeLive(mapped, live);
+
+        Assert.False(dto.IsCapturable);
+        Assert.Equal(25, dto.CaptureThresholdPercent); // weaken line marker can remain
+    }
+
+    [Fact]
     public void MergeLive_zero_live_threshold_still_shows_weaken_line_for_capturable_species()
     {
         var mapped = MonsterHudMapper.BuildFromStatic(MagnamaloStatic());

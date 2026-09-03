@@ -19,6 +19,7 @@ public sealed class MHRMonsterPart : CommonPart, IUpdatable<MHRPartStructure>, I
     private bool _seenBreakableHealth;
     private bool _seenBreakableDamage;
     private bool _seenFullFlinch;
+    private bool _seenSeverableHealth;
     private bool _breakLatched;
     private bool _severLatched;
     private float _breakLatchMaxHealth;
@@ -115,14 +116,43 @@ public sealed class MHRMonsterPart : CommonPart, IUpdatable<MHRPartStructure>, I
                 && Health >= MaxHealth)
                 return true;
 
-            // Live sever edge.
-            if (_seenFullFlinch
+            // Live sever edge — cuttable tails only (never heads / mud coatings).
+            if (IsCuttableTailPart
+                && _seenFullFlinch
                 && MaxSever > 0 && Sever >= MaxSever
                 && MaxFlinch > 0 && Flinch < MaxFlinch)
                 return true;
 
             return false;
         }
+    }
+
+    /// <summary>True after a cuttable tail has been severed (latched).</summary>
+    public bool IsSeverLatched => _severLatched;
+
+    private bool IsCuttableTailPart => IsCuttableTailPartId(Id);
+
+    /// <summary>
+    /// Rise cuttable tails only. Mud/snow/rock coatings on the tail are breakables —
+    /// they must never show 「可断/已断尾」.
+    /// </summary>
+    public static bool IsCuttableTailPartId(string? id)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+            return false;
+        if (!id.Contains("TAIL", StringComparison.OrdinalIgnoreCase))
+            return false;
+        if (id.Contains("MUD", StringComparison.OrdinalIgnoreCase))
+            return false;
+        if (id.Contains("SNOW", StringComparison.OrdinalIgnoreCase))
+            return false;
+        if (id.Contains("ROCK", StringComparison.OrdinalIgnoreCase))
+            return false;
+        if (id.Contains("ICE", StringComparison.OrdinalIgnoreCase))
+            return false;
+        if (id.Contains("WINDSAC", StringComparison.OrdinalIgnoreCase))
+            return false;
+        return true;
     }
 
     public override PartType Type
@@ -197,11 +227,23 @@ public sealed class MHRMonsterPart : CommonPart, IUpdatable<MHRPartStructure>, I
             _breakLatched = true;
         }
 
-        // Severable: Sever==MaxSever at hunt start is normal. Cut = flinch drop after a full flinch.
-        if (_seenFullFlinch
-            && data.MaxSever > 0 && data.Sever >= data.MaxSever
-            && data.MaxFlinch > 0 && data.Flinch < data.MaxFlinch)
-            _severLatched = true;
+        // Severable: only cuttable tails. MaxSever noise on heads/mud must never latch
+        // 「已断尾」. Sever==MaxSever at hunt start is normal; cut = flinch drop after full flinch.
+        if (IsCuttableTailPart)
+        {
+            if (data.MaxSever > 0)
+                _seenSeverableHealth = true;
+            else if (_seenSeverableHealth)
+                _severLatched = true;
+
+            if (_seenFullFlinch
+                && data.MaxSever > 0 && data.Sever >= data.MaxSever
+                && data.MaxFlinch > 0 && data.Flinch < data.MaxFlinch)
+                _severLatched = true;
+
+            if (data.MaxSever > 0 && Type != PartType.Qurio)
+                Type = PartType.Severable;
+        }
 
         MaxHealth = data.MaxHealth;
         Health = data.Health;
@@ -230,7 +272,8 @@ public sealed class MHRMonsterPart : CommonPart, IUpdatable<MHRPartStructure>, I
 
     private void GetCurrentType(MHRPartStructure structure)
     {
-        if (structure.MaxSever > 0)
+        // Only cuttable tails are Severable. MaxSever noise on other parts → Breakable/Flinch.
+        if (IsCuttableTailPart && structure.MaxSever > 0)
             Type = PartType.Severable;
         else if (structure.MaxHealth > 0)
             Type = PartType.Breakable;

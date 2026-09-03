@@ -150,12 +150,13 @@ public static class MonsterLiveAdapter
             MaxHp: max,
             IsBroken: broken,
             IsQurio: p.IsQurio,
-            IsQurioThreshold: p.IsQurioThreshold);
+            IsQurioThreshold: p.IsQurioThreshold,
+            IsSeverable: p.IsSeverable);
     }
 
     /// <summary>
-    /// Prefer breakable HP; else sever. Never fall through to flinch for break/sever parts —
-    /// flinch regenerates and looks like the part "healed" after a break.
+    /// HunterPie priority: Qurio &gt; Sever &gt; Break. Never fall through to flinch for
+    /// break/sever parts — flinch regenerates and looks like the part "healed".
     /// </summary>
     private static (double Current, double Max) ResolvePartHp(MonsterLivePartFixture p, bool broken)
     {
@@ -165,12 +166,18 @@ public static class MonsterLiveAdapter
 
         if (broken)
         {
+            if (p.IsSeverable && p.MaxSever > 0)
+                return (0, p.MaxSever);
             if (p.MaxHealth > 0)
                 return (0, p.MaxHealth);
             if (p.MaxSever > 0)
                 return (0, p.MaxSever);
             return (0, 1);
         }
+
+        // Severable tails often also expose breakable MaxHealth — prefer sever bar.
+        if (p.IsSeverable && p.MaxSever > 0)
+            return (p.Sever, p.MaxSever);
 
         if (p.MaxHealth > 0)
             return (p.Health, p.MaxHealth);

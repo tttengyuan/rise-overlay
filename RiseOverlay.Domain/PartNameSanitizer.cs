@@ -221,6 +221,11 @@ public static partial class PartNameSanitizer
         else if (string.Equals(s, "RabbitConverted", StringComparison.OrdinalIgnoreCase))
             return string.Empty;
 
+        // Strip export prefixes like 【亜種】后脚 / 【強化版】尾尾 (variant hitzone labels).
+        var bracketPrefix = BracketPrefixRegex().Match(s);
+        if (bracketPrefix.Success)
+            s = bracketPrefix.Groups[1].Value.Trim();
+
         // "部位00　头" / "部位03　尾尾" → last segment after ideographic/ascii space
         var partPrefix = PartPrefixRegex().Match(s);
         if (partPrefix.Success)
@@ -263,4 +268,7 @@ public static partial class PartNameSanitizer
 
     [GeneratedRegex(@"^部位\d+\s*[　\s]+(.+)$", RegexOptions.CultureInvariant)]
     private static partial Regex PartPrefixRegex();
+
+    [GeneratedRegex(@"^【[^】]+】\s*(.+)$", RegexOptions.CultureInvariant)]
+    private static partial Regex BracketPrefixRegex();
 }

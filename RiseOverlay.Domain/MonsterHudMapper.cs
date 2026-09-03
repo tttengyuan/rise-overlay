@@ -130,8 +130,10 @@ public static class MonsterHudMapper
         ArgumentNullException.ThrowIfNull(live);
 
         var showCapture = CaptureRules.ShowCaptureUi(staticSnapshot.IsCapturable, live.QuestAllowsCapture);
-        // Capture banner only when quest allows capture and live memory reports a threshold.
-        bool canCapture = showCapture && live.CaptureThresholdPercent is > 0;
+        // Capture banner only while the monster is still alive and quest/memory allow capture.
+        bool canCapture = showCapture
+                          && live.CaptureThresholdPercent is > 0
+                          && live.HealthCurrent > 0;
 
         double? weakenThreshold = CaptureRules.ResolveWeakenThresholdPercent(
             staticSnapshot.IsCapturable,
@@ -161,7 +163,8 @@ public static class MonsterHudMapper
                     Name: displayName,
                     CurrentHp: lp.CurrentHp,
                     MaxHp: lp.MaxHp,
-                    IsSeverable: sp?.IsSeverable ?? false,
+                    // Live flag only — never inherit static IsSeverable (name mismatch / wrong 已断尾).
+                    IsSeverable: lp.IsSeverable,
                     IsBroken: lp.IsBroken,
                     WeakElements: partWeak,
                     IsQurio: lp.IsQurio,

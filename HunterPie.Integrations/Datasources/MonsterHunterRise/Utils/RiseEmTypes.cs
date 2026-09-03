@@ -9,6 +9,20 @@ public static class RiseEmTypes
     /// <summary>Small-monster EmTypes use the 0x1000 bit (EmsType*).</summary>
     private const int SmallMonsterBit = 0x1000;
 
+    /// <summary>
+    /// Large-monster species bytes that exist in Rise/Sunbreak (from EmType wiki).
+    /// Rejects filler like 0x16 → fake <c>monster_022_00</c>.
+    /// </summary>
+    private static readonly HashSet<int> KnownLargeSpecies =
+    [
+        1, 2, 3, 4, 7,
+        19, 20, 23, 24, 25, 27,
+        32, 37, 42, 44, 47, 54, 57, 58, 59, 60, 61, 62,
+        71, 72, 77, 81, 82, 86, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100,
+        102, 107, 108, 109, 118, 124,
+        131, 132, 133, 134, 135, 136,
+    ];
+
     public static bool IsLargeMonsterEmType(int emType)
     {
         if (emType <= 0)
@@ -17,8 +31,7 @@ public static class RiseEmTypes
             return false;
 
         int species = emType & 0xFF;
-        // Rise large monsters roughly Em001–Em136; keep headroom for patches.
-        return species is >= 1 and <= 200;
+        return KnownLargeSpecies.Contains(species);
     }
 
     public static string? ToMonsterStaticId(int emType)

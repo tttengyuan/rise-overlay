@@ -13,6 +13,9 @@ public class PartNameSanitizerTests
     [InlineData("部位03　尾尾", "尾")]
     [InlineData("Head", "头部")]
     [InlineData("Tail", "尾巴")]
+    [InlineData("【亜種】后脚", "后脚")]
+    [InlineData("【亜種】头部", "头部")]
+    [InlineData("【強化版】尾尾", "尾")]
     public void Clean_strips_converter_junk_and_maps_english(string input, string expected)
         => Assert.Equal(expected, PartNameSanitizer.Clean(input));
 

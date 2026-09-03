@@ -276,10 +276,11 @@
                            HorizontalAlignment="Center" />
             </Border>
 
-            <!-- 2. Title -->
-            <Grid Margin="0,0,0,4">
+            <!-- 2. Title + recommend chips; long names ellipsis -->
+            <Grid Margin="0,0,0,4" MinWidth="0">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" MinWidth="48" />
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
@@ -289,11 +290,30 @@
                            FontSize="{DynamicResource Fonts.Size.Title}"
                            FontWeight="SemiBold"
                            TextTrimming="CharacterEllipsis"
-                           VerticalAlignment="Center" />
-                <Border Grid.Column="1"
+                           TextWrapping="NoWrap"
+                           VerticalAlignment="Center"
+                           Margin="0,0,6,0" />
+                <ItemsControl Grid.Column="1"
+                              ItemsSource="{Binding Recommended}"
+                              VerticalAlignment="Center"
+                              Margin="0,0,4,0">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <controls:ElementChip Element="{Binding}"
+                                                  Highlighted="True"
+                                                  Margin="0,0,3,0" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Border Grid.Column="2"
                         CornerRadius="2"
                         Padding="4,1"
-                        Margin="6,0,0,0"
+                        Margin="2,0,0,0"
                         VerticalAlignment="Center"
                         Visibility="{Binding CaptureBadgeVisible, Converter={StaticResource BoolToVis}}">
                     <Border.Style>
@@ -330,61 +350,12 @@
                         </TextBlock.Style>
                     </TextBlock>
                 </Border>
-                <TextBlock Grid.Column="2"
+                <TextBlock Grid.Column="3"
                            Text="{Binding HealthPercentText}"
                            Foreground="{DynamicResource Brushes.Foreground}"
                            FontSize="{DynamicResource Fonts.Size.Body}"
                            Margin="8,0,0,0"
                            VerticalAlignment="Center" />
-            </Grid>
-
-            <!-- 3. Weakness + Recommend -->
-            <Grid Margin="0,0,0,5">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-
-                <TextBlock Grid.Column="0"
-                           Text="弱"
-                           Foreground="{DynamicResource Brushes.ForegroundMuted}"
-                           FontSize="{DynamicResource Fonts.Size.Small}"
-                           VerticalAlignment="Center"
-                           Margin="0,0,4,0" />
-                <ItemsControl Grid.Column="1"
-                              ItemsSource="{Binding OverallElements}"
-                              VerticalAlignment="Center">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <StackPanel Orientation="Horizontal" />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                </ItemsControl>
-
-                <TextBlock Grid.Column="2"
-                           Text="推荐"
-                           Foreground="{DynamicResource Brushes.ForegroundMuted}"
-                           FontSize="{DynamicResource Fonts.Size.Small}"
-                           VerticalAlignment="Center"
-                           Margin="6,0,4,0" />
-                <ItemsControl Grid.Column="3"
-                              ItemsSource="{Binding Recommended}"
-                              VerticalAlignment="Center">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <StackPanel Orientation="Horizontal" />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <controls:ElementChip Element="{Binding}"
-                                                  Highlighted="True"
-                                                  Margin="0,0,3,0" />
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
             </Grid>
 
             <!-- 4. HP bar + weaken line (主血条始终红色；部位条另用青色) -->

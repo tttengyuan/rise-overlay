@@ -12,6 +12,8 @@ public sealed class QuestBriefingTargetViewModel : INotifyPropertyChanged
     private bool _hasSeverableTail;
     private string? _focusPartLabel;
     private bool _showSeparator;
+    private BriefingTargetKind _kind = BriefingTargetKind.Quest;
+    private bool _isDefeated;
     private ObservableCollection<ElementDisplayItem> _overallElements = new();
     private ObservableCollection<ElementId> _recommended = new();
 
@@ -50,6 +52,35 @@ public sealed class QuestBriefingTargetViewModel : INotifyPropertyChanged
     }
 
     public bool ShowFocusPart => !string.IsNullOrWhiteSpace(_focusPartLabel);
+
+    public BriefingTargetKind Kind
+    {
+        get => _kind;
+        set
+        {
+            if (SetField(ref _kind, value))
+            {
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(KindChipText)));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsInvasion)));
+            }
+        }
+    }
+
+    public string KindChipText => _kind == BriefingTargetKind.Invasion ? "入侵" : "任务";
+
+    public bool IsInvasion => _kind == BriefingTargetKind.Invasion;
+
+    public bool IsDefeated
+    {
+        get => _isDefeated;
+        set
+        {
+            if (SetField(ref _isDefeated, value))
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowDefeatedChip)));
+        }
+    }
+
+    public bool ShowDefeatedChip => _isDefeated;
 
     public bool ShowSeparator
     {
@@ -120,6 +151,8 @@ public sealed class QuestBriefingViewModel : INotifyPropertyChanged
                 IsCapturable = t.IsCapturable,
                 HasSeverableTail = t.HasSeverableTail,
                 FocusPartLabel = t.FocusPartLabel,
+                Kind = t.Kind,
+                IsDefeated = t.IsDefeated,
                 ShowSeparator = i < source.Count - 1,
                 Recommended = new ObservableCollection<ElementId>(recommended),
                 OverallElements = new ObservableCollection<ElementDisplayItem>(

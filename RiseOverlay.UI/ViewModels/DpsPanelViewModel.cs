@@ -85,6 +85,8 @@ public sealed class DpsPanelViewModel : INotifyPropertyChanged
     private bool _isSolo;
     private string _soloLineText = "";
     private string _partyTotalText = "";
+    private string _scopeLineText = "";
+    private bool _showScopeLine;
     private ObservableCollection<DpsEntryRowViewModel> _entries = new();
 
     public bool IsSolo
@@ -111,6 +113,18 @@ public sealed class DpsPanelViewModel : INotifyPropertyChanged
         private set => SetField(ref _partyTotalText, value);
     }
 
+    public string ScopeLineText
+    {
+        get => _scopeLineText;
+        private set => SetField(ref _scopeLineText, value);
+    }
+
+    public bool ShowScopeLine
+    {
+        get => _showScopeLine;
+        private set => SetField(ref _showScopeLine, value);
+    }
+
     public ObservableCollection<DpsEntryRowViewModel> Entries
     {
         get => _entries;
@@ -135,10 +149,14 @@ public sealed class DpsPanelViewModel : INotifyPropertyChanged
             IsSolo = true;
             var e = source.FirstOrDefault();
             SoloLineText = e is null
-                ? $"{timePrefix}DPS 0 · 全目标 0"
-                : $"{timePrefix}DPS {FormatDps(e.Dps)} · 全目标 {FormatDamage(e.TotalDamage)}";
+                ? $"{timePrefix}DPS 0 · 当前目标 0"
+                : $"{timePrefix}DPS {FormatDps(e.Dps)} · 当前目标 {FormatDamage(e.TotalDamage)}";
 
             PartyTotalText = "";
+            ScopeLineText = string.IsNullOrWhiteSpace(dto.LockedTargetName)
+                ? ""
+                : dto.LockedTargetName!;
+            ShowScopeLine = !string.IsNullOrEmpty(ScopeLineText);
             Entries = new ObservableCollection<DpsEntryRowViewModel>();
             return;
         }
@@ -146,6 +164,10 @@ public sealed class DpsPanelViewModel : INotifyPropertyChanged
         IsSolo = false;
         SoloLineText = "";
         PartyTotalText = $"{timePrefix}合计 {FormatDamage(sum)}";
+        ScopeLineText = string.IsNullOrWhiteSpace(dto.LockedTargetName)
+            ? ""
+            : dto.LockedTargetName!;
+        ShowScopeLine = !string.IsNullOrEmpty(ScopeLineText);
 
         var rows = new ObservableCollection<DpsEntryRowViewModel>();
         for (int i = 0; i < source.Count; i++)
@@ -170,9 +192,12 @@ public sealed class DpsPanelViewModel : INotifyPropertyChanged
         var vm = new DpsPanelViewModel();
         vm.ApplyDto(new DpsPanelDto(
         [
-            new DpsEntryDto("我", true, 32, 18620),
+            new DpsEntryDto("我", true, 32, 8420),
         ],
-        HuntDurationSeconds: 589));
+        HuntDurationSeconds: 120,
+        QuestTotalDamage: 8420,
+        LockedTargetDamage: 8420,
+        LockedTargetName: "千刃龙"));
         return vm;
     }
 
@@ -186,7 +211,10 @@ public sealed class DpsPanelViewModel : INotifyPropertyChanged
             new DpsEntryDto("小南", false, 26, 3210),
             new DpsEntryDto("老", false, 18, 2190),
         ],
-        HuntDurationSeconds: 124));
+        HuntDurationSeconds: 124,
+        QuestTotalDamage: 18940,
+        LockedTargetDamage: 18940,
+        LockedTargetName: "角龙"));
         return vm;
     }
 

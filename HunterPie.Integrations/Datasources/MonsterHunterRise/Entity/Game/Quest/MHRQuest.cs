@@ -23,7 +23,8 @@ public class MHRQuest : Scannable, IQuest, IDisposable, IEventDispatcher
         QuestType type,
         QuestLevel level,
         int stars,
-        IReadOnlyList<string>? briefingMonsterIds = null
+        IReadOnlyList<string>? briefingMonsterIds = null,
+        int targetCountHint = 0
     ) : base(process, scanService)
     {
         Id = id;
@@ -32,6 +33,7 @@ public class MHRQuest : Scannable, IQuest, IDisposable, IEventDispatcher
         Stars = stars;
         if (briefingMonsterIds is { Count: > 0 })
             _briefingMonsterIds.AddRange(briefingMonsterIds);
+        TargetCountHint = Math.Max(targetCountHint, _briefingMonsterIds.Count);
     }
 
     /// <inheritdoc />
@@ -46,12 +48,19 @@ public class MHRQuest : Scannable, IQuest, IDisposable, IEventDispatcher
     /// <inheritdoc />
     public IReadOnlyList<string> BriefingMonsterIds => _briefingMonsterIds;
 
+    /// <inheritdoc />
+    public int TargetCountHint { get; private set; }
+
     /// <summary>Update anomaly investigation targets when memory becomes available after accept.</summary>
-    public void ReplaceBriefingMonsterIds(IReadOnlyList<string> ids)
+    public void ReplaceBriefingMonsterIds(IReadOnlyList<string> ids, int targetCountHint = 0)
     {
         _briefingMonsterIds.Clear();
         if (ids.Count > 0)
             _briefingMonsterIds.AddRange(ids);
+
+        int hint = Math.Max(targetCountHint, ids.Count);
+        if (hint > 0)
+            TargetCountHint = hint;
     }
 
     /// <inheritdoc />

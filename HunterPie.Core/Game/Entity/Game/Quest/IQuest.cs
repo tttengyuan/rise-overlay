@@ -54,8 +54,15 @@ public interface IQuest
     /// <summary>
     /// Optional static monster ids for pre-spawn briefing (e.g. <c>monster_037_00</c>).
     /// Empty when unknown (most World/Wilds quests and Rise quests without a static/anomaly mapping).
+    /// Same species may appear more than once.
     /// </summary>
     public IReadOnlyList<string> BriefingMonsterIds { get; }
+
+    /// <summary>
+    /// Expected hunt target count when known (e.g. Rise anomaly <c>HuntTargetNum</c>)
+    /// before monster EmTypes resolve. 0 = unknown.
+    /// </summary>
+    public int TargetCountHint => 0;
 
     /// <summary>
     /// Event dispatched whenever the quest status change

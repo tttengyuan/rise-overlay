@@ -258,7 +258,7 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
         _hudFrozen = true;
         // Keep identity/parts from the last combat frame, but show 0 HP after the slay.
         // Rise often leaves 1 HP in memory through the death animation.
-        _frozenHudDto = lastAliveFrame with { HealthCurrent = 0 };
+        _frozenHudDto = lastAliveFrame with { HealthCurrent = 0, IsCapturable = false };
         ApplyHudPresentation();
     }
 
@@ -388,20 +388,24 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
                 double health = useQurio ? mhrPart!.QurioHealth : p.Health;
                 double maxHealth = useQurio ? mhrPart!.QurioMaxHealth : p.MaxHealth;
 
-                // Prefer structural sever/break signals; Type alone is Qurio while infected.
-                bool isSeverable = p.MaxSever > 0 || p.Type.HasFlag(PartType.Severable);
-                bool isBreakable = p.Type.HasFlag(PartType.Breakable)
-                                   || (!isSeverable && (p.MaxHealth > 0 || mhrPart?.IsStructurallyBroken == true));
-                // Rise never increments Count. Keep structural break even while infected so
-                // clearing a Qurio core cannot bring back 「可破」 on an already-broken part.
+                bool isTail = MHRMonsterPart.IsCuttableTailPartId(p.Id);
+                bool isHorn = p.Id.Contains("HORN", StringComparison.OrdinalIgnoreCase);
+                // 「可断/已断尾」仅限可切断的尾巴。禁止用 Type.Severable / 非尾 MaxSever 噪声误标头部。
+                bool isSeverable = isTail
+                                   && (p.MaxSever > 0 || mhrPart?.IsSeverLatched == true);
+
+                bool isBreakable = !isSeverable && (
+                    p.Type.HasFlag(PartType.Breakable)
+                    || p.MaxHealth > 0
+                    || isHorn
+                    || mhrPart?.IsStructurallyBroken == true);
+
                 int breakCount = p.Count;
                 bool structurallyBroken = mhrPart?.IsStructurallyBroken == true
                                           || IsStructurallyBrokenFallback(p, isSeverable, isBreakable);
                 if (breakCount <= 0 && structurallyBroken)
                     breakCount = 1;
 
-                // Infected: show Qurio HP + 怪异化. Already broken + not infected: 已破坏.
-                // Infected wins status via IsQurio; BreakCount still carried for after-clear.
                 return new MonsterLivePartFixture(
                     Id: p.Id,
                     DisplayName: _localizePart(p.Id),

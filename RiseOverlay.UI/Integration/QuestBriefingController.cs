@@ -41,6 +41,9 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
     private bool _huntSummary;
     private OverlayScene _scene = OverlayScene.Idle;
     private readonly List<TargetKey> _targetKeys = [];
+    private readonly HashSet<string> _defeatedQuestTargets = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<IMonster> _lifecycleHooked = [];
+    private List<TargetKey> _lastQuestKeys = [];
 
     public QuestBriefingController(
         IContext context,
@@ -79,6 +82,7 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
                 _enteredCombat = false;
                 _huntSummary = false;
                 _targetKeys.Clear();
+                ClearBriefingProgress();
                 if (!PushBriefingDto())
                     PushPendingBriefingPlaceholder();
             }
@@ -86,6 +90,7 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
             {
                 _enteredCombat = false;
                 _targetKeys.Clear();
+                ClearBriefingProgress();
                 // Only keep hunt summary while still on a hunt map; village cancel → Idle.
                 _huntSummary = IsOnHuntMap();
             }
@@ -118,6 +123,10 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
         _context.Game.OnMonsterDespawn -= OnMonsterDespawn;
         _context.Game.Player.OnStageUpdate -= OnStageUpdate;
 
+        foreach (IMonster monster in _lifecycleHooked.ToArray())
+            UnhookMonsterLifecycle(monster);
+        _lifecycleHooked.Clear();
+
         _viewModel.UIThread.BeginInvoke(() => ApplyScene(OverlayScene.Idle));
     }
 
@@ -129,6 +138,8 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
         _enteredCombat = false;
         _targetKeys.Clear();
         MergeTargetKeysFromMonsters();
+        foreach (IMonster monster in _context.Game.Monsters)
+            HookMonsterLifecycle(monster);
         if (HasAliveLargeMonster())
             _enteredCombat = true;
 
@@ -142,6 +153,7 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
             _enteredCombat = false;
             _huntSummary = false;
             _targetKeys.Clear();
+            ClearBriefingProgress();
             // Do not merge live monsters here — village leftovers inflated anomaly target counts.
             // PushBriefingDto adds hunt-map monsters only when already in the field.
             if (!PushBriefingDto())
@@ -153,15 +165,30 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
     private void PushPendingBriefingPlaceholder()
     {
         bool capturable = !IsAnomalyOrSlayQuest(_context.Game.Quest);
-        var target = new QuestBriefingTargetDto(
-            Name: "任务目标（进入地图后刷新）",
-            OverallElementsOrdered: ElementRecommend.DisplayOrder,
-            Recommended: [],
-            IsCapturable: capturable,
-            HasSeverableTail: false,
-            FocusPartLabel: null
-        );
-        _viewModel.QuestBriefing.ApplyDto(new QuestBriefingDto([target]));
+        IQuest? quest = _context.Game.Quest;
+        int expected = Math.Clamp(
+            Math.Max(quest?.BriefingMonsterIds.Count ?? 0, quest?.TargetCountHint ?? 0),
+            1,
+            MaxBriefingTargets);
+
+        var rows = new List<QuestBriefingTargetDto>(expected);
+        for (int i = 0; i < expected; i++)
+        {
+            string name = expected == 1
+                ? "任务目标（进入地图后刷新）"
+                : $"任务目标 {i + 1}/{expected}（进入地图后刷新）";
+
+            rows.Add(new QuestBriefingTargetDto(
+                Name: name,
+                OverallElementsOrdered: ElementRecommend.DisplayOrder,
+                Recommended: [],
+                IsCapturable: capturable,
+                HasSeverableTail: false,
+                FocusPartLabel: null
+            ));
+        }
+
+        _viewModel.QuestBriefing.ApplyDto(new QuestBriefingDto(rows));
     }
 
     private void OnQuestEnd(object? sender, QuestEndEventArgs e)
@@ -170,6 +197,7 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
             _questActive = false;
             _enteredCombat = false;
             _targetKeys.Clear();
+            ClearBriefingProgress();
 
             // Finished a real hunt → keep DPS/HUD until leaving the map.
             // Cancelled / abandoned in hub → go Idle immediately (no empty combat shell).
@@ -189,13 +217,49 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
         => _viewModel.UIThread.BeginInvoke(() =>
         {
             RememberTarget(monster);
+            HookMonsterLifecycle(monster);
             if (IsLargeMonsterCandidate(monster))
                 _enteredCombat = true;
             RefreshScene();
         });
 
     private void OnMonsterDespawn(object? sender, IMonster monster)
-        => _viewModel.UIThread.BeginInvoke(RefreshScene);
+        => _viewModel.UIThread.BeginInvoke(() =>
+        {
+            // Despawn also fires on area unload — never treat it as quest completion.
+            UnhookMonsterLifecycle(monster);
+            RefreshScene();
+        });
+
+    private void HookMonsterLifecycle(IMonster monster)
+    {
+        if (!_lifecycleHooked.Add(monster))
+            return;
+
+        monster.OnDeath += OnMonsterFinished;
+        monster.OnCapture += OnMonsterFinished;
+    }
+
+    private void UnhookMonsterLifecycle(IMonster monster)
+    {
+        if (!_lifecycleHooked.Remove(monster))
+            return;
+
+        monster.OnDeath -= OnMonsterFinished;
+        monster.OnCapture -= OnMonsterFinished;
+    }
+
+    private void OnMonsterFinished(object? sender, EventArgs e)
+    {
+        if (sender is not IMonster monster)
+            return;
+
+        _viewModel.UIThread.BeginInvoke(() =>
+        {
+            MarkQuestTargetDefeated(monster);
+            RefreshScene();
+        });
+    }
 
     private void OnStageUpdate(object? sender, EventArgs e)
         => _viewModel.UIThread.BeginInvoke(() =>
@@ -265,37 +329,55 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
     }
 
     /// <summary>
-    /// Builds briefing rows from quest static table (by quest id) then remembered live keys.
+    /// Builds briefing rows: quest-board targets (with defeated latch) + alive invaders.
     /// Returns true when at least one target was applied.
     /// </summary>
     private bool PushBriefingDto()
     {
         IQuest? quest = _context.Game.Quest;
 
-        // Anomaly / investigations: memory EmTypes are authoritative — do not merge static table
-        // or village leftovers (that caused 1-target quests showing 2 rows).
-        if (quest is { Level: QuestLevel.Anomaly, BriefingMonsterIds.Count: > 0 })
+        var questKeys = CollectQuestTargetKeys();
+        UpdateDefeatedQuestTargets(questKeys);
+
+        var targets = new List<QuestBriefingTargetDto>();
+
+        foreach (TargetKey key in questKeys)
         {
-            _targetKeys.Clear();
-            MergeTargetKeysFromQuestBriefingIds();
-            if (IsOnHuntMap())
-                MergeTargetKeysFromMonsters();
-        }
-        else if (IsOnHuntMap())
-        {
-            // In the field: map spawns (quest target + intrusions) are authoritative order.
-            MergeTargetKeysFromMonsters();
-            MergeTargetKeysFromQuestStatic();
-            MergeTargetKeysFromQuestBriefingIds();
-        }
-        else
-        {
-            MergeTargetKeysFromQuestStatic();
-            MergeTargetKeysFromQuestBriefingIds();
-            MergeTargetKeysFromMonsters();
+            if (targets.Count >= MaxBriefingTargets)
+                break;
+
+            MonsterStaticMapped mapped = ResolveStatic(_staticStore, key);
+            bool defeated = _defeatedQuestTargets.Contains(StableKey(key));
+            targets.Add(MonsterHudMapper.ToBriefingTarget(mapped) with
+            {
+                Kind = BriefingTargetKind.Quest,
+                IsDefeated = defeated,
+            });
         }
 
-        var targets = BuildBriefingTargets(_staticStore, _targetKeys);
+        // Alive invaders on the hunt map — keep refreshing; never treat corpses as quest rows.
+        if (IsOnHuntMap())
+        {
+            foreach (IMonster monster in _context.Game.Monsters)
+            {
+                if (targets.Count >= MaxBriefingTargets)
+                    break;
+                if (!IsLargeMonsterCandidate(monster))
+                    continue;
+                if (!IsMonsterAlive(monster))
+                    continue;
+                if (questKeys.Any(k => MatchesMonster(k, monster)))
+                    continue;
+
+                MonsterStaticMapped mapped = ResolveStatic(_staticStore, new TargetKey(monster.Name, monster.Id));
+                targets.Add(MonsterHudMapper.ToBriefingTarget(mapped) with
+                {
+                    Kind = BriefingTargetKind.Invasion,
+                    IsDefeated = false,
+                });
+            }
+        }
+
         if (targets.Count == 0)
             return false;
 
@@ -304,12 +386,126 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
         {
             targets = targets
                 .Select(t => t with { IsCapturable = false })
-                .ToArray();
+                .ToList();
         }
 
         _viewModel.QuestBriefing.ApplyDto(new QuestBriefingDto(targets));
         return true;
     }
+
+    private void ClearBriefingProgress()
+    {
+        _defeatedQuestTargets.Clear();
+        _lastQuestKeys = [];
+    }
+
+    private List<TargetKey> CollectQuestTargetKeys()
+    {
+        _targetKeys.Clear();
+        IQuest? quest = _context.Game.Quest;
+
+        // Memory EmTypes win only when every id resolves in the static monster table.
+        // Bad probes (e.g. monster_022_00) must fall back to quests-overlay.json.
+        bool memoryUsable = quest is { BriefingMonsterIds.Count: > 0 }
+            && quest.BriefingMonsterIds.All(id => _staticStore.FindById(id) is not null);
+
+        if (memoryUsable)
+            MergeTargetKeysFromQuestBriefingIds();
+        else
+            MergeTargetKeysFromQuestStatic();
+
+        _lastQuestKeys = _targetKeys.ToList();
+        return _lastQuestKeys;
+    }
+
+    /// <summary>
+    /// Mark defeated only when a dead/captured body is still scanned, or OnDeath/OnCapture fired.
+    /// Missing from <see cref="IGame.Monsters"/> is normal (other area / not loaded) — not defeat.
+    /// Duplicate species: assign corpses to the lowest occurrence slots first.
+    /// </summary>
+    private void UpdateDefeatedQuestTargets(IReadOnlyList<TargetKey> questKeys)
+    {
+        if (questKeys.Count == 0)
+            return;
+
+        foreach (IGrouping<string, TargetKey> group in questKeys.GroupBy(StableSpecies))
+        {
+            var ordered = group.OrderBy(k => k.Occurrence).ToList();
+            var matches = _context.Game.Monsters
+                .Where(m => IsLargeMonsterCandidate(m) && MatchesMonster(ordered[0], m))
+                .ToList();
+
+            if (matches.Count == 0)
+                continue;
+
+            int alive = matches.Count(IsMonsterAlive);
+            int dead = matches.Count - alive;
+
+            for (int i = 0; i < ordered.Count; i++)
+            {
+                string stable = StableKey(ordered[i]);
+                if (i < dead)
+                    _defeatedQuestTargets.Add(stable);
+                else if (i < dead + alive)
+                    _defeatedQuestTargets.Remove(stable);
+            }
+        }
+    }
+
+    private void MarkQuestTargetDefeated(IMonster monster)
+    {
+        if (!IsLargeMonsterCandidate(monster))
+            return;
+
+        IEnumerable<TargetKey> keys = _lastQuestKeys.Count > 0
+            ? _lastQuestKeys
+            : CollectQuestTargetKeys();
+
+        // One corpse → first matching undefeated occurrence (FIFO for same species).
+        foreach (TargetKey key in keys.OrderBy(k => k.Occurrence))
+        {
+            if (!MatchesMonster(key, monster))
+                continue;
+
+            string stable = StableKey(key);
+            if (_defeatedQuestTargets.Contains(stable))
+                continue;
+
+            _defeatedQuestTargets.Add(stable);
+            break;
+        }
+
+        if (!string.IsNullOrWhiteSpace(monster.Name))
+            _defeatedQuestTargets.Add(monster.Name);
+    }
+
+    private static bool IsMonsterAlive(IMonster monster)
+        => MonsterHealthDisplay.ForHud(monster.Health, monster.MaxHealth) > 0;
+
+    private static bool MatchesMonster(TargetKey key, IMonster monster)
+    {
+        if (!string.IsNullOrWhiteSpace(key.Name) && !string.IsNullOrWhiteSpace(monster.Name))
+        {
+            if (string.Equals(key.Name, monster.Name, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            // Afflicted / variant titles sometimes prefix the species name.
+            if (monster.Name.EndsWith(key.Name, StringComparison.OrdinalIgnoreCase)
+                || key.Name.EndsWith(monster.Name, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        // Localization table ids sometimes match across spawn/despawn of the same species.
+        return key.Id >= 0 && monster.Id >= 0 && key.Id == monster.Id;
+    }
+
+    private static string StableSpecies(TargetKey key)
+        => !string.IsNullOrWhiteSpace(key.Name)
+            ? key.Name!
+            : $"#{key.Id}";
+
+    private static string StableKey(TargetKey key)
+        => $"{StableSpecies(key)}#{key.Occurrence}";
 
     private static bool IsAnomalyOrSlayQuest(IQuest? quest)
         => quest is { Level: QuestLevel.Anomaly }
@@ -329,12 +525,64 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
         if (staticQuest is null)
             return;
 
-        foreach (string monsterRef in staticQuest.Monsters)
+        IReadOnlyList<string> monsters = ExpandStaticMonstersByTitle(
+            staticQuest.Monsters,
+            staticQuest.Title,
+            quest.TargetCountHint);
+
+        foreach (string monsterRef in monsters)
             TryAddStaticMonsterRef(monsterRef);
     }
 
     /// <summary>
-    /// Anomaly investigations: target EmTypes read from memory into <see cref="IQuest.BriefingMonsterIds"/>.
+    /// Static export often lists a species once for 「N头同种」quests (e.g. 三头伞鸟).
+    /// Expand to N rows when the title / hunt hint says so.
+    /// </summary>
+    internal static IReadOnlyList<string> ExpandStaticMonstersByTitle(
+        IReadOnlyList<string> monsters,
+        string? title,
+        int targetCountHint)
+    {
+        if (monsters.Count == 0)
+            return monsters;
+
+        int heads = Math.Max(ParseHeadCountFromTitle(title), targetCountHint);
+        if (heads <= monsters.Count)
+            return monsters;
+
+        // Only auto-expand a single-species list — multi-species tables are already explicit.
+        string first = monsters[0];
+        if (monsters.Any(m => !string.Equals(m, first, StringComparison.OrdinalIgnoreCase)))
+            return monsters;
+
+        var expanded = new List<string>(heads);
+        for (int i = 0; i < heads; i++)
+            expanded.Add(first);
+        return expanded;
+    }
+
+    private static int ParseHeadCountFromTitle(string? title)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+            return 0;
+
+        // 「调查2头岩龙」「三头伞鸟」「讨伐3头」
+        var digit = System.Text.RegularExpressions.Regex.Match(title, @"([2-4])\s*头");
+        if (digit.Success && int.TryParse(digit.Groups[1].Value, out int n))
+            return n;
+
+        if (title.Contains('三') && title.Contains('头'))
+            return 3;
+        if ((title.Contains('两') || title.Contains('二')) && title.Contains('头'))
+            return 2;
+        if (title.Contains('四') && title.Contains('头'))
+            return 4;
+
+        return 0;
+    }
+
+    /// <summary>
+    /// Target EmTypes from memory into <see cref="IQuest.BriefingMonsterIds"/>.
     /// </summary>
     private void MergeTargetKeysFromQuestBriefingIds()
     {
@@ -342,31 +590,29 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
         if (quest is null || quest.BriefingMonsterIds.Count == 0)
             return;
 
-        foreach (string monsterRef in quest.BriefingMonsterIds)
+        string? title = _questStore.FindById(quest.Id)?.Title;
+        IReadOnlyList<string> monsters = ExpandStaticMonstersByTitle(
+            quest.BriefingMonsterIds,
+            title,
+            quest.TargetCountHint);
+
+        foreach (string monsterRef in monsters)
             TryAddStaticMonsterRef(monsterRef);
     }
 
+    /// <summary>
+    /// Always append — same species twice is a valid multi-target hunt.
+    /// </summary>
     private void TryAddStaticMonsterRef(string monsterRef)
     {
         if (_targetKeys.Count >= MaxBriefingTargets)
             return;
 
         MonsterStaticDto? monster = _staticStore.FindById(monsterRef);
-        if (monster is null)
-        {
-            // Still show a row with the static id so briefing is not empty.
-            var fallbackKey = new TargetKey(monsterRef, -1);
-            if (_targetKeys.Any(k => k.SameAs(fallbackKey)))
-                return;
-            _targetKeys.Add(fallbackKey);
-            return;
-        }
-
-        var key = new TargetKey(monster.Title, -1);
-        if (_targetKeys.Any(k => k.SameAs(key) || string.Equals(k.Name, monster.Title, StringComparison.OrdinalIgnoreCase)))
-            return;
-
-        _targetKeys.Add(key);
+        string name = monster?.Title ?? monsterRef;
+        int occurrence = _targetKeys.Count(k =>
+            string.Equals(k.Name, name, StringComparison.OrdinalIgnoreCase));
+        _targetKeys.Add(new TargetKey(name, -1, occurrence));
     }
 
     private void MergeTargetKeysFromMonsters()
@@ -380,7 +626,12 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
         if (!IsLargeMonsterCandidate(monster))
             return;
 
-        var key = new TargetKey(monster.Name, monster.Id);
+        // Live memory addresses distinguish individuals; occurrence keeps StableKey unique for species.
+        int occurrence = _targetKeys.Count(k =>
+            string.Equals(k.Name, monster.Name, StringComparison.OrdinalIgnoreCase)
+            || (k.Id >= 0 && monster.Id >= 0 && k.Id == monster.Id));
+
+        var key = new TargetKey(monster.Name, monster.Id, occurrence);
         if (_targetKeys.Any(k => k.SameAs(key)))
             return;
 
@@ -392,7 +643,7 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
 
     private bool HasAliveLargeMonster()
         => _context.Game.Monsters.Any(m =>
-            IsLargeMonsterCandidate(m) && (m.Health > 0 || m.MaxHealth > 0));
+            IsLargeMonsterCandidate(m) && IsMonsterAlive(m));
 
     /// <summary>
     /// Rise scans only large monsters into <see cref="IGame.Monsters"/> in hunting zones;
@@ -403,7 +654,9 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
 
     internal static IReadOnlyList<QuestBriefingTargetDto> BuildBriefingTargets(
         MonsterStaticStore store,
-        IEnumerable<TargetKey> keys)
+        IEnumerable<TargetKey> keys,
+        BriefingTargetKind kind = BriefingTargetKind.Quest,
+        bool isDefeated = false)
     {
         var list = new List<QuestBriefingTargetDto>();
         foreach (var key in keys)
@@ -412,7 +665,11 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
                 break;
 
             var mapped = ResolveStatic(store, key);
-            list.Add(MonsterHudMapper.ToBriefingTarget(mapped));
+            list.Add(MonsterHudMapper.ToBriefingTarget(mapped) with
+            {
+                Kind = kind,
+                IsDefeated = isDefeated,
+            });
         }
 
         return list;
@@ -443,12 +700,13 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
         return MonsterHudMapper.BuildFromStatic(MonsterStaticAdapter.ToSnapshot(dto));
     }
 
-    internal readonly record struct TargetKey(string? Name, int Id)
+    internal readonly record struct TargetKey(string? Name, int Id, int Occurrence = 0)
     {
         public bool SameAs(TargetKey other)
-            => Id >= 0 && other.Id >= 0
-                ? Id == other.Id
-                : string.Equals(Name, other.Name, StringComparison.OrdinalIgnoreCase);
+            => Occurrence == other.Occurrence
+               && (Id >= 0 && other.Id >= 0
+                   ? Id == other.Id
+                   : string.Equals(Name, other.Name, StringComparison.OrdinalIgnoreCase));
     }
 
     private enum OverlayScene
