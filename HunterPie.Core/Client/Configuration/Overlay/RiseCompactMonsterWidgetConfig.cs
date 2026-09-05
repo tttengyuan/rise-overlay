@@ -55,7 +55,7 @@ public class RiseCompactMonsterWidgetConfig : IWidgetSettings, ISettings
     [ConfigurationConditional(name: nameof(Initialize), withValue: true)]
     public Observable<bool> ShowDps { get; set; } = true;
 
-    /// <summary>HUD theme pack id: Classic / Glass / Parchment / Soft / OledCoral / GlassCoral.</summary>
+    /// <summary>HUD theme pack id: Classic / Glass / Parchment / Soft / OledCoral / GlassCoral / Transparent.</summary>
     [ConfigurationProperty("RISE_HUD_THEME_STRING", group: CommonConfigurationGroups.CUSTOMIZATIONS)]
     [ConfigurationConditional(name: nameof(Initialize), withValue: true)]
     public Observable<string> ThemeId { get; set; } = "Classic";

@@ -30,7 +30,7 @@
 | 战斗 HUD | 怪物血量、虚弱线、愤怒 / 晕眩 / 耐力、异常积累 |
 | 部位 | 可破 / 可断、已破坏 / 已断尾锁定；怪异化啮生虫与感染部位 |
 | DPS | 单人 / 组队总伤与占比 |
-| 主题 | 六套 HUD 主题，简报 + 战斗 + DPS 共用并持久化 |
+| 主题 | 七套 HUD 主题，简报 + 战斗 + DPS 共用并持久化 |
 | 动效 | 虚弱越过线、晕眩、破部位、推荐弱属性脉冲（可关） |
 
 **仅支持 Monster Hunter Rise / 破晓。** 不附带 World、Wilds。
@@ -39,7 +39,7 @@
 
 ## 2.0 要点
 
-- 六套主题：`Classic` / `Glass` / `Parchment` / `Soft` / `OledCoral` / `GlassCoral`
+- 七套主题：`Classic` / `Glass` / `Parchment` / `Soft` / `OledCoral` / `GlassCoral` / `Transparent`
 - 壳窗口主题网格 + 战斗动效开关
 - 怪异化：啮生虫阈值、感染部位红轨；打掉虫核不会把已破部位变回「可破」
 - 部位破坏 / 断尾状态锁定；讨伐后内存残血 1 点显示为 0
@@ -57,6 +57,7 @@
 | `Soft` | 日系浅色 |
 | `OledCoral` | OLED 珊瑚 |
 | `GlassCoral` | 玻璃珊瑚 |
+| `Transparent` | 透明（浅底不挡画面） |
 
 设计说明：[`docs/superpowers/specs/2026-09-02-rise-overlay-themes-motion-design.md`](docs/superpowers/specs/2026-09-02-rise-overlay-themes-motion-design.md)
 

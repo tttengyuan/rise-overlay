@@ -8,6 +8,7 @@ public static class RiseThemeIds
     public const string Soft = "Soft";
     public const string OledCoral = "OledCoral";
     public const string GlassCoral = "GlassCoral";
+    public const string Transparent = "Transparent";
 
     public static readonly string[] All =
     [
@@ -17,6 +18,7 @@ public static class RiseThemeIds
         Soft,
         OledCoral,
         GlassCoral,
+        Transparent,
     ];
 
     public static string Normalize(string? themeId) =>
@@ -31,6 +33,7 @@ public static class RiseThemeIds
         Soft => "日系浅色",
         OledCoral => "OLED 珊瑚",
         GlassCoral => "玻璃珊瑚",
+        Transparent => "透明",
         _ => "现版金青",
     };
 

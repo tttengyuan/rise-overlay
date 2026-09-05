@@ -104,7 +104,7 @@
 
     <Border Background="{DynamicResource Brushes.PanelBackground}"
             Padding="8,4"
-            CornerRadius="2"
+            CornerRadius="{DynamicResource Theme.PanelCornerRadius}"
             BorderBrush="{DynamicResource Brushes.PanelBorder}"
             BorderThickness="1">
         <Grid>

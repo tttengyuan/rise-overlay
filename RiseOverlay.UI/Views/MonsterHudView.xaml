@@ -200,10 +200,10 @@
     <Border x:Name="PanelRoot"
             Background="{DynamicResource Brushes.PanelBackground}"
             Padding="8,6"
-            CornerRadius="2"
+            CornerRadius="{DynamicResource Theme.PanelCornerRadius}"
             BorderThickness="1">
         <Border.BorderBrush>
-            <SolidColorBrush x:Name="PanelBorderBrush" Color="#FF2A2F38" />
+            <SolidColorBrush x:Name="PanelBorderBrush" Color="{DynamicResource Colors.PanelBorder}" />
         </Border.BorderBrush>
         <Border.Style>
             <Style TargetType="Border">

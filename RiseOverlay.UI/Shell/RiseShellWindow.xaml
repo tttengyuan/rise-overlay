@@ -157,7 +157,7 @@
                            FontSize="11"
                            Foreground="#FF9AA3B2"
                            Margin="0,12,0,4" />
-                <TextBlock Text="选择后立即生效并记住，下次打开自动恢复"
+                <TextBlock Text="选择后立即生效并记住。透明款底板很浅，尽量不挡游戏画面"
                            FontSize="10"
                            Foreground="#FF6B7280"
                            Margin="0,0,0,6"
