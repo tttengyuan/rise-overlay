@@ -140,6 +140,7 @@
                                Text="{Binding HealthText}"
                                Foreground="{DynamicResource Brushes.ForegroundMuted}"
                                FontSize="9"
+                               Typography.NumeralAlignment="Tabular"
                                VerticalAlignment="Center"
                                Margin="4,0,0,0"
                                TextAlignment="Right" />
@@ -368,6 +369,7 @@
                            Text="{Binding HealthPercentText}"
                            Foreground="{DynamicResource Brushes.Foreground}"
                            FontSize="{DynamicResource Fonts.Size.Body}"
+                           Typography.NumeralAlignment="Tabular"
                            Margin="8,0,0,0"
                            VerticalAlignment="Center" />
             </Grid>
@@ -411,7 +413,8 @@
                 <TextBlock Grid.Column="0"
                            Text="{Binding HealthNumbersText}"
                            Foreground="{DynamicResource Brushes.ForegroundMuted}"
-                           FontSize="{DynamicResource Fonts.Size.Small}" />
+                           FontSize="{DynamicResource Fonts.Size.Small}"
+                           Typography.NumeralAlignment="Tabular" />
                 <TextBlock Grid.Column="1"
                            Text="已过虚弱线"
                            Foreground="{DynamicResource Brushes.AccentHealth}"
@@ -466,6 +469,7 @@
                                    Foreground="#FFFFF7CC"
                                    FontSize="{DynamicResource Fonts.Size.Body}"
                                    FontWeight="Bold"
+                                   Typography.NumeralAlignment="Tabular"
                                    Margin="5,0,0,0"
                                    VerticalAlignment="Center"
                                    MinWidth="28" />

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text;
 
 namespace RiseOverlay.Data;
 
@@ -48,8 +49,9 @@ public sealed class MonsterStaticStore
         foreach (var monster in monsters)
         {
             _byId[monster.Id] = monster;
-            if (!string.IsNullOrWhiteSpace(monster.Title) && !_byTitle.ContainsKey(monster.Title))
-                _byTitle[monster.Title] = monster;
+            string titleKey = NormalizeTitle(monster.Title);
+            if (titleKey.Length > 0 && !_byTitle.ContainsKey(titleKey))
+                _byTitle[titleKey] = monster;
         }
     }
 
@@ -76,7 +78,7 @@ public sealed class MonsterStaticStore
         => Path.Combine(AppContext.BaseDirectory, "static", "monsters-overlay.json");
 
     /// <summary>
-    /// HunterPie localization may differ from overlay static titles (e.g. 骚鸟 vs 搔鸟).
+    /// Legacy/external localization may differ from the game's canonical Chinese title.
     /// </summary>
     private static readonly Dictionary<string, string> TitleAliases = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -123,7 +125,7 @@ public sealed class MonsterStaticStore
         ["Narwa the Allmother"] = "百龙渊源雷神龙",
         ["Anjanath"] = "蛮颚龙",
         ["Pukei-Pukei"] = "毒妖鸟",
-        ["Kulu-Ya-Ku"] = "骚鸟",
+        ["Kulu-Ya-Ku"] = "搔鸟",
         ["Jyuratodus"] = "泥鱼龙",
         ["Tobi-Kadachi"] = "飞雷龙",
         ["Bazelgeuse"] = "爆鳞龙",
@@ -167,15 +169,66 @@ public sealed class MonsterStaticStore
 
     public MonsterStaticDto? FindByTitle(string title)
     {
-        if (_byTitle.TryGetValue(title, out var monster))
-            return monster;
+        string key = NormalizeTitle(title);
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        while (key.Length > 0 && visited.Add(key))
+        {
+            if (_byTitle.TryGetValue(key, out var monster))
+                return monster;
 
-        if (TitleAliases.TryGetValue(title, out string? canonical)
-            && _byTitle.TryGetValue(canonical, out monster))
-            return monster;
+            if (!TitleAliases.TryGetValue(key, out string? canonical))
+                break;
+
+            key = NormalizeTitle(canonical);
+        }
 
         return null;
     }
 
     public MonsterStaticDto? FindByName(string name) => FindByTitle(name);
+
+    /// <summary>
+    /// Stable species identity shared by quest-static, English and localized live names.
+    /// Known monsters use their static id; unknown names retain their normalized title.
+    /// </summary>
+    public string ResolveIdentityKey(string? title)
+    {
+        MonsterStaticDto? monster = FindByTitle(title ?? string.Empty);
+        return monster?.Id ?? NormalizeTitle(title);
+    }
+
+    /// <summary>
+    /// Canonical comparison key for names coming from different Rise localization tables.
+    /// In particular, static data uses U+30FB while HunterPie zh-cn uses U+00B7 for Apex names.
+    /// </summary>
+    public static string NormalizeTitle(string? title)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+            return string.Empty;
+
+        string normalized = title.Normalize(NormalizationForm.FormKC);
+        var output = new StringBuilder(normalized.Length);
+        bool pendingSpace = false;
+
+        foreach (char value in normalized)
+        {
+            if (char.IsWhiteSpace(value))
+            {
+                pendingSpace = output.Length > 0;
+                continue;
+            }
+
+            if (pendingSpace)
+            {
+                output.Append(' ');
+                pendingSpace = false;
+            }
+
+            output.Append(value is '\u30FB' or '\uFF65' or '\u2022' or '\u2219'
+                ? '·'
+                : value);
+        }
+
+        return output.ToString();
+    }
 }

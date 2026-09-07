@@ -70,7 +70,10 @@ public static class MonsterLiveAdapter
             staminaPercent = fixture.Stamina / fixture.MaxStamina * 100.0;
 
         double? capturePercent = null;
-        if (fixture.CaptureThreshold > 0)
+        // A scanner can briefly observe MaxHealth=0/stale while a multiplayer monster is
+        // initializing. Ignore impossible ratios instead of drawing a premature 100% line.
+        if (double.IsFinite(fixture.CaptureThreshold)
+            && fixture.CaptureThreshold is > 0 and < 1)
             capturePercent = fixture.CaptureThreshold * 100.0;
 
         return new LiveMonsterSnapshot(
@@ -226,6 +229,14 @@ public static class MonsterLiveAdapter
         if (p.IsQurioThreshold)
             return false;
 
+        if (p.IsStructurallyBroken)
+            return true;
+
+        // MHRMonsterPart already cross-validates native break/sever state. Once that
+        // authoritative result is available, legacy flinch heuristics must not override it.
+        if (p.HasAuthoritativeBreakState)
+            return false;
+
         if (p.BreakCount > 0)
             return true;
 
@@ -266,7 +277,9 @@ public sealed record MonsterLivePartFixture(
     double MaxSever = 0,
     bool IsBreakable = false,
     bool IsSeverable = false,
-    bool IsQurioThreshold = false);
+    bool IsQurioThreshold = false,
+    bool IsStructurallyBroken = false,
+    bool HasAuthoritativeBreakState = false);
 
 public sealed record MonsterLiveAilmentFixture(
     string Id,

@@ -45,9 +45,9 @@ public sealed record DpsEntryDto(string Name, bool IsSelf, double Dps, long Tota
 public sealed record DpsPanelDto(
     IReadOnlyList<DpsEntryDto> Entries,
     double? HuntDurationSeconds = null,
-    /// <summary>Quest-wide total damage across large targets.</summary>
+    /// <summary>Total shown by this panel. Rise custom HUD supplies current-target session damage.</summary>
     long? QuestTotalDamage = null,
-    /// <summary>Damage against the currently locked monster, when known.</summary>
+    /// <summary>Damage accumulated after locking the current monster, when known.</summary>
     long? LockedTargetDamage = null,
     string? LockedTargetName = null);
 
@@ -65,6 +65,7 @@ public sealed record QuestBriefingTargetDto(
     IReadOnlyList<ElementId> OverallElementsOrdered,
     IReadOnlyList<ElementId> Recommended,
     BriefingTargetKind Kind = BriefingTargetKind.Quest,
-    bool IsDefeated = false);
+    bool IsDefeated = false,
+    CaptureDisplayState CaptureState = CaptureDisplayState.Capturable);
 
 public sealed record QuestBriefingDto(IReadOnlyList<QuestBriefingTargetDto> Targets);

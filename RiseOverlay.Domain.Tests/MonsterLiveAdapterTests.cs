@@ -363,6 +363,68 @@ public class MonsterLiveAdapterTests
     }
 
     [Fact]
+    public void ToSnapshot_authoritative_rise_state_does_not_use_legacy_flinch_fallback()
+    {
+        var fixture = new MonsterLiveFixture(
+            Name: "水兽",
+            Id: 47,
+            Health: 4000,
+            MaxHealth: 47300,
+            Stamina: 0,
+            MaxStamina: 1000,
+            CaptureThreshold: 0.25,
+            IsEnraged: false,
+            Parts:
+            [
+                new("PART_TAIL", "尾巴", 500, 500, 0,
+                    IsSeverable: true,
+                    MaxSever: 800,
+                    Sever: 800,
+                    MaxFlinch: 200,
+                    Flinch: 80,
+                    IsStructurallyBroken: false,
+                    HasAuthoritativeBreakState: true),
+            ],
+            Ailments: [],
+            Enrage: null,
+            QuestAllowsCapture: true);
+
+        var tail = Assert.Single(MonsterLiveAdapter.ToSnapshot(fixture).Parts);
+
+        Assert.False(tail.IsBroken);
+        Assert.Equal("可断", PartDisplayRules.Resolve(tail.IsSeverable, tail.IsBroken, false).Text);
+    }
+
+    [Fact]
+    public void ToSnapshot_uses_confirmed_structural_state_without_fabricated_break_count()
+    {
+        var fixture = new MonsterLiveFixture(
+            Name: "雌火龙",
+            Id: 1,
+            Health: 4000,
+            MaxHealth: 47300,
+            Stamina: 0,
+            MaxStamina: 1000,
+            CaptureThreshold: 0,
+            IsEnraged: false,
+            Parts:
+            [
+                new("PART_HEAD", "头部", 500, 500, 0,
+                    IsBreakable: true,
+                    MaxFlinch: 200,
+                    Flinch: 200,
+                    IsStructurallyBroken: true),
+            ],
+            Ailments: [],
+            Enrage: null,
+            QuestAllowsCapture: false);
+
+        var live = MonsterLiveAdapter.ToSnapshot(fixture);
+
+        Assert.True(Assert.Single(live.Parts).IsBroken);
+    }
+
+    [Fact]
     public void ToSnapshot_zero_capture_threshold_leaves_percent_null()
     {
         var fixture = new MonsterLiveFixture(
@@ -381,6 +443,29 @@ public class MonsterLiveAdapterTests
 
         var live = MonsterLiveAdapter.ToSnapshot(fixture);
         Assert.Null(live.CaptureThresholdPercent);
+    }
+
+    [Theory]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(double.NaN)]
+    [InlineData(1.25)]
+    public void ToSnapshot_rejects_invalid_capture_ratio(double captureThreshold)
+    {
+        var fixture = new MonsterLiveFixture(
+            Name: "测试怪",
+            Id: 1,
+            Health: 1000,
+            MaxHealth: 2000,
+            Stamina: 0,
+            MaxStamina: 0,
+            CaptureThreshold: captureThreshold,
+            IsEnraged: false,
+            Parts: [],
+            Ailments: [],
+            Enrage: null,
+            QuestAllowsCapture: true);
+
+        Assert.Null(MonsterLiveAdapter.ToSnapshot(fixture).CaptureThresholdPercent);
     }
 
     [Theory]

@@ -9,6 +9,7 @@ public sealed class QuestBriefingTargetViewModel : INotifyPropertyChanged
 {
     private string _name = "";
     private bool _isCapturable;
+    private CaptureDisplayState _captureState = CaptureDisplayState.Capturable;
     private bool _hasSeverableTail;
     private string? _focusPartLabel;
     private bool _showSeparator;
@@ -33,7 +34,26 @@ public sealed class QuestBriefingTargetViewModel : INotifyPropertyChanged
         }
     }
 
-    public string CaptureChipText => _isCapturable ? "可捕获" : "不可捕";
+    public CaptureDisplayState CaptureState
+    {
+        get => _captureState;
+        set
+        {
+            if (!SetField(ref _captureState, value))
+                return;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CaptureChipText)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsAnomaly)));
+        }
+    }
+
+    public string CaptureChipText => _captureState switch
+    {
+        CaptureDisplayState.Anomaly => "怪异化",
+        CaptureDisplayState.Capturable => "可捕获",
+        _ => "不可捕",
+    };
+
+    public bool IsAnomaly => _captureState == CaptureDisplayState.Anomaly;
 
     public bool HasSeverableTail
     {
@@ -138,33 +158,45 @@ public sealed class QuestBriefingViewModel : INotifyPropertyChanged
             .Take(MaxTargets)
             .ToList();
 
-        var rows = new ObservableCollection<QuestBriefingTargetViewModel>();
+        var unused = Targets.ToList();
+        var rows = new List<QuestBriefingTargetViewModel>(source.Count);
         for (int i = 0; i < source.Count; i++)
         {
             var t = source[i];
             var recommended = t.Recommended ?? Array.Empty<ElementId>();
             var ordered = t.OverallElementsOrdered ?? Array.Empty<ElementId>();
 
-            rows.Add(new QuestBriefingTargetViewModel
+            QuestBriefingTargetViewModel? row = unused.FirstOrDefault(r =>
+                r.Kind == t.Kind && string.Equals(r.Name, t.Name, StringComparison.Ordinal));
+            if (row is not null)
+                unused.Remove(row);
+            row ??= new QuestBriefingTargetViewModel();
+            row.Name = t.Name;
+            row.IsCapturable = t.IsCapturable;
+            row.CaptureState = t.CaptureState;
+            row.HasSeverableTail = t.HasSeverableTail;
+            row.FocusPartLabel = t.FocusPartLabel;
+            row.Kind = t.Kind;
+            row.IsDefeated = t.IsDefeated;
+            row.ShowSeparator = i < source.Count - 1;
+            ObservableCollectionSync.Values(row.Recommended, recommended);
+
+            var previousElements = row.OverallElements.ToDictionary(e => e.Element);
+            var nextElements = ordered.Select(e =>
             {
-                Name = t.Name,
-                IsCapturable = t.IsCapturable,
-                HasSeverableTail = t.HasSeverableTail,
-                FocusPartLabel = t.FocusPartLabel,
-                Kind = t.Kind,
-                IsDefeated = t.IsDefeated,
-                ShowSeparator = i < source.Count - 1,
-                Recommended = new ObservableCollection<ElementId>(recommended),
-                OverallElements = new ObservableCollection<ElementDisplayItem>(
-                    ordered.Select(e => new ElementDisplayItem
-                    {
-                        Element = e,
-                        IsDimmed = !recommended.Contains(e),
-                    })),
-            });
+                if (!previousElements.TryGetValue(e, out ElementDisplayItem? item))
+                    item = new ElementDisplayItem { Element = e };
+                item.IsDimmed = !recommended.Contains(e);
+                return item;
+            }).ToArray();
+            ObservableCollectionSync.Instances(row.OverallElements, nextElements);
+            rows.Add(row);
         }
 
-        Targets = rows;
+        int previousCount = Targets.Count;
+        ObservableCollectionSync.Instances(Targets, rows);
+        if (previousCount != Targets.Count)
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TargetCountText)));
     }
 
     public static QuestBriefingViewModel CreateSampleSingle()
@@ -202,7 +234,8 @@ public sealed class QuestBriefingViewModel : INotifyPropertyChanged
                     ElementId.Water,
                     ElementId.Thunder,
                     ElementId.Ice,
-                ]),
+                ],
+                CaptureState: CaptureDisplayState.SpeciesUncapturable),
             new QuestBriefingTargetDto(
                 Name: "爵银龙",
                 IsCapturable: true,

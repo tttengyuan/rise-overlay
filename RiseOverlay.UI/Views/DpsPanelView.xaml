@@ -36,6 +36,7 @@
                                Text="{Binding Index}"
                                Foreground="{DynamicResource Brushes.ForegroundMuted}"
                                FontSize="{DynamicResource Fonts.Size.Small}"
+                               Typography.NumeralAlignment="Tabular"
                                VerticalAlignment="Center" />
 
                     <TextBlock Grid.Column="1"
@@ -83,6 +84,7 @@
                                Text="{Binding TotalDamageText}"
                                FontSize="{DynamicResource Fonts.Size.Body}"
                                FontWeight="SemiBold"
+                               Typography.NumeralAlignment="Tabular"
                                VerticalAlignment="Center"
                                TextAlignment="Right">
                         <TextBlock.Style>
@@ -112,6 +114,7 @@
             <TextBlock Text="{Binding SoloLineText}"
                        Foreground="{DynamicResource Brushes.Foreground}"
                        FontSize="{DynamicResource Fonts.Size.Body}"
+                       Typography.NumeralAlignment="Tabular"
                        VerticalAlignment="Center"
                        Visibility="{Binding IsSolo, Converter={StaticResource BoolToVis}}" />
 
@@ -120,6 +123,7 @@
                 <TextBlock Text="{Binding PartyTotalText}"
                            Foreground="{DynamicResource Brushes.ForegroundMuted}"
                            FontSize="{DynamicResource Fonts.Size.Small}"
+                           Typography.NumeralAlignment="Tabular"
                            HorizontalAlignment="Right"
                            Margin="0,0,0,2" />
                 <ItemsControl ItemsSource="{Binding Entries}" />

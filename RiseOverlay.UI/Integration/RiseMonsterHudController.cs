@@ -123,6 +123,14 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
         // Prefer an already-held death freeze, then last combat frame.
         // Never rebuild from whatever map invader is currently Target.Self at quest-end.
         MonsterHudDto? captured = ChooseFreezeSnapshot(liveNow: null);
+        if (captured is not null
+            && e.Status is QuestStatus.Success
+            && e.Quest.Type is QuestType.Hunt or QuestType.Slay or QuestType.Capture)
+        {
+            // The quest state can flip to Success before the final monster health scan.
+            // Treat successful monster-quest completion as authoritative as well.
+            captured = MonsterHudMapper.ToCompleted(captured);
+        }
 
         _viewModel.UIThread.BeginInvoke(() =>
         {
@@ -161,9 +169,61 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
         if (_bindings.ContainsKey(monster))
             return;
 
-        var binding = new MonsterBinding(monster, OnMonsterDataChanged);
+        var binding = new MonsterBinding(
+            monster,
+            OnMonsterDataChanged,
+            OnMonsterTargetChanged,
+            OnMonsterFinished);
         _bindings[monster] = binding;
     }
+
+    private void OnMonsterFinished(IMonster monster)
+        => _viewModel.UIThread.BeginInvoke(() =>
+        {
+            // Death/capture is more authoritative than the health component. In Rise the
+            // latter can remain slightly above zero throughout the finish animation.
+            if (!ReferenceEquals(_active, monster))
+                return;
+
+            MonsterHudDto? lastCombatFrame = ReferenceEquals(_lastLiveMonster, monster)
+                ? _lastLiveHudDto
+                : null;
+            if (lastCombatFrame is null)
+                return;
+
+            FreezeOnActiveDeath(lastCombatFrame);
+        });
+
+    private void OnMonsterTargetChanged(IMonster monster, MonsterTargetEventArgs target)
+        => _viewModel.UIThread.BeginInvoke(() =>
+        {
+            // Every MHR monster reads the same lock-on address independently. During a switch,
+            // one scan can briefly leave both the old and new instances at Target.Self.
+            // The instance whose event just became Self is authoritative for this transition.
+            IMonster? promoted = target.LockOnTarget == Target.Self ? monster : null;
+            IMonster? next = SelectAliveLockedMonster(promoted);
+
+            if (_hudFrozen)
+            {
+                if (_context.Game.Quest is not null
+                    && next is not null
+                    && !ReferenceEquals(next, _active))
+                {
+                    ClearHudFreeze();
+                    _active = next;
+                    _viewModel.HasActiveMonster = true;
+                    PushActiveHud();
+                    return;
+                }
+
+                ApplyHudPresentation();
+                return;
+            }
+
+            _active = next;
+            _viewModel.HasActiveMonster = next is not null;
+            PushActiveHud();
+        });
 
     private void OnMonsterDataChanged(IMonster monster)
         => _viewModel.UIThread.BeginInvoke(() =>
@@ -191,7 +251,11 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
 
             if (!ReferenceEquals(_active, monster))
             {
-                RefreshActiveMonster();
+                // HP/part updates from non-target monsters must never arbitrate selection.
+                // Only refresh when the current target is no longer valid; target events
+                // themselves promote the newly locked monster explicitly.
+                if (_active is null || !IsAliveLocked(_active))
+                    RefreshActiveMonster();
                 return;
             }
 
@@ -223,11 +287,17 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
         return SelectAliveLockedMonster();
     }
 
-    private IMonster? SelectAliveLockedMonster()
-        => _bindings.Keys.FirstOrDefault(m =>
-            m.Target == Target.Self
-            && m.MaxHealth > 0
-            && MonsterHealthDisplay.ForHud(m.Health, m.MaxHealth) > 0);
+    private IMonster? SelectAliveLockedMonster(IMonster? promoted = null)
+        => TargetSelectionRules.Select(
+            _bindings.Keys,
+            _active,
+            promoted,
+            IsAliveLocked);
+
+    private static bool IsAliveLocked(IMonster monster)
+        => monster.Target == Target.Self
+           && monster.MaxHealth > 0
+           && MonsterHealthDisplay.ForHud(monster.Health, monster.MaxHealth) > 0;
 
     private void ApplyHudPresentation()
     {
@@ -270,7 +340,7 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
         _hudFrozen = true;
         // Keep identity/parts from the last combat frame, but show 0 HP after the slay.
         // Rise often leaves 1 HP in memory through the death animation.
-        _frozenHudDto = lastAliveFrame with { HealthCurrent = 0, IsCapturable = false };
+        _frozenHudDto = MonsterHudMapper.ToCompleted(lastAliveFrame);
         ApplyHudPresentation();
     }
 
@@ -404,7 +474,7 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
                 bool isHorn = p.Id.Contains("HORN", StringComparison.OrdinalIgnoreCase);
                 // 「可断/已断尾」仅限可切断的尾巴。禁止用 Type.Severable / 非尾 MaxSever 噪声误标头部。
                 bool isSeverable = isTail
-                                   && (p.MaxSever > 0 || mhrPart?.IsSeverLatched == true);
+                                   && (p.MaxSever > 0 || mhrPart?.HasSeverableEvidence == true);
 
                 bool isBreakable = !isSeverable && (
                     p.Type.HasFlag(PartType.Breakable)
@@ -412,20 +482,22 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
                     || isHorn
                     || mhrPart?.IsStructurallyBroken == true);
 
-                int breakCount = p.Count;
-                bool structurallyBroken = mhrPart?.IsStructurallyBroken == true
-                                          || IsStructurallyBrokenFallback(p, isSeverable, isBreakable);
-                if (breakCount <= 0 && structurallyBroken)
-                    breakCount = 1;
+                // Break and sever are distinct pools in Rise. A breakable tail pool
+                // completing must not be promoted to 「已断尾」; only sever evidence may do that.
+                bool structurallyBroken = mhrPart is not null
+                    ? isSeverable
+                        ? mhrPart.IsSeverConfirmed
+                        : mhrPart.IsBreakConfirmed
+                    : IsStructurallyBrokenFallback(p, isSeverable, isBreakable);
 
-                // Keep BreakCount under Qurio overlay so after the core clears the row
-                // still resolves to 「已破坏」(HunterPie: infection replaces the view, not the latch).
+                // Keep physical confirmation under a Qurio overlay so once the core clears,
+                // the row returns to its correct break/sever state.
                 return new MonsterLivePartFixture(
                     Id: p.Id,
                     DisplayName: _localizePart(p.Id),
                     Health: health,
                     MaxHealth: maxHealth,
-                    BreakCount: breakCount,
+                    BreakCount: p.Count,
                     IsQurio: useQurio,
                     Flinch: p.Flinch,
                     MaxFlinch: p.MaxFlinch,
@@ -433,7 +505,9 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
                     MaxSever: p.MaxSever,
                     IsBreakable: isBreakable,
                     IsSeverable: isSeverable,
-                    IsQurioThreshold: isQurioThreshold);
+                    IsQurioThreshold: isQurioThreshold,
+                    IsStructurallyBroken: structurallyBroken,
+                    HasAuthoritativeBreakState: mhrPart is not null);
             })
             .ToArray();
 
@@ -508,13 +582,21 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
     {
         private readonly IMonster _monster;
         private readonly Action<IMonster> _onChanged;
+        private readonly Action<IMonster, MonsterTargetEventArgs> _onTargetChanged;
+        private readonly Action<IMonster> _onFinished;
         private readonly List<IMonsterPart> _hookedParts = [];
         private readonly List<IMonsterAilment> _hookedAilments = [];
 
-        public MonsterBinding(IMonster monster, Action<IMonster> onChanged)
+        public MonsterBinding(
+            IMonster monster,
+            Action<IMonster> onChanged,
+            Action<IMonster, MonsterTargetEventArgs> onTargetChanged,
+            Action<IMonster> onFinished)
         {
             _monster = monster;
             _onChanged = onChanged;
+            _onTargetChanged = onTargetChanged;
+            _onFinished = onFinished;
 
             _monster.OnHealthChange += OnAny;
             _monster.OnStaminaChange += OnAny;
@@ -523,7 +605,8 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
             _monster.OnTargetChange += OnTarget;
             _monster.OnNewPartFound += OnNewPart;
             _monster.OnNewAilmentFound += OnNewAilment;
-            _monster.OnDeath += OnAny;
+            _monster.OnDeath += OnFinished;
+            _monster.OnCapture += OnFinished;
             _monster.OnDespawn += OnAny;
 
             foreach (var part in _monster.Parts)
@@ -543,7 +626,8 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
             _monster.OnTargetChange -= OnTarget;
             _monster.OnNewPartFound -= OnNewPart;
             _monster.OnNewAilmentFound -= OnNewAilment;
-            _monster.OnDeath -= OnAny;
+            _monster.OnDeath -= OnFinished;
+            _monster.OnCapture -= OnFinished;
             _monster.OnDespawn -= OnAny;
 
             foreach (var part in _hookedParts)
@@ -567,8 +651,9 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
         }
 
         private void OnAny(object? sender, EventArgs e) => _onChanged(_monster);
+        private void OnFinished(object? sender, EventArgs e) => _onFinished(_monster);
         private void OnCaptureThreshold(object? sender, IMonster e) => _onChanged(_monster);
-        private void OnTarget(object? sender, MonsterTargetEventArgs e) => _onChanged(_monster);
+        private void OnTarget(object? sender, MonsterTargetEventArgs e) => _onTargetChanged(_monster, e);
         private void OnPart(object? sender, IMonsterPart e) => _onChanged(_monster);
         private void OnQurioPart(object? sender, IMonsterPart e) => _onChanged(_monster);
         private void OnAilment(object? sender, IMonsterAilment e) => _onChanged(_monster);

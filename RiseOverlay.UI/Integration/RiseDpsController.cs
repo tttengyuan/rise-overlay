@@ -18,7 +18,7 @@ namespace RiseOverlay.UI.Integration;
 /// <summary>
 /// Compact DPS panel. Damage is scoped to the focused monster address (camera lock,
 /// else quest marker). Scope sticks through unlock/death-anim so multi-monster quests
-/// never fall back to AllTargets mid-hunt. Quest end card uses AllTargets.
+/// never fall back to AllTargets. Changing to another monster starts a fresh target session.
 /// </summary>
 public sealed class RiseDpsController : IContextHandler, IDisposable
 {
@@ -37,9 +37,14 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
 
     /// <summary>Monster address whose damage we currently display (sticky across unlock flicker).</summary>
     private nint? _scopeAddress;
+    private MHRMonster? _scopeMonster;
     private string? _scopeName;
     private Dictionary<int, long> _scopeDamageByEntity = new();
     private long _scopeTotal;
+    private Dictionary<int, long> _scopeBaselineByEntity = new();
+    private long _scopeBaselineTotal;
+    private bool _scopeBaselinePending;
+    private MHRMonster? _promotedTarget;
 
     public RiseDpsController(
         IContext context,
@@ -133,7 +138,13 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
     {
         if (_summaryFrozen)
             return;
-        _viewModel.UIThread.BeginInvoke(PushPanel);
+        _viewModel.UIThread.BeginInvoke(() =>
+        {
+            if (sender is MHRMonster monster
+                && (e.LockOnTarget == Target.Self || e.ManualTarget == Target.Self))
+                _promotedTarget = monster;
+            PushPanel();
+        });
     }
 
     private void OnMemberJoin(object? sender, IPartyMember e)
@@ -197,9 +208,9 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
         if (e.Status is QuestStatus.None)
             return;
 
-        // End card: prefer quest-wide totals (all targets) for the hunt summary.
-        DpsMemberSnapshot[] captured = CaptureSnapshots(forceAllTargets: true);
-        long questTotal = captured.Sum(s => s.TotalDamage);
+        // End card follows the same rule as combat: current target only, never quest-wide sum.
+        DpsMemberSnapshot[] captured = CaptureSnapshots();
+        long targetTotal = captured.Sum(s => s.TotalDamage);
         double elapsed = Math.Max(1, e.TimeElapsed.TotalSeconds);
 
         _viewModel.UIThread.BeginInvoke(() =>
@@ -226,9 +237,9 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
             if (_timeElapsed <= 0)
                 _timeElapsed = elapsed;
             _frozenSnapshots = captured.Length > 0 ? captured : null;
-            _frozenQuestTotal = questTotal > 0 ? questTotal : null;
-            _frozenLockedDamage = null;
-            _frozenLockedName = null;
+            _frozenQuestTotal = targetTotal > 0 ? targetTotal : null;
+            _frozenLockedDamage = targetTotal > 0 ? targetTotal : null;
+            _frozenLockedName = _scopeName;
             PushPanel();
         });
     }
@@ -295,7 +306,6 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
         {
             JoinedAt = now,
             FirstHitAt = -1,
-            LastDamage = 0,
         };
         member.OnDamageDealt += OnMemberDamageDealt;
     }
@@ -335,7 +345,6 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
             {
                 JoinedAt = _timeElapsed,
                 FirstHitAt = -1,
-                LastDamage = 0,
             };
             _timings[member] = timing;
         }
@@ -356,7 +365,7 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
             return;
         }
 
-        DpsMemberSnapshot[] snapshots = CaptureSnapshots(forceAllTargets: false);
+        DpsMemberSnapshot[] snapshots = CaptureSnapshots();
         long panelTotal = snapshots.Sum(s => s.TotalDamage);
 
         _viewModel.DpsPanel.ApplyDto(DpsPanelMapper.FromSnapshots(
@@ -370,9 +379,14 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
     private void ClearDamageScope()
     {
         _scopeAddress = null;
+        _scopeMonster = null;
         _scopeName = null;
         _scopeDamageByEntity = new();
         _scopeTotal = 0;
+        _scopeBaselineByEntity = new();
+        _scopeBaselineTotal = 0;
+        _scopeBaselinePending = false;
+        _promotedTarget = null;
     }
 
     /// <summary>
@@ -381,17 +395,23 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
     /// </summary>
     private void RefreshDamageScope()
     {
-        MHRMonster? focused = FindFocusedMonster();
+        MHRMonster? focused = FindFocusedMonster(_promotedTarget);
+        _promotedTarget = null;
         if (focused is not null)
         {
-            if (_scopeAddress != focused.Address)
+            if (_scopeAddress != focused.Address || !ReferenceEquals(_scopeMonster, focused))
             {
                 _scopeAddress = focused.Address;
+                _scopeMonster = focused;
                 _scopeName = focused.Name;
+                _scopeDamageByEntity = new();
+                _scopeTotal = 0;
+                _scopeBaselineByEntity = new();
+                _scopeBaselineTotal = 0;
+                _scopeBaselinePending = true;
                 foreach (DpsMemberTiming timing in _timings.Values)
                 {
                     timing.FirstHitAt = -1;
-                    timing.LastDamage = 0;
                 }
             }
             else
@@ -419,47 +439,60 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
         if (_context.Game is not MHRGame game)
             return;
 
-        Dictionary<int, long> byIndex = game.GetDamageByEntityIndex(address);
-        long total = game.GetDamageDealtTo(address);
-        // IPC can lag one tick — never clobber a known total with zeros.
-        if (total > 0 || byIndex.Count > 0)
+        if (!game.TryGetDamageSnapshot(address, out Dictionary<int, long> byIndex, out long total))
+            return;
+
+        _scopeDamageByEntity = byIndex;
+        _scopeTotal = total;
+        if (_scopeBaselinePending)
         {
-            _scopeDamageByEntity = byIndex;
-            _scopeTotal = total;
+            _scopeBaselineByEntity = new Dictionary<int, long>(byIndex);
+            _scopeBaselineTotal = total;
+            _scopeBaselinePending = false;
         }
     }
 
-    private MHRMonster? FindFocusedMonster()
-        => _context.Game.Monsters.OfType<MHRMonster>()
-               .FirstOrDefault(m => m.Target == Target.Self)
-           ?? _context.Game.Monsters.OfType<MHRMonster>()
-               .FirstOrDefault(m => m.ManualTarget == Target.Self);
+    private MHRMonster? FindFocusedMonster(MHRMonster? promoted)
+    {
+        MHRMonster[] monsters = _context.Game.Monsters.OfType<MHRMonster>().ToArray();
+        MHRMonster? lockOn = TargetSelectionRules.Select(
+            monsters,
+            _scopeMonster,
+            promoted,
+            monster => monster.Target == Target.Self);
+        if (lockOn is not null)
+            return lockOn;
 
-    private DpsMemberSnapshot[] CaptureSnapshots(bool forceAllTargets)
+        return TargetSelectionRules.Select(
+            monsters,
+            _scopeMonster,
+            promoted,
+            monster => monster.ManualTarget == Target.Self);
+    }
+
+    private DpsMemberSnapshot[] CaptureSnapshots()
     {
         // Party objects are recreated by the scanner; always re-bind from live party.
         foreach (IPartyMember member in _context.Game.Player.Party.Members)
             TryAttachMember(member);
 
-        if (!forceAllTargets)
-            RefreshDamageScope();
-
-        bool useScope = !forceAllTargets && _scopeAddress is not null;
+        RefreshDamageScope();
+        bool useScope = _scopeAddress is not null && !_scopeBaselinePending;
+        Dictionary<int, long> scopedDamage = useScope
+            ? ScopedDamageRules.SubtractBaseline(_scopeDamageByEntity, _scopeBaselineByEntity)
+            : new Dictionary<int, long>();
+        long scopedTotal = useScope ? Math.Max(0, _scopeTotal - _scopeBaselineTotal) : 0;
 
         return _members
             .Select(m =>
             {
                 long total;
-                if (forceAllTargets)
+                if (useScope)
                 {
-                    total = m.Damage;
-                }
-                else if (useScope)
-                {
-                    total = _scopeDamageByEntity.GetValueOrDefault(ResolveEntityIndex(m), 0);
+                    total = scopedDamage.GetValueOrDefault(ResolveEntityIndex(m), 0);
                     // Solo / index miss: if party row is empty but we know scope total, attribute to self.
-                    if (total <= 0 && m.IsMyself && _scopeTotal > 0 && _scopeDamageByEntity.Count == 0)
-                        total = _scopeTotal;
+                    if (total <= 0 && m.IsMyself && scopedTotal > 0 && scopedDamage.Count == 0)
+                        total = scopedTotal;
                 }
                 else
                 {
@@ -468,10 +501,10 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
                 }
 
                 DpsMemberTiming timing = GetTiming(m);
-                if (total > 0 && timing.FirstHitAt < 0)
-                    timing.FirstHitAt = _timeElapsed;
-                timing.LastDamage = total;
-
+                timing.FirstHitAt = ScopedDamageRules.ResolveFirstHitAt(
+                    timing.FirstHitAt,
+                    total,
+                    _timeElapsed);
                 DpsCalculationMode mode = _damageConfig.DpsCalculationStrategy.Value switch
                 {
                     DPSCalculationStrategy.RelativeToQuest => DpsCalculationMode.RelativeToQuest,
@@ -480,8 +513,8 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
                     _ => DpsCalculationMode.RelativeToJoin,
                 };
 
-                double dps = OriginalDpsCalculator.Calculate(
-                    totalDamage: total,
+                double dps = ScopedDamageRules.CalculateDps(
+                    scopedDamage: total,
                     questElapsed: _timeElapsed,
                     joinedAt: timing.JoinedAt,
                     firstHitAt: timing.FirstHitAt,
@@ -495,12 +528,11 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
         => member is MHRPartyMember mhr ? mhr.EntityIndex : member.Slot;
 
     private double? HuntDuration()
-        => _timeElapsed > 0 ? _timeElapsed : null;
+        => ScopedDamageRules.HuntDuration(_timeElapsed);
 
     private sealed class DpsMemberTiming
     {
         public double JoinedAt { get; set; }
         public double FirstHitAt { get; set; }
-        public long LastDamage { get; set; }
     }
 }

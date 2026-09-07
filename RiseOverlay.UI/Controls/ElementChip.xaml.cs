@@ -1,7 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-using System.Windows.Media.Animation;
 using RiseOverlay.Domain;
 using RiseOverlay.UI.Themes;
 
@@ -33,19 +32,14 @@ public partial class ElementChip : UserControl
         typeof(ElementChip),
         new PropertyMetadata(false, OnVisualPropertyChanged));
 
-    private Storyboard? _pulseBoard;
-
     public ElementChip()
     {
         InitializeComponent();
         Loaded += (_, _) => ApplyVisualState();
         RiseThemeService.ThemeChanged += OnThemeOrMotionChanged;
-        RiseThemeService.MotionChanged += OnThemeOrMotionChanged;
         Unloaded += (_, _) =>
         {
             RiseThemeService.ThemeChanged -= OnThemeOrMotionChanged;
-            RiseThemeService.MotionChanged -= OnThemeOrMotionChanged;
-            StopPulse();
         };
         ApplyVisualState();
     }
@@ -131,44 +125,11 @@ public partial class ElementChip : UserControl
             LabelText.FontSize = 12;
         }
 
-        bool pulse = Highlighted && !Dimmed && RiseThemeService.MotionEnabled;
-        if (pulse)
-            StartPulse();
-        else
-            StopPulse();
-    }
-
-    private void StartPulse()
-    {
-        StopPulse();
-        var scale = new ScaleTransform(1, 1);
-        Root.RenderTransformOrigin = new Point(0.5, 0.5);
-        Root.RenderTransform = scale;
-
-        var sb = new Storyboard { RepeatBehavior = RepeatBehavior.Forever, AutoReverse = true };
-        var anim = new DoubleAnimation(1, 1.12, TimeSpan.FromMilliseconds(650));
-        Storyboard.SetTarget(anim, Root);
-        Storyboard.SetTargetProperty(anim, new PropertyPath("RenderTransform.ScaleX"));
-        var animY = new DoubleAnimation(1, 1.12, TimeSpan.FromMilliseconds(650));
-        Storyboard.SetTarget(animY, Root);
-        Storyboard.SetTargetProperty(animY, new PropertyPath("RenderTransform.ScaleY"));
-        sb.Children.Add(anim);
-        sb.Children.Add(animY);
-        _pulseBoard = sb;
-        sb.Begin();
-        Root.BorderBrush = TryFindResource("Brushes.AccentTeal") as Brush ?? Brushes.Cyan;
-        Root.BorderThickness = new Thickness(1);
-    }
-
-    private void StopPulse()
-    {
-        _pulseBoard?.Stop();
-        _pulseBoard = null;
-        if (Root is null)
-            return;
         Root.RenderTransform = Transform.Identity;
-        Root.BorderThickness = new Thickness(0);
-        Root.BorderBrush = null;
+        Root.BorderThickness = Highlighted && !Dimmed ? new Thickness(1) : new Thickness(0);
+        Root.BorderBrush = Highlighted && !Dimmed
+            ? TryFindResource("Brushes.AccentTeal") as Brush ?? Brushes.Cyan
+            : null;
     }
 
     private static SolidColorBrush CreateFrozenBrush(byte r, byte g, byte b)

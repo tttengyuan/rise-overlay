@@ -1,141 +1,131 @@
 using System.Runtime.InteropServices;
-using HunterPie.Core.Domain.Process.Entity;
 using HunterPie.Core.Settings.Types;
+using RiseOverlay.Domain;
 
 namespace RiseOverlay.UI.Integration;
 
 /// <summary>
-/// Remembers screen-space widget position across restarts (via config Position).
-/// Only auto-snaps to the game top-left when Position is still the factory default.
-/// While running, follows game-window moves by delta so a drag stays put relative to the game.
+/// Keeps the HunterPie widget at the user's saved absolute screen position.
+/// Unlike the former game-window delta follower, this never adds transient game-window
+/// movement to the saved coordinates; it only rescues a genuinely off-screen position.
 /// </summary>
 public sealed class RiseOverlayPlacement
 {
     private const double DefaultConfigX = 20;
     private const double DefaultConfigY = 20;
-    private const double InitialOffsetX = 16;
-    private const double InitialOffsetY = 48;
+    private const double MinimumVisible = 32;
+    private const double SafeInset = 20;
 
-    /// <summary>
-    /// Minimized / iconic Win32 windows often report Left/Top near -32000.
-    /// Following that delta flings the overlay off-screen (e.g. Position 32767,32490).
-    /// </summary>
-    private const int MinValidScreenCoord = -10_000;
-    private const int MaxValidScreenCoord = 50_000;
-    private const int MinWindowSize = 64;
-
-    private int _lastGameLeft;
-    private int _lastGameTop;
-    private bool _anchored;
-
-    /// <summary>
-    /// Restore saved Position, or snap once if still at factory default (20,20).
-    /// Also rescues positions that have drifted off every monitor.
-    /// </summary>
-    public void RestoreOrSnapInitial(IGameProcess process, Position position)
+    public void RestoreOrSnapInitial(Position position)
     {
-        if (!TryGetGameRect(process, out RECT rect))
-            return;
-
-        _lastGameLeft = rect.Left;
-        _lastGameTop = rect.Top;
-        _anchored = true;
-
-        if (IsFactoryDefault(position) || IsOffScreen(position))
-        {
-            position.X = rect.Left + InitialOffsetX;
-            position.Y = rect.Top + InitialOffsetY;
-        }
+        if (IsFactoryDefault(position) || !IsVisible(position))
+            MoveToSafePrimaryPosition(position);
     }
 
     /// <summary>
-    /// If the game window moved, shift the widget by the same delta.
-    /// Never re-snaps to top-left (preserves drag + saved position).
-    /// Ignores minimized / invalid window rects so the overlay is not flung away.
+    /// Periodic safety check for resolution/DPI/display changes. It never follows the game
+    /// window and therefore cannot accumulate position drift.
     /// </summary>
-    public void FollowGameWindowIfMoved(IGameProcess process, Position position)
+    public void EnsureVisible(Position position)
     {
-        if (!TryGetGameRect(process, out RECT rect))
-            return;
-
-        if (!_anchored)
-        {
-            _lastGameLeft = rect.Left;
-            _lastGameTop = rect.Top;
-            _anchored = true;
-            return;
-        }
-
-        int dx = rect.Left - _lastGameLeft;
-        int dy = rect.Top - _lastGameTop;
-        _lastGameLeft = rect.Left;
-        _lastGameTop = rect.Top;
-
-        if (dx == 0 && dy == 0)
-            return;
-
-        // Guard against minimize/restore jumps (±32000-ish).
-        if (Math.Abs(dx) > 5000 || Math.Abs(dy) > 5000)
-            return;
-
-        position.X += dx;
-        position.Y += dy;
-
-        if (IsOffScreen(position))
-        {
-            position.X = rect.Left + InitialOffsetX;
-            position.Y = rect.Top + InitialOffsetY;
-        }
+        if (!IsVisible(position))
+            MoveToSafePrimaryPosition(position);
     }
 
     private static bool IsFactoryDefault(Position position)
         => Math.Abs(position.X - DefaultConfigX) < 0.5
            && Math.Abs(position.Y - DefaultConfigY) < 0.5;
 
-    private static bool IsOffScreen(Position position)
-        => position.X < MinValidScreenCoord
-           || position.Y < MinValidScreenCoord
-           || position.X > MaxValidScreenCoord
-           || position.Y > MaxValidScreenCoord;
+    private static bool IsVisible(Position position)
+        => OverlayPositionRules.IsSufficientlyVisible(
+            position.X,
+            position.Y,
+            GetScreenBounds(),
+            MinimumVisible);
 
-    private static bool TryGetGameRect(IGameProcess process, out RECT rect)
+    private static OverlayScreenBounds[] GetScreenBounds()
     {
-        rect = default;
-        IntPtr hwnd = process.SystemProcess.MainWindowHandle;
-        if (hwnd == IntPtr.Zero)
-            return false;
+        var screens = new List<OverlayScreenBounds>();
+        EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, (monitor, _, _, _) =>
+        {
+            var info = new MonitorInfo { Size = Marshal.SizeOf<MonitorInfo>() };
+            if (GetMonitorInfo(monitor, ref info))
+            {
+                screens.Add(new OverlayScreenBounds(
+                    info.Work.Left,
+                    info.Work.Top,
+                    info.Work.Right,
+                    info.Work.Bottom));
+            }
+            return true;
+        }, IntPtr.Zero);
 
-        if (!GetWindowRect(hwnd, out rect))
-            return false;
-
-        // Minimized / cloaked windows: discard so we do not update the anchor.
-        if (IsIconic(hwnd))
-            return false;
-
-        int width = rect.Right - rect.Left;
-        int height = rect.Bottom - rect.Top;
-        if (width < MinWindowSize || height < MinWindowSize)
-            return false;
-
-        if (rect.Left < MinValidScreenCoord || rect.Top < MinValidScreenCoord
-            || rect.Left > MaxValidScreenCoord || rect.Top > MaxValidScreenCoord)
-            return false;
-
-        return true;
+        if (screens.Count == 0)
+        {
+            screens.Add(new OverlayScreenBounds(
+                System.Windows.SystemParameters.VirtualScreenLeft,
+                System.Windows.SystemParameters.VirtualScreenTop,
+                System.Windows.SystemParameters.VirtualScreenLeft + System.Windows.SystemParameters.VirtualScreenWidth,
+                System.Windows.SystemParameters.VirtualScreenTop + System.Windows.SystemParameters.VirtualScreenHeight));
+        }
+        return screens.ToArray();
     }
 
-    [DllImport("user32.dll")]
-    private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+    private static void MoveToSafePrimaryPosition(Position position)
+    {
+        OverlayScreenBounds primary = GetPrimaryScreenBounds();
+        position.X = primary.Left + SafeInset;
+        position.Y = primary.Top + SafeInset;
+    }
+
+    private static OverlayScreenBounds GetPrimaryScreenBounds()
+    {
+        OverlayScreenBounds? primary = null;
+        EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, (monitor, _, _, _) =>
+        {
+            var info = new MonitorInfo { Size = Marshal.SizeOf<MonitorInfo>() };
+            if (GetMonitorInfo(monitor, ref info) && (info.Flags & MonitorInfoPrimary) != 0)
+            {
+                primary = new OverlayScreenBounds(info.Work.Left, info.Work.Top, info.Work.Right, info.Work.Bottom);
+                return false;
+            }
+            return true;
+        }, IntPtr.Zero);
+
+        return primary ?? GetScreenBounds()[0];
+    }
+
+    private const uint MonitorInfoPrimary = 1;
+
+    private delegate bool MonitorEnumProc(IntPtr monitor, IntPtr hdc, IntPtr rect, IntPtr data);
 
     [DllImport("user32.dll")]
-    private static extern bool IsIconic(IntPtr hWnd);
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool EnumDisplayMonitors(
+        IntPtr hdc,
+        IntPtr clip,
+        MonitorEnumProc callback,
+        IntPtr data);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetMonitorInfo(IntPtr monitor, ref MonitorInfo info);
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct RECT
+    private struct NativeRect
     {
         public int Left;
         public int Top;
         public int Right;
         public int Bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+    private struct MonitorInfo
+    {
+        public int Size;
+        public NativeRect Monitor;
+        public NativeRect Work;
+        public uint Flags;
     }
 }

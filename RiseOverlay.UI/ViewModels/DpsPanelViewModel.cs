@@ -143,44 +143,51 @@ public sealed class DpsPanelViewModel : INotifyPropertyChanged
         long sum = source.Sum(e => e.TotalDamage);
         double ratioBase = sum <= 0 ? 1.0 : sum;
         string timePrefix = FormatHuntDuration(dto.HuntDurationSeconds);
+        string targetLabel = string.IsNullOrWhiteSpace(dto.LockedTargetName)
+            ? "本怪"
+            : $"{dto.LockedTargetName} · 本怪";
 
         if (source.Count <= 1)
         {
             IsSolo = true;
             var e = source.FirstOrDefault();
             SoloLineText = e is null
-                ? $"{timePrefix}DPS 0 · 合计 0"
-                : $"{timePrefix}DPS {FormatDps(e.Dps)} · 合计 {FormatDamage(e.TotalDamage)}";
+                ? $"{timePrefix}DPS 0 · {targetLabel} 0"
+                : $"{timePrefix}DPS {FormatDps(e.Dps)} · {targetLabel} {FormatDamage(e.TotalDamage)}";
 
             PartyTotalText = "";
             ScopeLineText = "";
             ShowScopeLine = false;
-            Entries = new ObservableCollection<DpsEntryRowViewModel>();
+            Entries.Clear();
             return;
         }
 
         IsSolo = false;
         SoloLineText = "";
-        PartyTotalText = $"{timePrefix}合计 {FormatDamage(sum)}";
+        PartyTotalText = $"{timePrefix}{targetLabel} {FormatDamage(sum)}";
         ScopeLineText = "";
         ShowScopeLine = false;
 
-        var rows = new ObservableCollection<DpsEntryRowViewModel>();
+        var unused = Entries.ToList();
+        var rows = new List<DpsEntryRowViewModel>(source.Count);
         for (int i = 0; i < source.Count; i++)
         {
             var e = source[i];
-            rows.Add(new DpsEntryRowViewModel
-            {
-                Index = i + 1,
-                Name = e.Name,
-                IsSelf = e.IsSelf,
-                Dps = e.Dps,
-                TotalDamage = e.TotalDamage,
-                ShareRatio = Math.Clamp(e.TotalDamage / ratioBase, 0, 1),
-            });
+            DpsEntryRowViewModel? row = unused.FirstOrDefault(r =>
+                r.IsSelf == e.IsSelf && string.Equals(r.Name, e.Name, StringComparison.Ordinal));
+            if (row is not null)
+                unused.Remove(row);
+            row ??= new DpsEntryRowViewModel();
+            row.Index = i + 1;
+            row.Name = e.Name;
+            row.IsSelf = e.IsSelf;
+            row.Dps = e.Dps;
+            row.TotalDamage = e.TotalDamage;
+            row.ShareRatio = Math.Clamp(e.TotalDamage / ratioBase, 0, 1);
+            rows.Add(row);
         }
 
-        Entries = rows;
+        ObservableCollectionSync.Instances(Entries, rows);
     }
 
     public static DpsPanelViewModel CreateSampleSolo()

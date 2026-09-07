@@ -158,6 +158,14 @@ public sealed class PartRowViewModel : INotifyPropertyChanged
         }
     }
 
+    internal void SyncWeakElements(IReadOnlyList<ElementId> elements)
+    {
+        bool hadElements = HasWeakElements;
+        ObservableCollectionSync.Values(_weakElements, elements);
+        if (hadElements != HasWeakElements)
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasWeakElements)));
+    }
+
     public double HealthRatio => _maxHp <= 0 ? 0 : Math.Clamp(_currentHp / _maxHp, 0, 1);
 
     public double FlinchRatio => _maxFlinch <= 0 ? 0 : Math.Clamp(_flinch / _maxFlinch, 0, 1);
@@ -437,15 +445,18 @@ public sealed class MonsterHudViewModel : INotifyPropertyChanged
         CaptureBannerVisible = dto.IsCapturable && PastWeakenLine && HealthCurrent > 0;
 
         var recommended = dto.Recommended ?? Array.Empty<ElementId>();
-        Recommended = new ObservableCollection<ElementId>(recommended);
+        ObservableCollectionSync.Values(Recommended, recommended);
 
         var ordered = dto.OverallElementsOrdered ?? Array.Empty<ElementId>();
-        OverallElements = new ObservableCollection<ElementDisplayItem>(
-            ordered.Select(e => new ElementDisplayItem
-            {
-                Element = e,
-                IsDimmed = !recommended.Contains(e),
-            }));
+        var previousElements = OverallElements.ToDictionary(e => e.Element);
+        var nextElements = ordered.Select(e =>
+        {
+            if (!previousElements.TryGetValue(e, out ElementDisplayItem? item))
+                item = new ElementDisplayItem { Element = e };
+            item.IsDimmed = !recommended.Contains(e);
+            return item;
+        }).ToArray();
+        ObservableCollectionSync.Instances(OverallElements, nextElements);
 
         StunActive = dto.Status.StunActive && dto.Status.StunActiveRemaining is { TotalSeconds: > 0 };
         StunCountdownText = dto.Status.StunActiveRemaining is { } rem
@@ -485,32 +496,30 @@ public sealed class MonsterHudViewModel : INotifyPropertyChanged
         foreach (PartRowViewModel existing in Parts)
             previous[PartRowSyncKey.For(existing.Name, existing.IsQurio, existing.IsQurioThreshold)] = existing;
 
-        var next = new ObservableCollection<PartRowViewModel>();
+        var next = new List<PartRowViewModel>(parts.Count);
         foreach (PartDto p in parts)
         {
             previous.TryGetValue(PartRowSyncKey.For(p.Name, p.IsQurio, p.IsQurioThreshold), out PartRowViewModel? old);
             bool brokenEdge = p.IsBroken && old is { IsBroken: false };
-            var row = new PartRowViewModel
-            {
-                Name = p.Name,
-                CurrentHp = p.CurrentHp,
-                MaxHp = p.MaxHp,
-                IsSeverable = p.IsSeverable,
-                IsBroken = p.IsBroken,
-                IsQurio = p.IsQurio,
-                IsQurioThreshold = p.IsQurioThreshold,
-                IsRecommendedTarget = p.IsRecommendedTarget,
-                Flinch = p.Flinch,
-                MaxFlinch = p.MaxFlinch,
-                WeakElements = new ObservableCollection<ElementId>(p.WeakElements),
-                BreakFlash = brokenEdge && _motionEnabled,
-            };
+            var row = old ?? new PartRowViewModel();
+            row.Name = p.Name;
+            row.CurrentHp = p.CurrentHp;
+            row.MaxHp = p.MaxHp;
+            row.IsSeverable = p.IsSeverable;
+            row.IsBroken = p.IsBroken;
+            row.IsQurio = p.IsQurio;
+            row.IsQurioThreshold = p.IsQurioThreshold;
+            row.IsRecommendedTarget = p.IsRecommendedTarget;
+            row.Flinch = p.Flinch;
+            row.MaxFlinch = p.MaxFlinch;
+            row.SyncWeakElements(p.WeakElements);
+            row.BreakFlash = brokenEdge && _motionEnabled;
             next.Add(row);
             if (row.BreakFlash)
                 _ = ClearBreakFlashAsync(row);
         }
 
-        Parts = next;
+        ObservableCollectionSync.Instances(Parts, next);
     }
 
     private static async Task ClearBreakFlashAsync(PartRowViewModel row)

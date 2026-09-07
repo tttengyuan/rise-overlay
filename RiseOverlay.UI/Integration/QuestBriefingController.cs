@@ -37,13 +37,13 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
     private readonly RiseOverlayPlacement _placement = new();
 
     private bool _questActive;
-    private bool _enteredCombat;
     private bool _huntSummary;
     private OverlayScene _scene = OverlayScene.Idle;
     private readonly List<TargetKey> _targetKeys = [];
     private readonly HashSet<string> _defeatedQuestTargets = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<IMonster> _lifecycleHooked = [];
     private List<TargetKey> _lastQuestKeys = [];
+    private QuestBriefingDto? _lastBriefingDto;
 
     public QuestBriefingController(
         IContext context,
@@ -56,7 +56,7 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
         _staticStore = staticStore;
         _questStore = questStore ?? QuestStaticStore.LoadEmpty();
 
-        _placement.RestoreOrSnapInitial(context.Process, viewModel.Config.Position);
+        _placement.RestoreOrSnapInitial(viewModel.Config.Position);
 
         HookEvents();
         BootstrapFromCurrentState();
@@ -68,8 +68,9 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
 
     private void OnAlignTick(object? sender, EventArgs e)
     {
-        // Preserve free drag: only follow game-window movement by delta, never force top-left.
-        _placement.FollowGameWindowIfMoved(_context.Process, _viewModel.Config.Position);
+        // Original HunterPie behavior: fixed absolute screen position. Only rescue when a
+        // display/DPI change leaves the saved point outside the virtual desktop.
+        _placement.EnsureVisible(_viewModel.Config.Position);
 
         // Safety net if OnQuestStart/End was missed (scan race / type mapping).
         bool questNow = _context.Game.Quest is not null;
@@ -79,7 +80,6 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
             _questActive = questNow;
             if (_questActive)
             {
-                _enteredCombat = false;
                 _huntSummary = false;
                 _targetKeys.Clear();
                 ClearBriefingProgress();
@@ -88,7 +88,6 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
             }
             else if (wasActive)
             {
-                _enteredCombat = false;
                 _targetKeys.Clear();
                 ClearBriefingProgress();
                 // Only keep hunt summary while still on a hunt map; village cancel → Idle.
@@ -135,13 +134,10 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
     private void BootstrapFromCurrentState()
     {
         _questActive = _context.Game.Quest is not null;
-        _enteredCombat = false;
         _targetKeys.Clear();
         MergeTargetKeysFromMonsters();
         foreach (IMonster monster in _context.Game.Monsters)
             HookMonsterLifecycle(monster);
-        if (HasAliveLargeMonster())
-            _enteredCombat = true;
 
         _viewModel.UIThread.BeginInvoke(RefreshScene);
     }
@@ -150,7 +146,6 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
         => _viewModel.UIThread.BeginInvoke(() =>
         {
             _questActive = true;
-            _enteredCombat = false;
             _huntSummary = false;
             _targetKeys.Clear();
             ClearBriefingProgress();
@@ -164,8 +159,8 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
 
     private void PushPendingBriefingPlaceholder()
     {
-        bool capturable = !IsAnomalyOrSlayQuest(_context.Game.Quest);
         IQuest? quest = _context.Game.Quest;
+        bool capturable = quest?.Type != QuestType.Slay;
         int expected = Math.Clamp(
             Math.Max(quest?.BriefingMonsterIds.Count ?? 0, quest?.TargetCountHint ?? 0),
             1,
@@ -188,14 +183,17 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
             ));
         }
 
-        _viewModel.QuestBriefing.ApplyDto(new QuestBriefingDto(rows));
+        IReadOnlyList<QuestBriefingTargetDto> resolved = CaptureRules.ResolveBriefingTargetStates(
+            rows,
+            isAnomalyQuest: quest?.Level == QuestLevel.Anomaly,
+            isSlayQuest: quest?.Type == QuestType.Slay);
+        ApplyBriefingIfChanged(new QuestBriefingDto(resolved));
     }
 
     private void OnQuestEnd(object? sender, QuestEndEventArgs e)
         => _viewModel.UIThread.BeginInvoke(() =>
         {
             _questActive = false;
-            _enteredCombat = false;
             _targetKeys.Clear();
             ClearBriefingProgress();
 
@@ -218,8 +216,6 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
         {
             RememberTarget(monster);
             HookMonsterLifecycle(monster);
-            if (IsLargeMonsterCandidate(monster))
-                _enteredCombat = true;
             RefreshScene();
         });
 
@@ -283,7 +279,6 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
         // Combat HUD only after real camera lock-on (not quest auto-marker).
         if (HasLockedLargeMonster())
         {
-            _enteredCombat = true;
             ApplyScene(OverlayScene.Combat);
             return;
         }
@@ -381,22 +376,32 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
         if (targets.Count == 0)
             return false;
 
-        // Afflicted / anomaly investigations and slay quests are capture-forbidden.
-        if (IsAnomalyOrSlayQuest(quest))
-        {
-            targets = targets
-                .Select(t => t with { IsCapturable = false })
-                .ToList();
-        }
+        // Only the afflicted primary target is uncapturable in an anomaly investigation.
+        // Optional cover targets and invaders keep their own species capture rules.
+        targets = CaptureRules.ResolveBriefingTargetStates(
+                targets,
+                isAnomalyQuest: quest?.Level == QuestLevel.Anomaly,
+                isSlayQuest: quest?.Type == QuestType.Slay)
+            .ToList();
 
-        _viewModel.QuestBriefing.ApplyDto(new QuestBriefingDto(targets));
+        ApplyBriefingIfChanged(new QuestBriefingDto(targets));
         return true;
+    }
+
+    private void ApplyBriefingIfChanged(QuestBriefingDto dto)
+    {
+        if (QuestBriefingDtoComparer.Equivalent(_lastBriefingDto, dto))
+            return;
+
+        _lastBriefingDto = dto;
+        _viewModel.QuestBriefing.ApplyDto(dto);
     }
 
     private void ClearBriefingProgress()
     {
         _defeatedQuestTargets.Clear();
         _lastQuestKeys = [];
+        _lastBriefingDto = null;
     }
 
     private List<TargetKey> CollectQuestTargetKeys()
@@ -482,16 +487,21 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
     private static bool IsMonsterAlive(IMonster monster)
         => MonsterHealthDisplay.ForHud(monster.Health, monster.MaxHealth) > 0;
 
-    private static bool MatchesMonster(TargetKey key, IMonster monster)
+    private bool MatchesMonster(TargetKey key, IMonster monster)
     {
         if (!string.IsNullOrWhiteSpace(key.Name) && !string.IsNullOrWhiteSpace(monster.Name))
         {
-            if (string.Equals(key.Name, monster.Name, StringComparison.OrdinalIgnoreCase))
+            string keyName = _staticStore.ResolveIdentityKey(key.Name);
+            string liveName = _staticStore.ResolveIdentityKey(monster.Name);
+
+            if (string.Equals(keyName, liveName, StringComparison.OrdinalIgnoreCase))
                 return true;
 
             // Afflicted / variant titles sometimes prefix the species name.
-            if (monster.Name.EndsWith(key.Name, StringComparison.OrdinalIgnoreCase)
-                || key.Name.EndsWith(monster.Name, StringComparison.OrdinalIgnoreCase))
+            string normalizedKeyName = MonsterStaticStore.NormalizeTitle(key.Name);
+            string normalizedLiveName = MonsterStaticStore.NormalizeTitle(monster.Name);
+            if (normalizedLiveName.EndsWith(normalizedKeyName, StringComparison.OrdinalIgnoreCase)
+                || normalizedKeyName.EndsWith(normalizedLiveName, StringComparison.OrdinalIgnoreCase))
                 return true;
         }
 
@@ -499,17 +509,13 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
         return key.Id >= 0 && monster.Id >= 0 && key.Id == monster.Id;
     }
 
-    private static string StableSpecies(TargetKey key)
+    private string StableSpecies(TargetKey key)
         => !string.IsNullOrWhiteSpace(key.Name)
-            ? key.Name!
+            ? _staticStore.ResolveIdentityKey(key.Name)
             : $"#{key.Id}";
 
-    private static string StableKey(TargetKey key)
+    private string StableKey(TargetKey key)
         => $"{StableSpecies(key)}#{key.Occurrence}";
-
-    private static bool IsAnomalyOrSlayQuest(IQuest? quest)
-        => quest is { Level: QuestLevel.Anomaly }
-           || quest is { Type: QuestType.Slay };
 
     private void MergeTargetKeysFromQuestStatic()
     {
@@ -610,8 +616,12 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
 
         MonsterStaticDto? monster = _staticStore.FindById(monsterRef);
         string name = monster?.Title ?? monsterRef;
+        string normalizedName = _staticStore.ResolveIdentityKey(name);
         int occurrence = _targetKeys.Count(k =>
-            string.Equals(k.Name, name, StringComparison.OrdinalIgnoreCase));
+            string.Equals(
+                _staticStore.ResolveIdentityKey(k.Name),
+                normalizedName,
+                StringComparison.OrdinalIgnoreCase));
         _targetKeys.Add(new TargetKey(name, -1, occurrence));
     }
 
@@ -627,12 +637,21 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
             return;
 
         // Live memory addresses distinguish individuals; occurrence keeps StableKey unique for species.
+        string normalizedName = _staticStore.ResolveIdentityKey(monster.Name);
         int occurrence = _targetKeys.Count(k =>
-            string.Equals(k.Name, monster.Name, StringComparison.OrdinalIgnoreCase)
+            string.Equals(
+                _staticStore.ResolveIdentityKey(k.Name),
+                normalizedName,
+                StringComparison.OrdinalIgnoreCase)
             || (k.Id >= 0 && monster.Id >= 0 && k.Id == monster.Id));
 
         var key = new TargetKey(monster.Name, monster.Id, occurrence);
-        if (_targetKeys.Any(k => k.SameAs(key)))
+        if (_targetKeys.Any(k => k.Occurrence == key.Occurrence
+            && ((k.Id >= 0 && key.Id >= 0 && k.Id == key.Id)
+                || string.Equals(
+                    _staticStore.ResolveIdentityKey(k.Name),
+                    _staticStore.ResolveIdentityKey(key.Name),
+                    StringComparison.OrdinalIgnoreCase))))
             return;
 
         if (_targetKeys.Count >= MaxBriefingTargets)
@@ -640,10 +659,6 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
 
         _targetKeys.Add(key);
     }
-
-    private bool HasAliveLargeMonster()
-        => _context.Game.Monsters.Any(m =>
-            IsLargeMonsterCandidate(m) && IsMonsterAlive(m));
 
     /// <summary>
     /// Rise scans only large monsters into <see cref="IGame.Monsters"/> in hunting zones;
@@ -684,7 +699,7 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
         if (dto is null && !string.IsNullOrWhiteSpace(key.Name))
             dto = store.FindById(key.Name!);
 
-        // HunterPie monster.Id is the localization table id (e.g. 42 = 骚鸟), not EmType species
+        // HunterPie monster.Id is the localization table id (e.g. 42 for Kulu-Ya-Ku), not EmType species
         // (monster_107_00). Never format it as monster_{Id:D3}_00 — that maps 42 → 冰牙龙.
         if (dto is null && key.Id >= 0)
             dto = store.FindById(key.Id.ToString());
@@ -694,20 +709,14 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
             string fallbackName = !string.IsNullOrWhiteSpace(key.Name)
                 ? key.Name!
                 : $"#{key.Id}";
-            return MonsterHudMapper.CreateFallbackStatic(fallbackName, isCapturable: true);
+            bool capturable = !CaptureRules.IsKnownUncapturableSpeciesName(fallbackName);
+            return MonsterHudMapper.CreateFallbackStatic(fallbackName, isCapturable: capturable);
         }
 
         return MonsterHudMapper.BuildFromStatic(MonsterStaticAdapter.ToSnapshot(dto));
     }
 
-    internal readonly record struct TargetKey(string? Name, int Id, int Occurrence = 0)
-    {
-        public bool SameAs(TargetKey other)
-            => Occurrence == other.Occurrence
-               && (Id >= 0 && other.Id >= 0
-                   ? Id == other.Id
-                   : string.Equals(Name, other.Name, StringComparison.OrdinalIgnoreCase));
-    }
+    internal readonly record struct TargetKey(string? Name, int Id, int Occurrence = 0);
 
     private enum OverlayScene
     {

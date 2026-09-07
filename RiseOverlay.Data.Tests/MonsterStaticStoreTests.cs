@@ -60,6 +60,43 @@ public class MonsterStaticStoreTests
         var byAlias = store.FindByTitle("骚鸟");
         Assert.NotNull(byAlias);
         Assert.Same(byCanonical, byAlias);
+
+        var byEnglishName = store.FindByTitle("Kulu-Ya-Ku");
+        Assert.NotNull(byEnglishName);
+        Assert.Same(byCanonical, byEnglishName);
+        Assert.Equal("搔鸟", byEnglishName.Title);
+        Assert.Equal("monster_107_00", store.ResolveIdentityKey("骚鸟"));
+        Assert.Equal("monster_107_00", store.ResolveIdentityKey("Kulu-Ya-Ku"));
+    }
+
+    [Theory]
+    [InlineData("monster_099_05", "百龙渊源雷神龙")]
+    [InlineData("monster_072_00", "天廻龙")]
+    [InlineData("monster_072_08", "怪异克服天廻龙")]
+    [InlineData("monster_135_00", "冥渊龙")]
+    public void Elder_and_final_boss_species_are_not_capturable(string id, string title)
+    {
+        var store = MonsterStaticStore.Load(ResolveJsonPath());
+
+        var monster = store.FindById(id);
+
+        Assert.NotNull(monster);
+        Assert.Equal(title, monster.Title);
+        Assert.False(monster.Capturable);
+    }
+
+    [Fact]
+    public void FindByTitle_normalizes_middle_dot_variants_for_apex_monsters()
+    {
+        var store = MonsterStaticStore.Load(ResolveJsonPath());
+
+        var fromLiveLocalization = store.FindByTitle("霸主·青熊兽");
+        var fromStaticData = store.FindByTitle("霸主・青熊兽");
+
+        Assert.NotNull(fromLiveLocalization);
+        Assert.Same(fromStaticData, fromLiveLocalization);
+        Assert.Equal("monster_060_07", fromLiveLocalization.Id);
+        Assert.False(fromLiveLocalization.Capturable);
     }
 
     [Fact]

@@ -336,38 +336,48 @@ public sealed class MHRGame : CommonGame
 
         await DamageMessageHandler.RequestHuntStatisticsAsync(CommonConstants.AllTargets);
 
-        // Per-monster stats so DPS can scope to the locked target (no dual-monster sum).
-        foreach (IMonster monster in Monsters)
+        // The custom DPS panel is current-target-only. Polling every map monster multiplies
+        // IPC traffic in multi-monster quests and stores data the UI deliberately never sums.
+        MHRMonster[] focused = Monsters.OfType<MHRMonster>()
+            .Where(m => m.Target == Target.Self)
+            .ToArray();
+        if (focused.Length == 0)
         {
-            if (monster is MHRMonster mhr)
-                await DamageMessageHandler.RequestHuntStatisticsAsync(mhr.Address);
+            focused = Monsters.OfType<MHRMonster>()
+                .Where(m => m.ManualTarget == Target.Self)
+                .ToArray();
         }
+
+        // Normally one entry. During the one-scan switch race request both candidates so the
+        // UI-selected (fresh event) target never waits on data belonging to the stale one.
+        foreach (MHRMonster monster in focused)
+            await DamageMessageHandler.RequestHuntStatisticsAsync(monster.Address);
     }
 
-    /// <summary>Damage dealt to a specific monster address (native per-target tracker).</summary>
-    public long GetDamageDealtTo(nint monsterAddress)
+    /// <summary>
+    /// Returns whether the native tracker has answered for this target, including a valid
+    /// zero-damage answer. That distinction lets a newly locked target establish its baseline.
+    /// </summary>
+    public bool TryGetDamageSnapshot(
+        nint monsterAddress,
+        out Dictionary<int, long> byEntityIndex,
+        out long total)
     {
-        if (!_damageDone.TryGetValue(monsterAddress, out EntityDamageData[]? entities) || entities is null)
-            return 0;
-
-        return (long)entities.Sum(e => e.RawDamage + e.ElementalDamage);
-    }
-
-    /// <summary>Per entity-index damage against one monster (party Index / pet Index).</summary>
-    public Dictionary<int, long> GetDamageByEntityIndex(nint monsterAddress)
-    {
-        var result = new Dictionary<int, long>();
-        if (!_damageDone.TryGetValue(monsterAddress, out EntityDamageData[]? entities) || entities is null)
-            return result;
+        byEntityIndex = new Dictionary<int, long>();
+        total = 0;
+        if (!_damageDone.TryGetValue(monsterAddress, out EntityDamageData[]? entities)
+            || entities is null)
+            return false;
 
         foreach (IGrouping<int, EntityDamageData> group in entities.GroupBy(e => e.Entity.Index))
         {
-            long sum = (long)group.Sum(e => e.RawDamage + e.ElementalDamage);
-            if (sum > 0 || group.Key >= 0)
-                result[group.Key] = Math.Max(0, sum);
+            long damage = (long)group.Sum(e => e.RawDamage + e.ElementalDamage);
+            if (damage > 0 || group.Key >= 0)
+                byEntityIndex[group.Key] = Math.Max(0, damage);
         }
 
-        return result;
+        total = Math.Max(0, (long)entities.Sum(e => e.RawDamage + e.ElementalDamage));
+        return true;
     }
 
     [ScannableMethod]

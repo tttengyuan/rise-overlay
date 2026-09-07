@@ -2,6 +2,30 @@ using RiseOverlay.Domain;
 
 public class MonsterHudMapperTests
 {
+    [Fact]
+    public void ToCompleted_zeroes_residual_health_and_capture_state()
+    {
+        MonsterHudDto live = new(
+            Name: "大名盾蟹",
+            HealthCurrent: 18,
+            HealthMax: 100,
+            IsCapturable: true,
+            CaptureThresholdPercent: 20,
+            OverallElementsOrdered: [ElementId.Fire],
+            Recommended: [ElementId.Fire],
+            Status: new StatusLineModel(null, null, false, null, null, null),
+            Parts: [new PartDto("头部", 20, 30, false, false, [ElementId.Fire])],
+            Ailments: []);
+
+        MonsterHudDto completed = MonsterHudMapper.ToCompleted(live);
+
+        Assert.Equal(0, completed.HealthCurrent);
+        Assert.Equal(100, completed.HealthMax);
+        Assert.False(completed.IsCapturable);
+        Assert.Equal(live.Name, completed.Name);
+        Assert.Same(live.Parts, completed.Parts);
+    }
+
     // Recommended = ElementRecommend over max-per-element across all hitzone rows (all parts/phases).
     private static StaticMonsterSnapshot ValstraxStatic() => new(
         Id: "monster_valstrax_crimson",
@@ -141,7 +165,7 @@ public class MonsterHudMapperTests
     }
 
     [Fact]
-    public void MergeLive_zero_live_threshold_still_shows_weaken_line_for_capturable_species()
+    public void MergeLive_zero_live_threshold_does_not_guess_weaken_line()
     {
         var mapped = MonsterHudMapper.BuildFromStatic(MagnamaloStatic());
         var live = new LiveMonsterSnapshot(
@@ -156,7 +180,7 @@ public class MonsterHudMapperTests
         var dto = MonsterHudMapper.MergeLive(mapped, live);
 
         Assert.False(dto.IsCapturable);
-        Assert.Equal(25, dto.CaptureThresholdPercent);
+        Assert.Null(dto.CaptureThresholdPercent);
     }
 
     [Fact]
@@ -353,18 +377,18 @@ public class MonsterHudMapperTests
     }
 
     [Fact]
-    public void ToResetHud_slay_quest_keeps_weaken_line()
+    public void ToResetHud_slay_quest_does_not_guess_weaken_line()
     {
         var mapped = MonsterHudMapper.BuildFromStatic(MagnamaloStatic());
         var dto = MonsterHudMapper.ToResetHud(mapped, questAllowsCapture: false);
 
         Assert.False(dto.IsCapturable);
-        Assert.Equal(25, dto.CaptureThresholdPercent);
+        Assert.Null(dto.CaptureThresholdPercent);
         Assert.Equal(CaptureDisplayState.QuestRestricted, dto.CaptureState);
     }
 
     [Fact]
-    public void ToResetHud_clears_hp_but_keeps_capture_and_weakness()
+    public void ToResetHud_clears_hp_and_waits_for_live_weaken_threshold()
     {
         var mapped = MonsterHudMapper.BuildFromStatic(MagnamaloStatic());
         var dto = MonsterHudMapper.ToResetHud(mapped, questAllowsCapture: true);
@@ -373,7 +397,7 @@ public class MonsterHudMapperTests
         Assert.Equal(0, dto.HealthCurrent);
         Assert.Equal(0, dto.HealthMax);
         Assert.True(dto.IsCapturable);
-        Assert.Equal(25, dto.CaptureThresholdPercent);
+        Assert.Null(dto.CaptureThresholdPercent);
         Assert.Empty(dto.Parts);
         Assert.Equal(new[] { ElementId.Water }, dto.Recommended);
     }

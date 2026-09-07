@@ -49,7 +49,11 @@ public static class MonsterHudMapper
             HasSeverableTail: mapped.HasSeverableTail,
             FocusPartLabel: mapped.FocusPartLabel,
             OverallElementsOrdered: mapped.OverallElementsOrdered,
-            Recommended: mapped.Recommended);
+            Recommended: mapped.Recommended,
+            CaptureState: CaptureRules.ResolveDisplayState(
+                mapped.IsCapturable,
+                questAllowsCapture: true,
+                isAnomaly: false));
     }
 
     /// <summary>
@@ -60,12 +64,8 @@ public static class MonsterHudMapper
         ArgumentNullException.ThrowIfNull(mapped);
 
         bool showCapture = CaptureRules.ShowCaptureUi(mapped.IsCapturable, questAllowsCapture);
-        double? weakenThreshold = CaptureRules.ResolveWeakenThresholdPercent(
-            mapped.IsCapturable,
-            isAnomaly: false,
-            liveThresholdPercent: null,
-            mapped.CaptureThresholdPercent,
-            DefaultCaptureThresholdPercent);
+        // No static 25% guess: wait for the quest-scaled threshold read from live memory.
+        double? weakenThreshold = null;
 
         return new MonsterHudDto(
             Name: mapped.Name,
@@ -96,6 +96,20 @@ public static class MonsterHudMapper
             Status: EmptyStatus,
             Parts: Array.Empty<PartDto>(),
             Ailments: Array.Empty<AilmentDto>());
+
+    /// <summary>
+    /// Death/capture events are authoritative. Rise can keep a small positive HP value
+    /// in the health component during the finish animation, so never freeze that residue.
+    /// </summary>
+    public static MonsterHudDto ToCompleted(MonsterHudDto lastCombatFrame)
+    {
+        ArgumentNullException.ThrowIfNull(lastCombatFrame);
+        return lastCombatFrame with
+        {
+            HealthCurrent = 0,
+            IsCapturable = false,
+        };
+    }
 
     private static readonly StatusLineModel EmptyStatus = new(
         EnrageRemaining: null,
@@ -135,12 +149,11 @@ public static class MonsterHudMapper
                           && live.CaptureThresholdPercent is > 0
                           && live.HealthCurrent > 0;
 
-        double? weakenThreshold = CaptureRules.ResolveWeakenThresholdPercent(
-            staticSnapshot.IsCapturable,
-            live.IsAnomaly,
-            live.CaptureThresholdPercent,
-            staticSnapshot.CaptureThresholdPercent,
-            DefaultCaptureThresholdPercent);
+        // The original HunterPie/Rise path is authoritative here: captureHealth / live MaxHealth.
+        // A static 25% fallback races multiplayer HP scaling and can draw the line too early.
+        double? weakenThreshold = staticSnapshot.IsCapturable && !live.IsAnomaly
+            ? live.CaptureThresholdPercent
+            : null;
 
         var recommended = staticSnapshot.Recommended ?? Array.Empty<ElementId>();
         var recommendedSet = recommended.Count > 0

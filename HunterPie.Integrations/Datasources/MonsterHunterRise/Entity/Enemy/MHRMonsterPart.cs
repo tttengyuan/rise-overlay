@@ -18,11 +18,14 @@ public sealed class MHRMonsterPart : CommonPart, IUpdatable<MHRPartStructure>, I
     private bool _isInQurio;
     private bool _seenBreakableHealth;
     private bool _seenBreakableDamage;
-    private bool _seenFullFlinch;
     private bool _seenSeverableHealth;
-    private bool _breakLatched;
-    private bool _severLatched;
-    private float _breakLatchMaxHealth;
+    private bool _seenSeverableDamage;
+    private bool _breakConfirmed;
+    private bool _severConfirmed;
+    private int _missingBreakPoolSamples;
+    private int _missingSeverPoolSamples;
+
+    private const int MissingPoolConfirmationSamples = 3;
 
     public override string Id { get; protected set; }
 
@@ -93,42 +96,20 @@ public sealed class MHRMonsterPart : CommonPart, IUpdatable<MHRPartStructure>, I
     public bool IsQurioInfected => _isInQurio;
 
     /// <summary>
-    /// Physical break/sever. Rise often keeps MaxHealth and refills Health after a break
-    /// (HunterPie: Health==MaxHealth &amp;&amp; Flinch!=MaxFlinch). We latch so a regenerating
-    /// flinch does not bring back 「可破」.
+    /// Confirmed physical break/sever. The break and sever pools are tracked independently;
+    /// a tail break must never be promoted to a sever.
     /// </summary>
-    public bool IsStructurallyBroken
-    {
-        get
-        {
-            if (Count > 0 || _breakLatched || _severLatched)
-                return true;
+    public bool IsStructurallyBroken => Count > 0 || _breakConfirmed || _severConfirmed;
 
-            if (MaxHealth <= 0 && _seenBreakableHealth)
-                return true;
+    public bool IsBreakConfirmed => _breakConfirmed;
 
-            if (MaxHealth > 0 && Health <= 0)
-                return true;
+    public bool IsSeverConfirmed => _severConfirmed;
 
-            // Live break edge: refilled after damage, or flinch drop while full after damage.
-            if (_seenBreakableDamage
-                && MaxHealth > 0
-                && Health >= MaxHealth)
-                return true;
-
-            // Live sever edge — cuttable tails only (never heads / mud coatings).
-            if (IsCuttableTailPart
-                && _seenFullFlinch
-                && MaxSever > 0 && Sever >= MaxSever
-                && MaxFlinch > 0 && Flinch < MaxFlinch)
-                return true;
-
-            return false;
-        }
-    }
+    /// <summary>True after this tail has exposed a real sever pool at least once.</summary>
+    public bool HasSeverableEvidence => _seenSeverableHealth;
 
     /// <summary>True after a cuttable tail has been severed (latched).</summary>
-    public bool IsSeverLatched => _severLatched;
+    public bool IsSeverLatched => _severConfirmed;
 
     private bool IsCuttableTailPart => IsCuttableTailPartId(Id);
 
@@ -194,52 +175,54 @@ public sealed class MHRMonsterPart : CommonPart, IUpdatable<MHRPartStructure>, I
         if (Type == PartType.Qurio && !_isInQurio)
             GetCurrentType(data);
 
-        if (data.MaxFlinch > 0 && data.Flinch >= data.MaxFlinch)
-            _seenFullFlinch = true;
+        bool hasFlinchBreakEvidence = data.MaxFlinch > 0 && data.Flinch < data.MaxFlinch;
 
-        // Breakable: Rise often refills Health to MaxHealth after a break instead of
-        // zeroing MaxHealth. Afflicted Qurio cycles also churn part HP in memory — once
-        // broken, stay broken unless MaxHealth grows (rare true multi-break pool).
+        // Keep HunterPie's cross-check (damaged pool refilled while flinch is not full),
+        // but reject one-frame pool churn. A plain damage -> refill with a full flinch bar
+        // is not enough evidence to call the part broken.
         if (data.MaxHealth > 0)
         {
             _seenBreakableHealth = true;
+            _missingBreakPoolSamples = 0;
 
-            if (_breakLatched && data.MaxHealth > _breakLatchMaxHealth + 1f)
-            {
-                _breakLatched = false;
-                _seenBreakableDamage = false;
-                _breakLatchMaxHealth = 0;
-            }
-
-            if (!_breakLatched)
+            if (!_breakConfirmed)
             {
                 if (data.Health < data.MaxHealth)
                     _seenBreakableDamage = true;
-                else if (_seenBreakableDamage)
-                {
-                    _breakLatched = true;
-                    _breakLatchMaxHealth = data.MaxHealth;
-                }
+                else if (_seenBreakableDamage && hasFlinchBreakEvidence)
+                    _breakConfirmed = true;
             }
         }
-        else if (_seenBreakableHealth)
+        else if (_seenBreakableHealth && !_breakConfirmed)
         {
-            _breakLatched = true;
+            _missingBreakPoolSamples++;
+            if (_missingBreakPoolSamples >= MissingPoolConfirmationSamples)
+                _breakConfirmed = true;
         }
 
-        // Severable: only cuttable tails. MaxSever noise on heads/mud must never latch
-        // 「已断尾」. Sever==MaxSever at hunt start is normal; cut = flinch drop after full flinch.
+        // Sever is independent from break health. Require observed sever damage before the
+        // original Sever==MaxSever + flinch cross-check, or a stable missing sever pool.
         if (IsCuttableTailPart)
         {
             if (data.MaxSever > 0)
+            {
                 _seenSeverableHealth = true;
-            else if (_seenSeverableHealth)
-                _severLatched = true;
+                _missingSeverPoolSamples = 0;
 
-            if (_seenFullFlinch
-                && data.MaxSever > 0 && data.Sever >= data.MaxSever
-                && data.MaxFlinch > 0 && data.Flinch < data.MaxFlinch)
-                _severLatched = true;
+                if (!_severConfirmed)
+                {
+                    if (data.Sever < data.MaxSever)
+                        _seenSeverableDamage = true;
+                    else if (_seenSeverableDamage && hasFlinchBreakEvidence)
+                        _severConfirmed = true;
+                }
+            }
+            else if (_seenSeverableHealth && !_severConfirmed)
+            {
+                _missingSeverPoolSamples++;
+                if (_missingSeverPoolSamples >= MissingPoolConfirmationSamples)
+                    _severConfirmed = true;
+            }
 
             if (data.MaxSever > 0 && Type != PartType.Qurio)
                 Type = PartType.Severable;
