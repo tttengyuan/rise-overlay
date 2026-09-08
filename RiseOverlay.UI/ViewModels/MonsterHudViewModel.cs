@@ -230,6 +230,7 @@ public sealed class MonsterHudViewModel : INotifyPropertyChanged
     private string _statusLineText = "";
     private string _ailmentsLineText = "";
     private CaptureDisplayState _captureState = CaptureDisplayState.Capturable;
+    private MonsterCompletionState _completionState;
     private ObservableCollection<ElementDisplayItem> _overallElements = new();
     private ObservableCollection<ElementId> _recommended = new();
     private ObservableCollection<PartRowViewModel> _parts = new();
@@ -297,10 +298,38 @@ public sealed class MonsterHudViewModel : INotifyPropertyChanged
         }
     }
 
+    public MonsterCompletionState CompletionState
+    {
+        get => _completionState;
+        set
+        {
+            if (!SetField(ref _completionState, value))
+                return;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CompletionVisible)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CompletionText)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CompletionIsCaptured)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CaptureBadgeVisible)));
+        }
+    }
+
+    public bool CompletionVisible => _completionState is not MonsterCompletionState.None;
+
+    public string CompletionText => _completionState switch
+    {
+        MonsterCompletionState.Slain => "已讨伐",
+        MonsterCompletionState.Captured => "已捕获",
+        MonsterCompletionState.Completed => "任务完成",
+        MonsterCompletionState.Failed => "任务失败",
+        _ => "",
+    };
+
+    public bool CompletionIsCaptured => _completionState == MonsterCompletionState.Captured;
+
     /// <summary>
     /// Slay/special quests on otherwise-capturable species: no badge (capture UI already hidden).
     /// </summary>
-    public bool CaptureBadgeVisible => _captureState is not CaptureDisplayState.QuestRestricted;
+    public bool CaptureBadgeVisible => !CompletionVisible
+                                       && _captureState is not CaptureDisplayState.QuestRestricted;
 
     public string CaptureBadgeText => _captureState switch
     {
@@ -430,6 +459,7 @@ public sealed class MonsterHudViewModel : INotifyPropertyChanged
         HealthPercent = dto.HealthMax <= 0 ? 0 : dto.HealthCurrent / dto.HealthMax * 100.0;
 
         CaptureState = dto.CaptureState;
+        CompletionState = dto.CompletionState;
         ShowUncapturableBadge = !dto.IsCapturable;
 
         var threshold = dto.CaptureThresholdPercent;

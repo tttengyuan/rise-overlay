@@ -26,6 +26,119 @@ public class MonsterHudMapperTests
         Assert.Same(live.Parts, completed.Parts);
     }
 
+    [Fact]
+    public void ToCaptured_preserves_last_live_health_and_marks_capture()
+    {
+        MonsterHudDto live = new(
+            Name: "搔鸟",
+            HealthCurrent: 180,
+            HealthMax: 1000,
+            IsCapturable: true,
+            CaptureThresholdPercent: 20,
+            OverallElementsOrdered: [ElementId.Water],
+            Recommended: [ElementId.Water],
+            Status: new StatusLineModel(null, null, false, null, null, null),
+            Parts: [],
+            Ailments: []);
+
+        MonsterHudDto captured = MonsterHudMapper.ToCaptured(live);
+
+        Assert.Equal(180, captured.HealthCurrent);
+        Assert.False(captured.IsCapturable);
+        Assert.Equal(MonsterCompletionState.Captured, captured.CompletionState);
+    }
+
+    [Fact]
+    public void ToQuestCompleted_uses_neutral_state_when_finish_kind_has_not_arrived()
+    {
+        MonsterHudDto live = MonsterHudMapper.ToEmptyHud() with
+        {
+            Name = "迅龙",
+            HealthCurrent = 12,
+            HealthMax = 1000,
+        };
+
+        MonsterHudDto completed = MonsterHudMapper.ToQuestCompleted(live);
+
+        Assert.Equal(0, completed.HealthCurrent);
+        Assert.Equal(MonsterCompletionState.Completed, completed.CompletionState);
+    }
+
+    [Fact]
+    public void Quest_completion_does_not_overwrite_authoritative_capture_event()
+    {
+        MonsterHudDto captured = MonsterHudMapper.ToCaptured(
+            MonsterHudMapper.ToEmptyHud() with
+            {
+                Name = "搔鸟",
+                HealthCurrent = 180,
+                HealthMax = 1000,
+            });
+
+        MonsterHudDto completed = MonsterHudMapper.ToQuestCompleted(captured);
+
+        Assert.Equal(MonsterCompletionState.Captured, completed.CompletionState);
+        Assert.Equal(180, completed.HealthCurrent);
+    }
+
+    [Fact]
+    public void ToQuestFailed_preserves_last_trustworthy_health_and_marks_failure()
+    {
+        MonsterHudDto live = MonsterHudMapper.ToEmptyHud() with
+        {
+            Name = "大名盾蟹",
+            HealthCurrent = 7250,
+            HealthMax = 10000,
+            IsCapturable = true,
+            CaptureThresholdPercent = 20,
+        };
+
+        MonsterHudDto failed = MonsterHudMapper.ToQuestFailed(live);
+
+        Assert.Equal(7250, failed.HealthCurrent);
+        Assert.Equal(10000, failed.HealthMax);
+        Assert.False(failed.IsCapturable);
+        Assert.Null(failed.CaptureThresholdPercent);
+        Assert.Equal(MonsterCompletionState.Failed, failed.CompletionState);
+    }
+
+    [Fact]
+    public void ToQuestFailed_prefers_last_live_frame_over_false_zero_health_death_freeze()
+    {
+        MonsterHudDto live = MonsterHudMapper.ToEmptyHud() with
+        {
+            Name = "大名盾蟹",
+            HealthCurrent = 7250,
+            HealthMax = 10000,
+        };
+        MonsterHudDto teardownDeath = MonsterHudMapper.ToCompleted(live);
+
+        MonsterHudDto failed = MonsterHudMapper.ToQuestFailed(live, teardownDeath);
+
+        Assert.Equal(7250, failed.HealthCurrent);
+        Assert.Equal(MonsterCompletionState.Failed, failed.CompletionState);
+    }
+
+    [Fact]
+    public void ToQuestFailed_keeps_zero_health_for_an_earlier_trusted_kill()
+    {
+        MonsterHudDto live = MonsterHudMapper.ToEmptyHud() with
+        {
+            Name = "搔鸟",
+            HealthCurrent = 50,
+            HealthMax = 1000,
+        };
+        MonsterHudDto slain = MonsterHudMapper.ToCompleted(live);
+
+        MonsterHudDto failed = MonsterHudMapper.ToQuestFailed(
+            live,
+            slain,
+            preferFrozenCompletion: true);
+
+        Assert.Equal(0, failed.HealthCurrent);
+        Assert.Equal(MonsterCompletionState.Failed, failed.CompletionState);
+    }
+
     // Recommended = ElementRecommend over max-per-element across all hitzone rows (all parts/phases).
     private static StaticMonsterSnapshot ValstraxStatic() => new(
         Id: "monster_valstrax_crimson",

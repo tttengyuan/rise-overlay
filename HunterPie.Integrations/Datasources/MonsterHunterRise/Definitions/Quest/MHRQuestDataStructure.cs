@@ -1,6 +1,7 @@
 ﻿using HunterPie.Core.Domain.Memory;
 using HunterPie.Core.Game.Entity.Game.Quest;
 using HunterPie.Core.Observability.Logging;
+using HunterPie.Integrations.Datasources.MonsterHunterRise.Entity.Game;
 using HunterPie.Integrations.Datasources.MonsterHunterRise.Utils;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -12,6 +13,8 @@ public struct MHRQuestDataStructure
 {
     private static readonly ILogger Logger = LoggerFactory.Create();
     private static int _lastDumpedQuestId;
+    private static string? _lastLoggedTargetSignature;
+    private const bool ProbeDumpDiagnosticsEnabled = false;
 
     /// <summary>
     /// Candidate offsets for <c>_BossEmType</c> (System.Array&lt;EmTypes&gt; pointer).
@@ -46,13 +49,6 @@ public struct MHRQuestDataStructure
                 (string[] targets, int huntHint) =
                     await TryReadBossEmTypeTargetsAsync(memory, AnomalyQuestPointer, anomalyQuest.Id, "anomaly");
 
-                if (targets.Length > 0)
-                    Logger.Info(
-                        $"Rise anomaly quest {anomalyQuest.Id}: targets [{string.Join(", ", targets)}] huntHint={huntHint}");
-                else
-                    Logger.Debug(
-                        $"Rise anomaly quest {anomalyQuest.Id}: no BossEmType targets yet (huntHint={huntHint})");
-
                 return new MHRQuestData
                 {
                     Id = anomalyQuest.Id,
@@ -76,12 +72,6 @@ public struct MHRQuestDataStructure
 
         (string[] normalTargets, int normalHint) =
             await TryReadBossEmTypeTargetsAsync(memory, NormalQuestPointer, normalQuest.Id, "normal");
-
-        if (normalTargets.Length > 0)
-            Logger.Info(
-                $"Rise normal quest {normalQuest.Id}: targets [{string.Join(", ", normalTargets)}] huntHint={normalHint}");
-        else if (normalHint > 0)
-            Logger.Info($"Rise normal quest {normalQuest.Id}: huntHint={normalHint} (EmTypes pending)");
 
         return new MHRQuestData
         {
@@ -119,15 +109,16 @@ public struct MHRQuestDataStructure
             if (normalResolved.Length > 0)
             {
                 dump.AppendLine($"normalResolve={how} refs=[{string.Join(", ", normalResolved)}]");
-                if (questId != _lastDumpedQuestId && questId > 0)
+                if (MHRQuestScanRules.ShouldWriteProbeDump(ProbeDumpDiagnosticsEnabled)
+                    && questId != _lastDumpedQuestId
+                    && questId > 0)
                 {
                     _lastDumpedQuestId = questId;
                     TryWriteDump(questId, dump.ToString());
                     Logger.Info($"Rise {kind} quest probe dump written for quest {questId}");
                 }
 
-                Logger.Info(
-                    $"Rise normal targets via {how} → [{string.Join(", ", normalResolved)}]");
+                LogResolvedTargetsOnce(kind, questId, how, normalResolved, normalHint);
                 return (normalResolved, Math.Max(normalHint, normalResolved.Length));
             }
         }
@@ -228,7 +219,9 @@ public struct MHRQuestDataStructure
             }
         }
 
-        if (questId != _lastDumpedQuestId && questId > 0)
+        if (MHRQuestScanRules.ShouldWriteProbeDump(ProbeDumpDiagnosticsEnabled)
+            && questId != _lastDumpedQuestId
+            && questId > 0)
         {
             _lastDumpedQuestId = questId;
             TryWriteDump(questId, dump.ToString());
@@ -241,8 +234,12 @@ public struct MHRQuestDataStructure
 
         if (best.Length > 0 && bestScore >= MinAcceptScore)
         {
-            Logger.Info(
-                $"Rise {kind} BossEmType @+0x{bestOffset:X} hunt={bestHunt} score={bestScore} → [{string.Join(", ", best)}]");
+            LogResolvedTargetsOnce(
+                kind,
+                questId,
+                $"BossEmType@+0x{bestOffset:X}/score={bestScore}",
+                best,
+                Math.Max(huntHint, best.Length));
             return (best, Math.Max(huntHint, best.Length));
         }
 
@@ -251,6 +248,22 @@ public struct MHRQuestDataStructure
                 $"Rise {kind} quest {questId}: rejected probe score={bestScore} refs=[{string.Join(", ", best)}]");
 
         return ([], huntHint);
+    }
+
+    private static void LogResolvedTargetsOnce(
+        string kind,
+        int questId,
+        string source,
+        IReadOnlyList<string> targets,
+        int huntHint)
+    {
+        string signature = $"{kind}:{questId}:{source}:{huntHint}:{string.Join(',', targets)}";
+        if (!MHRQuestScanRules.ShouldLogTargetResolution(_lastLoggedTargetSignature, signature))
+            return;
+
+        _lastLoggedTargetSignature = signature;
+        Logger.Info(
+            $"Rise {kind} quest {questId}: targets [{string.Join(", ", targets)}] huntHint={huntHint} via {source}");
     }
 
     private static async Task<Dictionary<int, int>> ReadHuntHintsAsync(IMemoryAsync memory, IntPtr anomalyPtr)

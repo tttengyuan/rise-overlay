@@ -108,6 +108,59 @@ public static class MonsterHudMapper
         {
             HealthCurrent = 0,
             IsCapturable = false,
+            CompletionState = MonsterCompletionState.Slain,
+        };
+    }
+
+    /// <summary>Captured monsters are finished, but their last live HP is still real.</summary>
+    public static MonsterHudDto ToCaptured(MonsterHudDto lastCombatFrame)
+    {
+        ArgumentNullException.ThrowIfNull(lastCombatFrame);
+        return lastCombatFrame with
+        {
+            IsCapturable = false,
+            CaptureThresholdPercent = null,
+            CompletionState = MonsterCompletionState.Captured,
+        };
+    }
+
+    public static MonsterHudDto ToQuestCompleted(MonsterHudDto lastCombatFrame)
+    {
+        ArgumentNullException.ThrowIfNull(lastCombatFrame);
+        if (lastCombatFrame.CompletionState is not MonsterCompletionState.None)
+            return lastCombatFrame;
+
+        return lastCombatFrame with
+        {
+            HealthCurrent = 0,
+            IsCapturable = false,
+            CaptureThresholdPercent = null,
+            CompletionState = MonsterCompletionState.Completed,
+        };
+    }
+
+    /// <summary>
+    /// Quest failure is not a monster kill. Preserve the last positive combat HP instead of
+    /// trusting the zeroed monster component observed while Rise tears the failed quest down.
+    /// </summary>
+    public static MonsterHudDto ToQuestFailed(
+        MonsterHudDto? lastLiveFrame,
+        MonsterHudDto? currentlyFrozenFrame = null,
+        bool preferFrozenCompletion = false)
+    {
+        MonsterHudDto source = preferFrozenCompletion
+                               && currentlyFrozenFrame?.CompletionState is
+                                   MonsterCompletionState.Slain or MonsterCompletionState.Captured
+            ? currentlyFrozenFrame
+            : lastLiveFrame is { HealthCurrent: > 0 }
+            ? lastLiveFrame
+            : currentlyFrozenFrame ?? lastLiveFrame ?? ToEmptyHud();
+
+        return source with
+        {
+            IsCapturable = false,
+            CaptureThresholdPercent = null,
+            CompletionState = MonsterCompletionState.Failed,
         };
     }
 

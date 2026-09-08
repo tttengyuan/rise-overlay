@@ -47,6 +47,7 @@ public sealed class MHRGame : CommonGame
     private (int, DateTime) _lastTeleport = (0, DateTime.Now);
     private bool _isHudOpen;
     private DateTime _lastDamageUpdate = DateTime.MinValue;
+    private nint? _lastDamageTarget;
     private readonly Dictionary<IntPtr, IMonster> _monsters = new();
     private readonly Dictionary<IntPtr, EntityDamageData[]> _damageDone = new();
     private readonly ILocalizationRepository _localizationRepository;
@@ -218,12 +219,17 @@ public sealed class MHRGame : CommonGame
             offsets: AddressMap.GetOffsets("QUEST_OFFSETS")
         );
 
-        MHRQuestDataStructure questData = await Memory.ReadAsync<MHRQuestDataStructure>(questStructure.QuestDataPointer);
-        MHRQuestData? currentQuest = await questData.GetCurrentQuestAsync(Memory);
-
         var questType = questStructure.Type.ToQuestType();
+        bool hasQuestType = questStructure.Type != Enums.QuestType.None;
+        MHRQuestData? currentQuest = null;
+        if (MHRQuestScanRules.ShouldReadQuestData(hasQuestType))
+        {
+            MHRQuestDataStructure questData = await Memory.ReadAsync<MHRQuestDataStructure>(questStructure.QuestDataPointer);
+            currentQuest = await questData.GetCurrentQuestAsync(Memory);
+        }
+
         bool hasQuestData = (currentQuest?.Id ?? 0) > 0
-            && questStructure.Type != Enums.QuestType.None;
+            && hasQuestType;
 
         // Rise keeps State=Idle on the village "depart" screen after accepting;
         // Ready/InQuest appear later. Treat Idle+quest data as an accepted quest
@@ -252,7 +258,14 @@ public sealed class MHRGame : CommonGame
         if (_quest is not null
             && isQuestOver)
         {
-            this.Dispatch(_onQuestEnd, new QuestEndEventArgs(_quest, questStructure.State.ToQuestStatus(), TimeElapsed));
+            QuestStatus endStatus = questStructure.State.ToQuestStatus();
+            float endElapsed = MHRQuestTimerRules.ResolveEndElapsed(
+                endStatus,
+                questStructure.TimeElapsed,
+                TimeElapsed);
+            Logger.Info(
+                $"Rise quest end timing: status={endStatus}, result={endElapsed:0.00}, structure={questStructure.TimeElapsed:0.00}, global={TimeElapsed:0.00}, drift={TimeElapsed - endElapsed:0.00}");
+            this.Dispatch(_onQuestEnd, new QuestEndEventArgs(_quest, endStatus, endElapsed));
             _quest.Dispose();
             _quest = null;
         }
@@ -332,31 +345,44 @@ public sealed class MHRGame : CommonGame
         _lastDamageUpdate = DateTime.Now;
 
         if (!Player.InHuntingZone)
+        {
+            _lastDamageTarget = null;
             return;
+        }
 
         await DamageMessageHandler.RequestHuntStatisticsAsync(CommonConstants.AllTargets);
 
         // The custom DPS panel is current-target-only. Polling every map monster multiplies
         // IPC traffic in multi-monster quests and stores data the UI deliberately never sums.
-        MHRMonster[] focused = Monsters.OfType<MHRMonster>()
+        MHRMonster[] monsters = Monsters.OfType<MHRMonster>().ToArray();
+        MHRMonster[] focused = monsters
             .Where(m => m.Target == Target.Self)
             .ToArray();
         if (focused.Length == 0)
         {
-            focused = Monsters.OfType<MHRMonster>()
+            focused = monsters
                 .Where(m => m.ManualTarget == Target.Self)
                 .ToArray();
         }
 
-        // Normally one entry. During the one-scan switch race request both candidates so the
-        // UI-selected (fresh event) target never waits on data belonging to the stale one.
-        foreach (MHRMonster monster in focused)
-            await DamageMessageHandler.RequestHuntStatisticsAsync(monster.Address);
+        IReadOnlyList<nint> targets = MHRDamagePollingRules.SelectTargets(
+            focused.Select(m => m.Address).ToArray(),
+            _lastDamageTarget,
+            monsters.Select(m => m.Address).ToHashSet());
+        if (focused.Length > 0 && targets.Count > 0)
+            _lastDamageTarget = targets[^1];
+        else if (targets.Count == 0)
+            _lastDamageTarget = null;
+
+        // Keep polling the sticky target through unlock/death animation so the killing
+        // blow reaches the final card. A newly focused target replaces it immediately.
+        foreach (nint target in targets)
+            await DamageMessageHandler.RequestHuntStatisticsAsync(target);
     }
 
     /// <summary>
     /// Returns whether the native tracker has answered for this target, including a valid
-    /// zero-damage answer. That distinction lets a newly locked target establish its baseline.
+    /// zero-damage answer. Per-target counters include damage dealt before lock-on.
     /// </summary>
     public bool TryGetDamageSnapshot(
         nint monsterAddress,
@@ -478,8 +504,10 @@ public sealed class MHRGame : CommonGame
 
     #region Damage helpers
 
-    private static async void OnPlayerStageUpdate(object? sender, EventArgs e)
+    private async void OnPlayerStageUpdate(object? sender, EventArgs e)
     {
+        _damageDone.Clear();
+        _lastDamageTarget = null;
         await DamageMessageHandler.ClearAllHuntStatisticsExceptAsync(Array.Empty<IntPtr>());
         await DamageMessageHandler.RequestHuntStatisticsAsync(CommonConstants.AllTargets);
     }

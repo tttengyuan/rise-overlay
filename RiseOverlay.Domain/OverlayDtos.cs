@@ -27,6 +27,15 @@ public sealed record AilmentDto(
     double Percent,
     bool IsActive);
 
+public enum MonsterCompletionState
+{
+    None,
+    Slain,
+    Captured,
+    Completed,
+    Failed,
+}
+
 public sealed record MonsterHudDto(
     string Name,
     double HealthCurrent,
@@ -38,7 +47,8 @@ public sealed record MonsterHudDto(
     StatusLineModel Status,
     IReadOnlyList<PartDto> Parts,
     IReadOnlyList<AilmentDto> Ailments,
-    CaptureDisplayState CaptureState = CaptureDisplayState.Capturable);
+    CaptureDisplayState CaptureState = CaptureDisplayState.Capturable,
+    MonsterCompletionState CompletionState = MonsterCompletionState.None);
 
 public sealed record DpsEntryDto(string Name, bool IsSelf, double Dps, long TotalDamage);
 
@@ -47,9 +57,12 @@ public sealed record DpsPanelDto(
     double? HuntDurationSeconds = null,
     /// <summary>Total shown by this panel. Rise custom HUD supplies current-target session damage.</summary>
     long? QuestTotalDamage = null,
-    /// <summary>Damage accumulated after locking the current monster, when known.</summary>
+    /// <summary>Full damage recorded against the current monster instance, when known.</summary>
     long? LockedTargetDamage = null,
-    string? LockedTargetName = null);
+    string? LockedTargetName = null,
+    int Deaths = 0,
+    int MaxDeaths = 0,
+    double? QuestTimeRemainingSeconds = null);
 
 public enum BriefingTargetKind
 {

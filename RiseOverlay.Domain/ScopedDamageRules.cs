@@ -2,6 +2,9 @@ namespace RiseOverlay.Domain;
 
 public static class ScopedDamageRules
 {
+    public static double ResolveQuestElapsed(double observedGameElapsed)
+        => Math.Max(0, observedGameElapsed);
+
     /// <summary>
     /// The compact panel scopes damage to the selected monster, but its clock remains
     /// the real quest clock just like HunterPie's original damage meter.
@@ -10,8 +13,8 @@ public static class ScopedDamageRules
         => questElapsed > 0 ? questElapsed : null;
 
     /// <summary>
-    /// A target switch resets the target's damage/first-hit session, while the stored
-    /// timestamp stays in absolute quest time so the original DPS strategies remain valid.
+    /// The first-hit timestamp stays in absolute quest time so the original HunterPie
+    /// DPS strategies remain valid while the numerator is scoped per monster.
     /// </summary>
     public static double ResolveFirstHitAt(
         double currentFirstHitAt,
@@ -34,16 +37,17 @@ public static class ScopedDamageRules
             firstHitAt,
             mode);
 
-    public static Dictionary<int, long> SubtractBaseline(
-        IReadOnlyDictionary<int, long> current,
-        IReadOnlyDictionary<int, long> baseline)
+    /// <summary>
+    /// Per-monster native counters already have the correct scope. Keep the whole
+    /// snapshot so damage dealt before lock-on, or while another monster was selected,
+    /// is not discarded.
+    /// </summary>
+    public static Dictionary<int, long> UseFullTargetSnapshot(
+        IReadOnlyDictionary<int, long> current)
     {
         var result = new Dictionary<int, long>();
         foreach ((int entityIndex, long damage) in current)
-        {
-            long startingDamage = baseline.GetValueOrDefault(entityIndex, 0);
-            result[entityIndex] = Math.Max(0, damage - startingDamage);
-        }
+            result[entityIndex] = Math.Max(0, damage);
 
         return result;
     }

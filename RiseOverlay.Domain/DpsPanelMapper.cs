@@ -16,7 +16,10 @@ public static class DpsPanelMapper
         double? huntDurationSeconds = null,
         long? questTotalDamage = null,
         long? lockedTargetDamage = null,
-        string? lockedTargetName = null)
+        string? lockedTargetName = null,
+        int deaths = 0,
+        int maxDeaths = 0,
+        double? questTimeRemainingSeconds = null)
     {
         ArgumentNullException.ThrowIfNull(members);
 
@@ -34,12 +37,22 @@ public static class DpsPanelMapper
             questTotal = sum > 0 ? sum : null;
         }
 
+        int safeMaxDeaths = Math.Max(0, maxDeaths);
+        int safeDeaths = safeMaxDeaths > 0
+            ? Math.Clamp(deaths, 0, safeMaxDeaths)
+            : Math.Max(0, deaths);
+
         return new DpsPanelDto(
             entries,
             huntDurationSeconds is > 0 ? huntDurationSeconds : null,
             QuestTotalDamage: questTotal,
             LockedTargetDamage: lockedTargetDamage is >= 0 ? lockedTargetDamage : null,
-            LockedTargetName: string.IsNullOrWhiteSpace(lockedTargetName) ? null : lockedTargetName);
+            LockedTargetName: string.IsNullOrWhiteSpace(lockedTargetName) ? null : lockedTargetName,
+            Deaths: safeDeaths,
+            MaxDeaths: safeMaxDeaths,
+            QuestTimeRemainingSeconds: questTimeRemainingSeconds is >= 0
+                ? questTimeRemainingSeconds
+                : null);
     }
 
     private static DpsEntryDto ToEntry(DpsMemberSnapshot member)

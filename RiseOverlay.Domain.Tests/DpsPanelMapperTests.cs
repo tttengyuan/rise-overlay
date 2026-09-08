@@ -71,6 +71,28 @@ public class DpsPanelMapperTests
         Assert.Equal("?", dto.Entries[0].Name);
         Assert.Equal(12.5, dto.Entries[0].Dps);
     }
+
+    [Fact]
+    public void FromSnapshots_exposes_current_and_max_cart_counts()
+    {
+        var dto = DpsPanelMapper.FromSnapshots(
+            [new DpsMemberSnapshot("我", true, 100, 10)],
+            deaths: 2,
+            maxDeaths: 3);
+
+        Assert.Equal(2, dto.Deaths);
+        Assert.Equal(3, dto.MaxDeaths);
+    }
+
+    [Fact]
+    public void FromSnapshots_exposes_live_quest_time_remaining()
+    {
+        var dto = DpsPanelMapper.FromSnapshots(
+            [new DpsMemberSnapshot("我", true, 100, 10)],
+            questTimeRemainingSeconds: 1799);
+
+        Assert.Equal(1799, dto.QuestTimeRemainingSeconds);
+    }
 }
 
 public class OriginalDpsCalculatorTests

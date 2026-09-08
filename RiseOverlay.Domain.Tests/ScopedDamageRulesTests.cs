@@ -3,13 +3,21 @@ using RiseOverlay.Domain;
 public class ScopedDamageRulesTests
 {
     [Fact]
+    public void Quest_clock_uses_latest_game_timer_without_monster_health_gating()
+    {
+        // Monster scanning may temporarily report no alive monsters. The original
+        // HunterPie clock still accepts the authoritative game quest timer.
+        Assert.Equal(617.5, ScopedDamageRules.ResolveQuestElapsed(617.5));
+    }
+
+    [Fact]
     public void HuntDuration_keeps_the_quest_clock_when_target_scope_changes()
     {
         Assert.Equal(125, ScopedDamageRules.HuntDuration(questElapsed: 125));
     }
 
     [Fact]
-    public void First_hit_for_a_new_target_uses_absolute_quest_time()
+    public void First_hit_uses_absolute_quest_time()
     {
         Assert.Equal(
             95,
@@ -33,36 +41,22 @@ public class ScopedDamageRulesTests
     }
 
     [Fact]
-    public void SubtractBaseline_starts_a_new_target_from_zero()
+    public void Target_snapshot_keeps_damage_dealt_before_lock_on()
     {
         var current = new Dictionary<int, long> { [0] = 150, [1] = 80 };
-        var baseline = new Dictionary<int, long> { [0] = 150, [1] = 80 };
 
-        var delta = ScopedDamageRules.SubtractBaseline(current, baseline);
+        var snapshot = ScopedDamageRules.UseFullTargetSnapshot(current);
 
-        Assert.Equal(0, delta[0]);
-        Assert.Equal(0, delta[1]);
+        Assert.Equal(150, snapshot[0]);
+        Assert.Equal(80, snapshot[1]);
     }
 
     [Fact]
-    public void SubtractBaseline_counts_only_damage_after_target_lock()
+    public void Target_snapshot_clamps_invalid_native_damage()
     {
-        var current = new Dictionary<int, long> { [0] = 225, [1] = 120 };
-        var baseline = new Dictionary<int, long> { [0] = 150, [1] = 80 };
+        var snapshot = ScopedDamageRules.UseFullTargetSnapshot(
+            new Dictionary<int, long> { [0] = -20 });
 
-        var delta = ScopedDamageRules.SubtractBaseline(current, baseline);
-
-        Assert.Equal(75, delta[0]);
-        Assert.Equal(40, delta[1]);
-    }
-
-    [Fact]
-    public void SubtractBaseline_clamps_native_counter_reset_to_zero()
-    {
-        var delta = ScopedDamageRules.SubtractBaseline(
-            new Dictionary<int, long> { [0] = 20 },
-            new Dictionary<int, long> { [0] = 100 });
-
-        Assert.Equal(0, delta[0]);
+        Assert.Equal(0, snapshot[0]);
     }
 }

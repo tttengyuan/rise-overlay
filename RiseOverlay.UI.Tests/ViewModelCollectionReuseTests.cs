@@ -65,6 +65,53 @@ public class ViewModelCollectionReuseTests
         Assert.True(row.IsDefeated);
     }
 
+    [Theory]
+    [InlineData(MonsterCompletionState.Slain, "已讨伐")]
+    [InlineData(MonsterCompletionState.Captured, "已捕获")]
+    [InlineData(MonsterCompletionState.Completed, "任务完成")]
+    public void MonsterHud_exposes_clear_completion_badge(
+        MonsterCompletionState state,
+        string expectedText)
+    {
+        var vm = new MonsterHudViewModel();
+
+        vm.ApplyDto(MonsterDto(500) with { CompletionState = state });
+
+        Assert.True(vm.CompletionVisible);
+        Assert.Equal(expectedText, vm.CompletionText);
+    }
+
+    [Fact]
+    public void DpsPanel_exposes_compact_cart_counter()
+    {
+        var vm = new DpsPanelViewModel();
+        vm.ApplyDto(DpsDto(100) with { Deaths = 2, MaxDeaths = 3 });
+
+        Assert.True(vm.ShowCartCounter);
+        Assert.Equal("猫车 2/3", vm.CartCounterText);
+    }
+
+    [Fact]
+    public void DpsPanel_exposes_compact_remaining_time()
+    {
+        var vm = new DpsPanelViewModel();
+        vm.ApplyDto(DpsDto(100) with { QuestTimeRemainingSeconds = 1799 });
+
+        Assert.True(vm.ShowTimeRemaining);
+        Assert.Equal("剩余 29:59", vm.TimeRemainingText);
+    }
+
+    [Fact]
+    public void MonsterHud_exposes_failed_quest_badge()
+    {
+        var vm = new MonsterHudViewModel();
+
+        vm.ApplyDto(MonsterDto(500) with { CompletionState = MonsterCompletionState.Failed });
+
+        Assert.True(vm.CompletionVisible);
+        Assert.Equal("任务失败", vm.CompletionText);
+    }
+
     private static MonsterHudDto MonsterDto(double partHp, IReadOnlyList<ElementId>? weak = null) => new(
         "搔鸟", 1000, 2000, true, 25,
         [ElementId.Water, ElementId.Fire], [ElementId.Water],

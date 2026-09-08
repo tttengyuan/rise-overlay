@@ -275,7 +275,43 @@
 
 
         <StackPanel>
-            <!-- 1. Capture banner -->
+            <!-- 1. Completion banner: terminal state wins over capture availability. -->
+            <Border Visibility="{Binding CompletionVisible, Converter={StaticResource BoolToVis}}"
+                    BorderThickness="1"
+                    CornerRadius="2"
+                    Padding="6,2"
+                    Margin="0,0,0,6"
+                    HorizontalAlignment="Stretch">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="BorderBrush" Value="#70D94B58" />
+                        <Setter Property="Background" Value="#2ED94B58" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding CompletionIsCaptured}" Value="True">
+                                <Setter Property="BorderBrush" Value="#70B8995F" />
+                                <Setter Property="Background" Value="#2EB8995F" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <TextBlock Text="{Binding CompletionText}"
+                           FontSize="{DynamicResource Fonts.Size.Body}"
+                           FontWeight="SemiBold"
+                           HorizontalAlignment="Center">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="#FFFFA0A8" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding CompletionIsCaptured}" Value="True">
+                                    <Setter Property="Foreground" Value="#FFE2CA87" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Border>
+
+            <!-- 2. Capture banner -->
             <Border Visibility="{Binding CaptureBannerVisible, Converter={StaticResource BoolToVis}}"
                     BorderBrush="#FFC9AA62"
                     BorderThickness="1"
@@ -291,7 +327,7 @@
                            HorizontalAlignment="Center" />
             </Border>
 
-            <!-- 2. Title + recommend chips; long names ellipsis -->
+            <!-- 3. Title + recommend chips; long names ellipsis -->
             <Grid Margin="0,0,0,4" MinWidth="0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" MinWidth="48" />

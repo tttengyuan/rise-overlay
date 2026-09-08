@@ -14,7 +14,7 @@ using System.Windows;
 [assembly: AssemblyProduct("Rise Overlay")]
 [assembly: AssemblyCompany("Rise Overlay")]
 [assembly: AssemblyCopyright("Rise Overlay")]
-[assembly: AssemblyVersion("5.0.0.0")]
-[assembly: AssemblyFileVersion("5.0.0.0")]
-[assembly: AssemblyInformationalVersion("5.0.0")]
+[assembly: AssemblyVersion("5.0.1.0")]
+[assembly: AssemblyFileVersion("5.0.1.0")]
+[assembly: AssemblyInformationalVersion("5.0.1")]
 

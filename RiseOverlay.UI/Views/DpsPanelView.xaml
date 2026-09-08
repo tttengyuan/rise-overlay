@@ -9,6 +9,34 @@
         <ResourceDictionary>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
 
+        <DataTemplate x:Key="CartCounterTemplate">
+            <Border Padding="4,0"
+                    CornerRadius="2"
+                    BorderThickness="1"
+                    BorderBrush="{DynamicResource Brushes.AccentHealth}">
+                <TextBlock Text="{Binding}"
+                           Foreground="{DynamicResource Brushes.AccentHealth}"
+                           FontSize="{DynamicResource Fonts.Size.Small}"
+                           FontWeight="SemiBold"
+                           Typography.NumeralAlignment="Tabular" />
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="QuestLimitsTemplate">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="{Binding TimeRemainingText}"
+                           Margin="0,0,6,0"
+                           Foreground="{DynamicResource Brushes.ForegroundMuted}"
+                           FontSize="{DynamicResource Fonts.Size.Small}"
+                           Typography.NumeralAlignment="Tabular"
+                           VerticalAlignment="Center"
+                           Visibility="{Binding ShowTimeRemaining, Converter={StaticResource BoolToVis}}" />
+                <ContentControl Content="{Binding CartCounterText}"
+                                ContentTemplate="{StaticResource CartCounterTemplate}"
+                                Visibility="{Binding ShowCartCounter, Converter={StaticResource BoolToVis}}" />
+            </StackPanel>
+        </DataTemplate>
+
         <DataTemplate DataType="{x:Type vm:DpsEntryRowViewModel}">
             <Border Padding="4,1"
                     Margin="0,1,0,0"
@@ -111,21 +139,40 @@
             BorderThickness="1">
         <Grid>
             <!-- Solo: one compact line -->
-            <TextBlock Text="{Binding SoloLineText}"
-                       Foreground="{DynamicResource Brushes.Foreground}"
-                       FontSize="{DynamicResource Fonts.Size.Body}"
-                       Typography.NumeralAlignment="Tabular"
-                       VerticalAlignment="Center"
-                       Visibility="{Binding IsSolo, Converter={StaticResource BoolToVis}}" />
+            <Grid Visibility="{Binding IsSolo, Converter={StaticResource BoolToVis}}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding SoloLineText}"
+                           Foreground="{DynamicResource Brushes.Foreground}"
+                           FontSize="{DynamicResource Fonts.Size.Body}"
+                           Typography.NumeralAlignment="Tabular"
+                           TextTrimming="CharacterEllipsis"
+                           VerticalAlignment="Center" />
+                <ContentControl Grid.Column="1"
+                                Margin="6,0,0,0"
+                                Content="{Binding}"
+                                ContentTemplate="{StaticResource QuestLimitsTemplate}" />
+            </Grid>
 
             <!-- Party: time/total + flat rows（怪名已在 HUD，不再重复「当前目标」） -->
             <StackPanel Visibility="{Binding IsParty, Converter={StaticResource BoolToVis}}">
-                <TextBlock Text="{Binding PartyTotalText}"
-                           Foreground="{DynamicResource Brushes.ForegroundMuted}"
-                           FontSize="{DynamicResource Fonts.Size.Small}"
-                           Typography.NumeralAlignment="Tabular"
-                           HorizontalAlignment="Right"
-                           Margin="0,0,0,2" />
+                <Grid Margin="0,0,0,2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <ContentControl Content="{Binding}"
+                                    ContentTemplate="{StaticResource QuestLimitsTemplate}" />
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding PartyTotalText}"
+                               Foreground="{DynamicResource Brushes.ForegroundMuted}"
+                               FontSize="{DynamicResource Fonts.Size.Small}"
+                               Typography.NumeralAlignment="Tabular"
+                               TextTrimming="CharacterEllipsis"
+                               HorizontalAlignment="Right" />
+                </Grid>
                 <ItemsControl ItemsSource="{Binding Entries}" />
             </StackPanel>
         </Grid>

@@ -18,7 +18,7 @@ namespace RiseOverlay.UI.Integration;
 /// <summary>
 /// Compact DPS panel. Damage is scoped to the focused monster address (camera lock,
 /// else quest marker). Scope sticks through unlock/death-anim so multi-monster quests
-/// never fall back to AllTargets. Changing to another monster starts a fresh target session.
+/// never fall back to AllTargets. Each monster uses its complete native damage counter.
 /// </summary>
 public sealed class RiseDpsController : IContextHandler, IDisposable
 {
@@ -28,6 +28,10 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
     private readonly Dictionary<IPartyMember, DpsMemberTiming> _timings = new();
     private readonly HashSet<IPartyMember> _members = new();
     private readonly HashSet<IMonster> _targetHooked = new();
+    private IQuest? _hookedQuest;
+    private int _deaths;
+    private int _maxDeaths;
+    private double? _questTimeRemainingSeconds;
     private double _timeElapsed;
     private bool _summaryFrozen;
     private DpsMemberSnapshot[]? _frozenSnapshots;
@@ -41,9 +45,6 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
     private string? _scopeName;
     private Dictionary<int, long> _scopeDamageByEntity = new();
     private long _scopeTotal;
-    private Dictionary<int, long> _scopeBaselineByEntity = new();
-    private long _scopeBaselineTotal;
-    private bool _scopeBaselinePending;
     private MHRMonster? _promotedTarget;
 
     public RiseDpsController(
@@ -73,6 +74,7 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
         _context.Game.Player.OnStageUpdate += OnStageUpdate;
         _context.Game.OnMonsterSpawn += OnMonsterSpawn;
         _context.Game.OnMonsterDespawn += OnMonsterDespawn;
+        HookQuest(_context.Game.Quest);
     }
 
     public void UnhookEvents()
@@ -85,6 +87,7 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
         _context.Game.Player.OnStageUpdate -= OnStageUpdate;
         _context.Game.OnMonsterSpawn -= OnMonsterSpawn;
         _context.Game.OnMonsterDespawn -= OnMonsterDespawn;
+        UnhookQuest(clearCounts: true);
 
         foreach (IMonster monster in _targetHooked.ToArray())
             UnhookMonsterTarget(monster);
@@ -168,19 +171,12 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
         if (_summaryFrozen)
             return;
 
-        // Game clear time stops when the last large target dies; memory QUEST_TIMER often
-        // keeps ticking through cart / result transition (+few seconds). Hold the clock once
-        // no alive large monsters remain on the hunt map.
-        if (ShouldHoldElapsedClock())
-        {
-            _viewModel.UIThread.BeginInvoke(PushPanel);
-            return;
-        }
-
         const double precision = 0.5;
         double lastBucket = _timeElapsed % precision;
         double newBucket = e.TimeElapsed % precision;
-        _timeElapsed = e.TimeElapsed;
+        // Match HunterPie's original meter: the game quest timer is authoritative.
+        // Monster HP/list state must never pause or offset this clock.
+        _timeElapsed = ScopedDamageRules.ResolveQuestElapsed(e.TimeElapsed);
 
         if (!e.IsTimerReset && newBucket >= lastBucket)
             return;
@@ -189,7 +185,9 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
     }
 
     private void OnQuestStart(object? sender, IQuest e)
-        => _viewModel.UIThread.BeginInvoke(() =>
+    {
+        HookQuest(e);
+        _viewModel.UIThread.BeginInvoke(() =>
         {
             _summaryFrozen = false;
             _frozenSnapshots = null;
@@ -201,12 +199,18 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
             _timeElapsed = _context.Game.TimeElapsed;
             PushPanel();
         });
+    }
 
     private void OnQuestEnd(object? sender, QuestEndEventArgs e)
     {
         // Quest-id refresh uses Status.None — must NOT freeze or live DPS dies mid-hunt.
         if (e.Status is QuestStatus.None)
             return;
+
+        _deaths = Math.Max(0, e.Quest.Deaths);
+        _maxDeaths = Math.Max(0, e.Quest.MaxDeaths);
+        UpdateQuestTimeRemaining(e.Quest.TimeLeft);
+        UnhookQuest(clearCounts: false);
 
         // End card follows the same rule as combat: current target only, never quest-wide sum.
         DpsMemberSnapshot[] captured = CaptureSnapshots();
@@ -227,15 +231,16 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
                 ClearDamageScope();
                 ResetMembers();
                 _timeElapsed = 0;
+                _deaths = 0;
+                _maxDeaths = 0;
+                _questTimeRemainingSeconds = null;
                 PushPanel();
                 return;
             }
 
             _summaryFrozen = true;
-            // Prefer the held combat clock (last target death) over quest-end TimeElapsed,
-            // which usually includes a few extra seconds of cart/result padding.
-            if (_timeElapsed <= 0)
-                _timeElapsed = elapsed;
+            // Original HunterPie overwrites the result card with QuestEndEventArgs.TimeElapsed.
+            _timeElapsed = ScopedDamageRules.ResolveQuestElapsed(elapsed);
             _frozenSnapshots = captured.Length > 0 ? captured : null;
             _frozenQuestTotal = targetTotal > 0 ? targetTotal : null;
             _frozenLockedDamage = targetTotal > 0 ? targetTotal : null;
@@ -257,6 +262,9 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
                 ClearDamageScope();
                 ResetMembers();
                 _timeElapsed = 0;
+                _deaths = 0;
+                _maxDeaths = 0;
+                _questTimeRemainingSeconds = null;
                 PushPanel();
                 return;
             }
@@ -272,6 +280,9 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
                 ResetMembers();
                 _timeElapsed = _context.Game.TimeElapsed;
                 ClearDamageScope();
+                _deaths = 0;
+                _maxDeaths = 0;
+                _questTimeRemainingSeconds = null;
             }
 
             PushPanel();
@@ -279,19 +290,6 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
 
     private bool IsOnHuntMap()
         => _context.Game.Player.InHuntingZone || _context.Game.Player.StageId == 5;
-
-    /// <summary>
-    /// True when the hunt map has no remaining large monsters with HP — clear usually already met.
-    /// </summary>
-    private bool ShouldHoldElapsedClock()
-    {
-        if (!IsOnHuntMap() || _context.Game.Quest is null)
-            return false;
-
-        return !_context.Game.Monsters.Any(m =>
-            m.MaxHealth > 0
-            && MonsterHealthDisplay.ForHud(m.Health, m.MaxHealth) > 0);
-    }
 
     private void TryAttachMember(IPartyMember member)
     {
@@ -327,6 +325,82 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
         _viewModel.UIThread.BeginInvoke(PushPanel);
     }
 
+    private void HookQuest(IQuest? quest)
+    {
+        if (ReferenceEquals(_hookedQuest, quest))
+        {
+            if (quest is not null)
+            {
+                _deaths = Math.Max(0, quest.Deaths);
+                _maxDeaths = Math.Max(0, quest.MaxDeaths);
+                UpdateQuestTimeRemaining(quest.TimeLeft);
+            }
+            return;
+        }
+
+        UnhookQuest(clearCounts: false);
+        _hookedQuest = quest;
+        if (quest is null)
+        {
+            _deaths = 0;
+            _maxDeaths = 0;
+            _questTimeRemainingSeconds = null;
+            return;
+        }
+
+        quest.OnDeathCounterChange += OnDeathCounterChange;
+        quest.OnTimeLeftChange += OnQuestTimeLeftChange;
+        _deaths = Math.Max(0, quest.Deaths);
+        _maxDeaths = Math.Max(0, quest.MaxDeaths);
+        _questTimeRemainingSeconds = null;
+        UpdateQuestTimeRemaining(quest.TimeLeft);
+    }
+
+    private void UnhookQuest(bool clearCounts)
+    {
+        if (_hookedQuest is not null)
+        {
+            _hookedQuest.OnDeathCounterChange -= OnDeathCounterChange;
+            _hookedQuest.OnTimeLeftChange -= OnQuestTimeLeftChange;
+        }
+        _hookedQuest = null;
+
+        if (!clearCounts)
+            return;
+        _deaths = 0;
+        _maxDeaths = 0;
+        _questTimeRemainingSeconds = null;
+    }
+
+    private void OnDeathCounterChange(object? sender, CounterChangeEventArgs e)
+    {
+        _deaths = Math.Max(0, e.Current);
+        _maxDeaths = Math.Max(0, e.Max);
+        _viewModel.UIThread.BeginInvoke(PushPanel);
+    }
+
+    private void OnQuestTimeLeftChange(object? sender, SimpleValueChangeEventArgs<TimeSpan> e)
+    {
+        int previousSecond = _questTimeRemainingSeconds is { } previous
+            ? (int)Math.Ceiling(previous)
+            : -1;
+        UpdateQuestTimeRemaining(e.NewValue);
+        int currentSecond = _questTimeRemainingSeconds is { } current
+            ? (int)Math.Ceiling(current)
+            : -1;
+        if (currentSecond != previousSecond)
+            _viewModel.UIThread.BeginInvoke(PushPanel);
+    }
+
+    private void UpdateQuestTimeRemaining(TimeSpan timeLeft)
+    {
+        double seconds = timeLeft.TotalSeconds;
+        if (seconds > 0)
+            _questTimeRemainingSeconds = seconds;
+        else if (_questTimeRemainingSeconds is not null)
+            _questTimeRemainingSeconds = 0;
+    }
+
     private void ResetMembers()
     {
         foreach (IPartyMember member in _members.ToArray())
@@ -354,6 +428,15 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
 
     private void PushPanel()
     {
+        // MHRQuest learns MaxDeaths on its first scan, after OnQuestStart. MaxDeaths has no
+        // change event when Deaths is still 0, so poll the lightweight quest properties here.
+        if (_hookedQuest is { } quest)
+        {
+            _deaths = Math.Max(0, quest.Deaths);
+            _maxDeaths = Math.Max(0, quest.MaxDeaths);
+            UpdateQuestTimeRemaining(quest.TimeLeft);
+        }
+
         if (_summaryFrozen && _frozenSnapshots is { Length: > 0 })
         {
             _viewModel.DpsPanel.ApplyDto(DpsPanelMapper.FromSnapshots(
@@ -361,7 +444,10 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
                 HuntDuration(),
                 _frozenQuestTotal,
                 _frozenLockedDamage,
-                _frozenLockedName));
+                _frozenLockedName,
+                deaths: _deaths,
+                maxDeaths: _maxDeaths,
+                questTimeRemainingSeconds: _questTimeRemainingSeconds));
             return;
         }
 
@@ -373,7 +459,10 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
             HuntDuration(),
             panelTotal > 0 ? panelTotal : null,
             _scopeAddress is not null ? panelTotal : null,
-            _scopeName));
+            _scopeName,
+            deaths: _deaths,
+            maxDeaths: _maxDeaths,
+            questTimeRemainingSeconds: _questTimeRemainingSeconds));
     }
 
     private void ClearDamageScope()
@@ -383,9 +472,6 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
         _scopeName = null;
         _scopeDamageByEntity = new();
         _scopeTotal = 0;
-        _scopeBaselineByEntity = new();
-        _scopeBaselineTotal = 0;
-        _scopeBaselinePending = false;
         _promotedTarget = null;
     }
 
@@ -406,13 +492,6 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
                 _scopeName = focused.Name;
                 _scopeDamageByEntity = new();
                 _scopeTotal = 0;
-                _scopeBaselineByEntity = new();
-                _scopeBaselineTotal = 0;
-                _scopeBaselinePending = true;
-                foreach (DpsMemberTiming timing in _timings.Values)
-                {
-                    timing.FirstHitAt = -1;
-                }
             }
             else
             {
@@ -444,12 +523,6 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
 
         _scopeDamageByEntity = byIndex;
         _scopeTotal = total;
-        if (_scopeBaselinePending)
-        {
-            _scopeBaselineByEntity = new Dictionary<int, long>(byIndex);
-            _scopeBaselineTotal = total;
-            _scopeBaselinePending = false;
-        }
     }
 
     private MHRMonster? FindFocusedMonster(MHRMonster? promoted)
@@ -477,11 +550,11 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
             TryAttachMember(member);
 
         RefreshDamageScope();
-        bool useScope = _scopeAddress is not null && !_scopeBaselinePending;
+        bool useScope = _scopeAddress is not null;
         Dictionary<int, long> scopedDamage = useScope
-            ? ScopedDamageRules.SubtractBaseline(_scopeDamageByEntity, _scopeBaselineByEntity)
+            ? ScopedDamageRules.UseFullTargetSnapshot(_scopeDamageByEntity)
             : new Dictionary<int, long>();
-        long scopedTotal = useScope ? Math.Max(0, _scopeTotal - _scopeBaselineTotal) : 0;
+        long scopedTotal = useScope ? Math.Max(0, _scopeTotal) : 0;
 
         return _members
             .Select(m =>

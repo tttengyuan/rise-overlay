@@ -17,6 +17,7 @@ namespace RiseOverlay.UI.Integration;
 /// </summary>
 public sealed class RiseMonsterHudController : IContextHandler, IDisposable
 {
+    private const double TrustedCompletionLeadSeconds = 2.0;
     private readonly IContext _context;
     private readonly RiseCompactMonsterViewModel _viewModel;
     private readonly MonsterStaticStore _staticStore;
@@ -29,6 +30,8 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
     /// <summary>Last in-combat HUD frame — used when quest end already wiped memory HP to 0.</summary>
     private MonsterHudDto? _lastLiveHudDto;
     private IMonster? _lastLiveMonster;
+    private bool _questFailed;
+    private double? _completionFreezeElapsed;
 
     private bool IsOnHuntMap()
         => _context.Game.Player.InHuntingZone || _context.Game.Player.StageId == 5;
@@ -101,7 +104,10 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
         });
 
     private void OnQuestChanged(object? sender, IQuest e)
-        => _viewModel.UIThread.BeginInvoke(() =>
+    {
+        _questFailed = false;
+        _completionFreezeElapsed = null;
+        _viewModel.UIThread.BeginInvoke(() =>
         {
             ClearHudFreeze();
             _lastLiveHudDto = null;
@@ -117,19 +123,37 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
             ApplyResetHudForQuest(e);
             RefreshActiveMonster();
         });
+    }
 
     private void OnQuestEnded(object? sender, QuestEndEventArgs e)
     {
-        // Prefer an already-held death freeze, then last combat frame.
-        // Never rebuild from whatever map invader is currently Target.Self at quest-end.
-        MonsterHudDto? captured = ChooseFreezeSnapshot(liveNow: null);
+        _questFailed = e.Status is QuestStatus.Fail;
+
+        // Failure teardown can zero every monster component and emit a false OnDeath.
+        // A failed quest did not kill the monster, so prefer the last positive combat frame.
+        bool hasEarlierTrustedCompletion = _completionFreezeElapsed is { } completedAt
+            && _frozenHudDto?.CompletionState is MonsterCompletionState.Slain or MonsterCompletionState.Captured
+            && e.TimeElapsed.TotalSeconds - completedAt >= TrustedCompletionLeadSeconds;
+        MonsterHudDto? captured = _questFailed
+            ? _lastLiveHudDto is not null || _frozenHudDto is not null
+                ? MonsterHudMapper.ToQuestFailed(
+                    _lastLiveHudDto,
+                    _frozenHudDto,
+                    preferFrozenCompletion: hasEarlierTrustedCompletion)
+                : null
+            : ChooseFreezeSnapshot(liveNow: null);
         if (captured is not null
             && e.Status is QuestStatus.Success
             && e.Quest.Type is QuestType.Hunt or QuestType.Slay or QuestType.Capture)
         {
             // The quest state can flip to Success before the final monster health scan.
             // Treat successful monster-quest completion as authoritative as well.
-            captured = MonsterHudMapper.ToCompleted(captured);
+            captured = e.Quest.Type switch
+            {
+                QuestType.Capture => MonsterHudMapper.ToCaptured(captured),
+                QuestType.Slay => MonsterHudMapper.ToCompleted(captured),
+                _ => MonsterHudMapper.ToQuestCompleted(captured),
+            };
         }
 
         _viewModel.UIThread.BeginInvoke(() =>
@@ -160,6 +184,8 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
                 _lastLiveHudDto = null;
                 _lastLiveMonster = null;
                 _active = null;
+                _questFailed = false;
+                _completionFreezeElapsed = null;
                 RefreshActiveMonster();
             }
         });
@@ -177,9 +203,14 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
         _bindings[monster] = binding;
     }
 
-    private void OnMonsterFinished(IMonster monster)
-        => _viewModel.UIThread.BeginInvoke(() =>
+    private void OnMonsterFinished(IMonster monster, MonsterCompletionState completion)
+    {
+        double observedAt = _context.Game.TimeElapsed;
+        _viewModel.UIThread.BeginInvoke(() =>
         {
+            if (_questFailed || _context.Game.Quest?.Status is QuestStatus.Fail)
+                return;
+
             // Death/capture is more authoritative than the health component. In Rise the
             // latter can remain slightly above zero throughout the finish animation.
             if (!ReferenceEquals(_active, monster))
@@ -191,8 +222,9 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
             if (lastCombatFrame is null)
                 return;
 
-            FreezeOnActiveDeath(lastCombatFrame);
+            FreezeOnActiveCompletion(lastCombatFrame, completion, observedAt);
         });
+    }
 
     private void OnMonsterTargetChanged(IMonster monster, MonsterTargetEventArgs target)
         => _viewModel.UIThread.BeginInvoke(() =>
@@ -315,6 +347,7 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
     {
         _hudFrozen = false;
         _frozenHudDto = null;
+        _completionFreezeElapsed = null;
     }
 
     /// <summary>
@@ -335,12 +368,23 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
         return _lastLiveHudDto ?? liveNow;
     }
 
-    private void FreezeOnActiveDeath(MonsterHudDto lastAliveFrame)
+    private void FreezeOnActiveCompletion(
+        MonsterHudDto lastAliveFrame,
+        MonsterCompletionState completion = MonsterCompletionState.Slain,
+        double? observedAt = null)
     {
+        if (_frozenHudDto is { } existing
+            && !MonsterCompletionRules.ShouldApplyMonsterFinish(existing.CompletionState, completion))
+        {
+            ApplyHudPresentation();
+            return;
+        }
+
         _hudFrozen = true;
-        // Keep identity/parts from the last combat frame, but show 0 HP after the slay.
-        // Rise often leaves 1 HP in memory through the death animation.
-        _frozenHudDto = MonsterHudMapper.ToCompleted(lastAliveFrame);
+        _completionFreezeElapsed ??= observedAt ?? _context.Game.TimeElapsed;
+        _frozenHudDto = completion == MonsterCompletionState.Captured
+            ? MonsterHudMapper.ToCaptured(lastAliveFrame)
+            : MonsterHudMapper.ToCompleted(lastAliveFrame);
         ApplyHudPresentation();
     }
 
@@ -409,7 +453,9 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
             && _lastLiveHudDto is { HealthCurrent: > 0 } lastAlive
             && ReferenceEquals(_lastLiveMonster, _active))
         {
-            FreezeOnActiveDeath(lastAlive);
+            if (_questFailed || _context.Game.Quest?.Status is QuestStatus.Fail)
+                return;
+            FreezeOnActiveCompletion(lastAlive);
             return;
         }
 
@@ -583,7 +629,7 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
         private readonly IMonster _monster;
         private readonly Action<IMonster> _onChanged;
         private readonly Action<IMonster, MonsterTargetEventArgs> _onTargetChanged;
-        private readonly Action<IMonster> _onFinished;
+        private readonly Action<IMonster, MonsterCompletionState> _onFinished;
         private readonly List<IMonsterPart> _hookedParts = [];
         private readonly List<IMonsterAilment> _hookedAilments = [];
 
@@ -591,7 +637,7 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
             IMonster monster,
             Action<IMonster> onChanged,
             Action<IMonster, MonsterTargetEventArgs> onTargetChanged,
-            Action<IMonster> onFinished)
+            Action<IMonster, MonsterCompletionState> onFinished)
         {
             _monster = monster;
             _onChanged = onChanged;
@@ -605,8 +651,8 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
             _monster.OnTargetChange += OnTarget;
             _monster.OnNewPartFound += OnNewPart;
             _monster.OnNewAilmentFound += OnNewAilment;
-            _monster.OnDeath += OnFinished;
-            _monster.OnCapture += OnFinished;
+            _monster.OnDeath += OnDeath;
+            _monster.OnCapture += OnCapture;
             _monster.OnDespawn += OnAny;
 
             foreach (var part in _monster.Parts)
@@ -626,8 +672,8 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
             _monster.OnTargetChange -= OnTarget;
             _monster.OnNewPartFound -= OnNewPart;
             _monster.OnNewAilmentFound -= OnNewAilment;
-            _monster.OnDeath -= OnFinished;
-            _monster.OnCapture -= OnFinished;
+            _monster.OnDeath -= OnDeath;
+            _monster.OnCapture -= OnCapture;
             _monster.OnDespawn -= OnAny;
 
             foreach (var part in _hookedParts)
@@ -651,7 +697,10 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
         }
 
         private void OnAny(object? sender, EventArgs e) => _onChanged(_monster);
-        private void OnFinished(object? sender, EventArgs e) => _onFinished(_monster);
+        private void OnDeath(object? sender, EventArgs e)
+            => _onFinished(_monster, MonsterCompletionState.Slain);
+        private void OnCapture(object? sender, EventArgs e)
+            => _onFinished(_monster, MonsterCompletionState.Captured);
         private void OnCaptureThreshold(object? sender, IMonster e) => _onChanged(_monster);
         private void OnTarget(object? sender, MonsterTargetEventArgs e) => _onTargetChanged(_monster, e);
         private void OnPart(object? sender, IMonsterPart e) => _onChanged(_monster);

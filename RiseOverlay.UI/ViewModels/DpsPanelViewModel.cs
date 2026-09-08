@@ -87,6 +87,10 @@ public sealed class DpsPanelViewModel : INotifyPropertyChanged
     private string _partyTotalText = "";
     private string _scopeLineText = "";
     private bool _showScopeLine;
+    private string _cartCounterText = "";
+    private bool _showCartCounter;
+    private string _timeRemainingText = "";
+    private bool _showTimeRemaining;
     private ObservableCollection<DpsEntryRowViewModel> _entries = new();
 
     public bool IsSolo
@@ -125,6 +129,30 @@ public sealed class DpsPanelViewModel : INotifyPropertyChanged
         private set => SetField(ref _showScopeLine, value);
     }
 
+    public string CartCounterText
+    {
+        get => _cartCounterText;
+        private set => SetField(ref _cartCounterText, value);
+    }
+
+    public bool ShowCartCounter
+    {
+        get => _showCartCounter;
+        private set => SetField(ref _showCartCounter, value);
+    }
+
+    public string TimeRemainingText
+    {
+        get => _timeRemainingText;
+        private set => SetField(ref _timeRemainingText, value);
+    }
+
+    public bool ShowTimeRemaining
+    {
+        get => _showTimeRemaining;
+        private set => SetField(ref _showTimeRemaining, value);
+    }
+
     public ObservableCollection<DpsEntryRowViewModel> Entries
     {
         get => _entries;
@@ -135,6 +163,17 @@ public sealed class DpsPanelViewModel : INotifyPropertyChanged
 
     public void ApplyDto(DpsPanelDto dto)
     {
+        int maxDeaths = Math.Max(0, dto.MaxDeaths);
+        int deaths = maxDeaths > 0
+            ? Math.Clamp(dto.Deaths, 0, maxDeaths)
+            : Math.Max(0, dto.Deaths);
+        ShowCartCounter = maxDeaths > 0;
+        CartCounterText = ShowCartCounter ? $"猫车 {deaths}/{maxDeaths}" : "";
+        ShowTimeRemaining = dto.QuestTimeRemainingSeconds is >= 0;
+        TimeRemainingText = ShowTimeRemaining
+            ? $"剩余 {FormatClock(dto.QuestTimeRemainingSeconds!.Value)}"
+            : "";
+
         var source = (dto.Entries ?? Array.Empty<DpsEntryDto>())
             .OrderByDescending(e => e.TotalDamage)
             .Take(4)
@@ -200,7 +239,9 @@ public sealed class DpsPanelViewModel : INotifyPropertyChanged
         HuntDurationSeconds: 120,
         QuestTotalDamage: 8420,
         LockedTargetDamage: 8420,
-        LockedTargetName: "千刃龙"));
+        LockedTargetName: "千刃龙",
+        Deaths: 0,
+        MaxDeaths: 3));
         return vm;
     }
 
@@ -217,7 +258,9 @@ public sealed class DpsPanelViewModel : INotifyPropertyChanged
         HuntDurationSeconds: 124,
         QuestTotalDamage: 18940,
         LockedTargetDamage: 18940,
-        LockedTargetName: "角龙"));
+        LockedTargetName: "角龙",
+        Deaths: 1,
+        MaxDeaths: 3));
         return vm;
     }
 
@@ -229,6 +272,14 @@ public sealed class DpsPanelViewModel : INotifyPropertyChanged
         return t.TotalHours >= 1
             ? $"用时 {(int)t.TotalHours}:{t.Minutes:D2}:{t.Seconds:D2} · "
             : $"用时 {t.Minutes}:{t.Seconds:D2} · ";
+    }
+
+    private static string FormatClock(double seconds)
+    {
+        var t = TimeSpan.FromSeconds(Math.Max(0, Math.Ceiling(seconds)));
+        return t.TotalHours >= 1
+            ? $"{(int)t.TotalHours}:{t.Minutes:D2}:{t.Seconds:D2}"
+            : $"{t.Minutes}:{t.Seconds:D2}";
     }
 
     private static string FormatDps(double dps) =>
