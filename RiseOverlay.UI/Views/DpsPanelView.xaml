@@ -143,6 +143,7 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="{Binding SoloLineText}"
                            Foreground="{DynamicResource Brushes.Foreground}"
@@ -150,7 +151,16 @@
                            Typography.NumeralAlignment="Tabular"
                            TextTrimming="CharacterEllipsis"
                            VerticalAlignment="Center" />
-                <ContentControl Grid.Column="1"
+                <TextBlock Grid.Column="1"
+                           Margin="6,0,0,0"
+                           Text="{Binding SoloDamageText}"
+                           Foreground="{DynamicResource Brushes.Foreground}"
+                           FontSize="{DynamicResource Fonts.Size.Body}"
+                           FontWeight="SemiBold"
+                           Typography.NumeralAlignment="Tabular"
+                           VerticalAlignment="Center"
+                           TextAlignment="Right" />
+                <ContentControl Grid.Column="2"
                                 Margin="6,0,0,0"
                                 Content="{Binding}"
                                 ContentTemplate="{StaticResource QuestLimitsTemplate}" />
@@ -162,15 +172,24 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <ContentControl Content="{Binding}"
                                     ContentTemplate="{StaticResource QuestLimitsTemplate}" />
                     <TextBlock Grid.Column="1"
-                               Text="{Binding PartyTotalText}"
+                               Margin="6,0,0,0"
+                               Text="{Binding PartyTimeText}"
                                Foreground="{DynamicResource Brushes.ForegroundMuted}"
                                FontSize="{DynamicResource Fonts.Size.Small}"
                                Typography.NumeralAlignment="Tabular"
                                TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="2"
+                               Margin="6,0,0,0"
+                               Text="{Binding PartyTotalText}"
+                               Foreground="{DynamicResource Brushes.ForegroundMuted}"
+                               FontSize="{DynamicResource Fonts.Size.Small}"
+                               Typography.NumeralAlignment="Tabular"
                                HorizontalAlignment="Right" />
                 </Grid>
                 <ItemsControl ItemsSource="{Binding Entries}" />

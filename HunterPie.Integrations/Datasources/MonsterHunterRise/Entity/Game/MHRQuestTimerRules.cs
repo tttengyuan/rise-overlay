@@ -9,8 +9,9 @@ public static class MHRQuestTimerRules
     private const float MaxReasonableQuestDurationSeconds = 24 * 60 * 60;
 
     /// <summary>
-    /// Rise's global quest timer keeps advancing during the completion transition. The quest
-    /// structure timer is the value used by the in-game result screen and freezes at completion.
+    /// Both inputs ultimately read Rise's quest elapsed field. Prefer the value read together
+    /// with the terminal state and use the cached scan only when that read is invalid. The
+    /// custom Rise panel separately freezes the earlier objective-completion timestamp.
     /// </summary>
     public static float ResolveEndElapsed(
         QuestStatus status,

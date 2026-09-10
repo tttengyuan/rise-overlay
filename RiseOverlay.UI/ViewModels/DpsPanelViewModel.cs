@@ -84,6 +84,8 @@ public sealed class DpsPanelViewModel : INotifyPropertyChanged
 {
     private bool _isSolo;
     private string _soloLineText = "";
+    private string _soloDamageText = "";
+    private string _partyTimeText = "";
     private string _partyTotalText = "";
     private string _scopeLineText = "";
     private bool _showScopeLine;
@@ -127,6 +129,18 @@ public sealed class DpsPanelViewModel : INotifyPropertyChanged
     {
         get => _showScopeLine;
         private set => SetField(ref _showScopeLine, value);
+    }
+
+    public string SoloDamageText
+    {
+        get => _soloDamageText;
+        private set => SetField(ref _soloDamageText, value);
+    }
+
+    public string PartyTimeText
+    {
+        get => _partyTimeText;
+        private set => SetField(ref _partyTimeText, value);
     }
 
     public string CartCounterText
@@ -181,19 +195,19 @@ public sealed class DpsPanelViewModel : INotifyPropertyChanged
 
         long sum = source.Sum(e => e.TotalDamage);
         double ratioBase = sum <= 0 ? 1.0 : sum;
-        string timePrefix = FormatHuntDuration(dto.HuntDurationSeconds);
-        string targetLabel = string.IsNullOrWhiteSpace(dto.LockedTargetName)
-            ? "本怪"
-            : $"{dto.LockedTargetName} · 本怪";
+        string timeText = FormatHuntDuration(dto.HuntDurationSeconds);
+        string timePrefix = string.IsNullOrEmpty(timeText) ? "" : $"{timeText} · ";
 
         if (source.Count <= 1)
         {
             IsSolo = true;
             var e = source.FirstOrDefault();
             SoloLineText = e is null
-                ? $"{timePrefix}DPS 0 · {targetLabel} 0"
-                : $"{timePrefix}DPS {FormatDps(e.Dps)} · {targetLabel} {FormatDamage(e.TotalDamage)}";
+                ? $"{timePrefix}DPS 0"
+                : $"{timePrefix}DPS {FormatDps(e.Dps)}";
+            SoloDamageText = $"本怪 {FormatDamage(e?.TotalDamage ?? 0)}";
 
+            PartyTimeText = "";
             PartyTotalText = "";
             ScopeLineText = "";
             ShowScopeLine = false;
@@ -203,7 +217,9 @@ public sealed class DpsPanelViewModel : INotifyPropertyChanged
 
         IsSolo = false;
         SoloLineText = "";
-        PartyTotalText = $"{timePrefix}{targetLabel} {FormatDamage(sum)}";
+        SoloDamageText = "";
+        PartyTimeText = timeText;
+        PartyTotalText = $"本怪 {FormatDamage(sum)}";
         ScopeLineText = "";
         ShowScopeLine = false;
 
@@ -270,8 +286,8 @@ public sealed class DpsPanelViewModel : INotifyPropertyChanged
             return "";
         var t = TimeSpan.FromSeconds(seconds.Value);
         return t.TotalHours >= 1
-            ? $"用时 {(int)t.TotalHours}:{t.Minutes:D2}:{t.Seconds:D2} · "
-            : $"用时 {t.Minutes}:{t.Seconds:D2} · ";
+            ? $"用时 {(int)t.TotalHours}:{t.Minutes:D2}:{t.Seconds:D2}"
+            : $"用时 {t.Minutes}:{t.Seconds:D2}";
     }
 
     private static string FormatClock(double seconds)

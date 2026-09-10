@@ -74,6 +74,7 @@ internal class RiseCompactMonsterWidgetInitializer(
         }
 
         var viewModel = new RiseCompactMonsterViewModel(config);
+        var completionClock = new RiseOverlay.Domain.QuestCompletionClock();
 
         string LocalizePart(string id)
         {
@@ -92,8 +93,8 @@ internal class RiseCompactMonsterWidgetInitializer(
             localizePart: LocalizePart,
             questStore: questStore
         );
-        _dpsHandler = new RiseDpsController(context, viewModel, damageConfig);
-        _briefingHandler = new QuestBriefingController(context, viewModel, store, questStore);
+        _briefingHandler = new QuestBriefingController(context, viewModel, store, questStore, completionClock);
+        _dpsHandler = new RiseDpsController(context, viewModel, damageConfig, completionClock);
 
         _view = _overlay.Register(viewModel);
         _logger.Info(

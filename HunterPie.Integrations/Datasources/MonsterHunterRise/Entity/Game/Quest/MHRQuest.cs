@@ -14,7 +14,8 @@ namespace HunterPie.Integrations.Datasources.MonsterHunterRise.Entity.Game.Quest
 
 public class MHRQuest : Scannable, IQuest, IDisposable, IEventDispatcher
 {
-    private readonly List<string> _briefingMonsterIds = [];
+    private string[] _briefingMonsterIds = [];
+    private int _targetCountHint;
 
     public MHRQuest(
         IGameProcess process,
@@ -32,8 +33,8 @@ public class MHRQuest : Scannable, IQuest, IDisposable, IEventDispatcher
         Level = level;
         Stars = stars;
         if (briefingMonsterIds is { Count: > 0 })
-            _briefingMonsterIds.AddRange(briefingMonsterIds);
-        TargetCountHint = Math.Max(targetCountHint, _briefingMonsterIds.Count);
+            _briefingMonsterIds = briefingMonsterIds.ToArray();
+        _targetCountHint = Math.Max(targetCountHint, _briefingMonsterIds.Length);
     }
 
     /// <inheritdoc />
@@ -46,21 +47,19 @@ public class MHRQuest : Scannable, IQuest, IDisposable, IEventDispatcher
     public QuestType Type { get; }
 
     /// <inheritdoc />
-    public IReadOnlyList<string> BriefingMonsterIds => _briefingMonsterIds;
+    public IReadOnlyList<string> BriefingMonsterIds => Volatile.Read(ref _briefingMonsterIds);
 
     /// <inheritdoc />
-    public int TargetCountHint { get; private set; }
+    public int TargetCountHint => Volatile.Read(ref _targetCountHint);
 
     /// <summary>Update anomaly investigation targets when memory becomes available after accept.</summary>
     public void ReplaceBriefingMonsterIds(IReadOnlyList<string> ids, int targetCountHint = 0)
     {
-        _briefingMonsterIds.Clear();
-        if (ids.Count > 0)
-            _briefingMonsterIds.AddRange(ids);
-
-        int hint = Math.Max(targetCountHint, ids.Count);
+        string[] snapshot = ids.Count > 0 ? ids.ToArray() : [];
+        int hint = Math.Max(targetCountHint, snapshot.Length);
         if (hint > 0)
-            TargetCountHint = hint;
+            Volatile.Write(ref _targetCountHint, Math.Max(TargetCountHint, hint));
+        Volatile.Write(ref _briefingMonsterIds, snapshot);
     }
 
     /// <inheritdoc />

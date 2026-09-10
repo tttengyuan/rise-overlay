@@ -9,6 +9,7 @@ using HunterPie.Core.Game.Events;
 using HunterPie.Integrations.Datasources.MonsterHunterRise.Entity.Enemy;
 using HunterPie.Integrations.Datasources.MonsterHunterRise.Entity.Game;
 using HunterPie.Integrations.Datasources.MonsterHunterRise.Entity.Party;
+using HunterPie.Core.Observability.Logging;
 using HunterPie.UI.Overlay;
 using RiseOverlay.Domain;
 using RiseOverlay.UI.Overlay;
@@ -22,9 +23,11 @@ namespace RiseOverlay.UI.Integration;
 /// </summary>
 public sealed class RiseDpsController : IContextHandler, IDisposable
 {
+    private static readonly ILogger Logger = LoggerFactory.Create();
     private readonly IContext _context;
     private readonly RiseCompactMonsterViewModel _viewModel;
     private readonly DamageMeterWidgetConfig _damageConfig;
+    private readonly QuestCompletionClock _completionClock;
     private readonly Dictionary<IPartyMember, DpsMemberTiming> _timings = new();
     private readonly HashSet<IPartyMember> _members = new();
     private readonly HashSet<IMonster> _targetHooked = new();
@@ -50,11 +53,13 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
     public RiseDpsController(
         IContext context,
         RiseCompactMonsterViewModel viewModel,
-        DamageMeterWidgetConfig damageConfig)
+        DamageMeterWidgetConfig damageConfig,
+        QuestCompletionClock completionClock)
     {
         _context = context;
         _viewModel = viewModel;
         _damageConfig = damageConfig;
+        _completionClock = completionClock;
         _timeElapsed = context.Game.TimeElapsed;
 
         HookEvents();
@@ -212,10 +217,16 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
         UpdateQuestTimeRemaining(e.Quest.TimeLeft);
         UnhookQuest(clearCounts: false);
 
-        // End card follows the same rule as combat: current target only, never quest-wide sum.
-        DpsMemberSnapshot[] captured = CaptureSnapshots();
+        double stateElapsed = Math.Max(1, e.TimeElapsed.TotalSeconds);
+        double elapsed = _completionClock.ResolveResultElapsed(
+            succeeded: e.Status is QuestStatus.Success,
+            fallbackElapsed: stateElapsed);
+        // Resolve the result time before calculating DPS. Otherwise the card can show the
+        // objective time while its DPS rows are still divided by the later state time.
+        DpsMemberSnapshot[] captured = CaptureSnapshots(elapsed);
         long targetTotal = captured.Sum(s => s.TotalDamage);
-        double elapsed = Math.Max(1, e.TimeElapsed.TotalSeconds);
+        Logger.Info(
+            $"Rise DPS result timing: status={e.Status}, result={elapsed:0.00}, objective={_completionClock.ConfirmedElapsed?.ToString("0.00") ?? "none"}, state={stateElapsed:0.00}, drift={stateElapsed - elapsed:0.00}");
 
         _viewModel.UIThread.BeginInvoke(() =>
         {
@@ -543,7 +554,7 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
             monster => monster.ManualTarget == Target.Self);
     }
 
-    private DpsMemberSnapshot[] CaptureSnapshots()
+    private DpsMemberSnapshot[] CaptureSnapshots(double? questElapsedOverride = null)
     {
         // Party objects are recreated by the scanner; always re-bind from live party.
         foreach (IPartyMember member in _context.Game.Player.Party.Members)
@@ -556,6 +567,7 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
             : new Dictionary<int, long>();
         long scopedTotal = useScope ? Math.Max(0, _scopeTotal) : 0;
 
+        double calculationElapsed = questElapsedOverride ?? _timeElapsed;
         return _members
             .Select(m =>
             {
@@ -577,7 +589,7 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
                 timing.FirstHitAt = ScopedDamageRules.ResolveFirstHitAt(
                     timing.FirstHitAt,
                     total,
-                    _timeElapsed);
+                    calculationElapsed);
                 DpsCalculationMode mode = _damageConfig.DpsCalculationStrategy.Value switch
                 {
                     DPSCalculationStrategy.RelativeToQuest => DpsCalculationMode.RelativeToQuest,
@@ -588,7 +600,7 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
 
                 double dps = ScopedDamageRules.CalculateDps(
                     scopedDamage: total,
-                    questElapsed: _timeElapsed,
+                    questElapsed: calculationElapsed,
                     joinedAt: timing.JoinedAt,
                     firstHitAt: timing.FirstHitAt,
                     mode);

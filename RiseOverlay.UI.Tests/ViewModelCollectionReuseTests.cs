@@ -46,8 +46,36 @@ public class ViewModelCollectionReuseTests
         Assert.Same(collection, vm.Entries);
         Assert.Same(row, Assert.Single(vm.Entries, entry => entry.IsSelf));
         Assert.Equal(140, row.TotalDamage);
-        Assert.Contains("搔鸟", vm.PartyTotalText);
         Assert.Contains("本怪", vm.PartyTotalText);
+    }
+
+    [Fact]
+    public void DpsPanel_keeps_total_damage_independent_from_long_monster_name()
+    {
+        var vm = new DpsPanelViewModel();
+        string longName = "怪异克服天彗龙特别特别长的任务目标名称";
+
+        vm.ApplyDto(DpsDto(123456) with { LockedTargetName = longName });
+
+        Assert.DoesNotContain(longName, vm.PartyTotalText);
+        Assert.Equal("本怪 123506", vm.PartyTotalText);
+        Assert.Equal("用时 0:10", vm.PartyTimeText);
+    }
+
+    [Fact]
+    public void DpsPanel_keeps_solo_damage_independent_from_monster_name()
+    {
+        var vm = new DpsPanelViewModel();
+        string longName = "怪异克服天彗龙特别特别长的任务目标名称";
+        var dto = new DpsPanelDto(
+            [new DpsEntryDto("我", true, 123.4, 987654)],
+            HuntDurationSeconds: 10,
+            LockedTargetName: longName);
+
+        vm.ApplyDto(dto);
+
+        Assert.DoesNotContain(longName, vm.SoloLineText);
+        Assert.Equal("本怪 987654", vm.SoloDamageText);
     }
 
     [Fact]

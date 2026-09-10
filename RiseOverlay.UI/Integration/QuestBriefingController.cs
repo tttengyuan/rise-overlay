@@ -35,13 +35,19 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
     private readonly QuestStaticStore _questStore;
     private readonly DispatcherTimer _alignTimer;
     private readonly RiseOverlayPlacement _placement = new();
+    private readonly QuestCompletionClock _completionClock;
+    private readonly object _progressSync = new();
 
     private bool _questActive;
     private bool _huntSummary;
     private OverlayScene _scene = OverlayScene.Idle;
     private readonly List<TargetKey> _targetKeys = [];
     private readonly HashSet<string> _defeatedQuestTargets = new(StringComparer.OrdinalIgnoreCase);
-    private readonly HashSet<IMonster> _lifecycleHooked = [];
+    private readonly HashSet<IMonster> _lifecycleHooked = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<IMonster, MonsterTracking> _monsterTracking =
+        new(ReferenceEqualityComparer.Instance);
+    private long _trackingGeneration;
+    private long _nextMonsterInstanceId;
     private List<TargetKey> _lastQuestKeys = [];
     private QuestBriefingDto? _lastBriefingDto;
 
@@ -49,12 +55,14 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
         IContext context,
         RiseCompactMonsterViewModel viewModel,
         MonsterStaticStore staticStore,
-        QuestStaticStore? questStore = null)
+        QuestStaticStore? questStore = null,
+        QuestCompletionClock? completionClock = null)
     {
         _context = context;
         _viewModel = viewModel;
         _staticStore = staticStore;
         _questStore = questStore ?? QuestStaticStore.LoadEmpty();
+        _completionClock = completionClock ?? new QuestCompletionClock();
 
         _placement.RestoreOrSnapInitial(viewModel.Config.Position);
 
@@ -80,6 +88,7 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
             _questActive = questNow;
             if (_questActive)
             {
+                BeginQuestTracking(_context.Game.Quest);
                 _huntSummary = false;
                 _targetKeys.Clear();
                 ClearBriefingProgress();
@@ -88,6 +97,7 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
             }
             else if (wasActive)
             {
+                UnhookAllMonsterLifecycle(deactivate: true);
                 _targetKeys.Clear();
                 ClearBriefingProgress();
                 // Only keep hunt summary while still on a hunt map; village cancel → Idle.
@@ -122,9 +132,7 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
         _context.Game.OnMonsterDespawn -= OnMonsterDespawn;
         _context.Game.Player.OnStageUpdate -= OnStageUpdate;
 
-        foreach (IMonster monster in _lifecycleHooked.ToArray())
-            UnhookMonsterLifecycle(monster);
-        _lifecycleHooked.Clear();
+        UnhookAllMonsterLifecycle(deactivate: true);
 
         _viewModel.UIThread.BeginInvoke(() => ApplyScene(OverlayScene.Idle));
     }
@@ -134,6 +142,8 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
     private void BootstrapFromCurrentState()
     {
         _questActive = _context.Game.Quest is not null;
+        if (_questActive)
+            BeginQuestTracking(_context.Game.Quest);
         _targetKeys.Clear();
         MergeTargetKeysFromMonsters();
         foreach (IMonster monster in _context.Game.Monsters)
@@ -143,7 +153,9 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
     }
 
     private void OnQuestStart(object? sender, IQuest e)
-        => _viewModel.UIThread.BeginInvoke(() =>
+    {
+        BeginQuestTracking(e);
+        _viewModel.UIThread.BeginInvoke(() =>
         {
             _questActive = true;
             _huntSummary = false;
@@ -156,6 +168,7 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
             // Always enter briefing (or combat if monsters already present).
             RefreshScene();
         });
+    }
 
     private void PushPendingBriefingPlaceholder()
     {
@@ -191,7 +204,15 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
     }
 
     private void OnQuestEnd(object? sender, QuestEndEventArgs e)
-        => _viewModel.UIThread.BeginInvoke(() =>
+    {
+        // Last-chance synchronous scan before the DPS handler resolves the result clock.
+        if (e.Status is QuestStatus.Success)
+        {
+            IReadOnlyList<TargetKey> keys = CollectQuestTargetKeys();
+            UpdateDefeatedQuestTargets(keys);
+        }
+        UnhookAllMonsterLifecycle(deactivate: true);
+        _viewModel.UIThread.BeginInvoke(() =>
         {
             _questActive = false;
             _targetKeys.Clear();
@@ -210,39 +231,134 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
                 ApplyScene(OverlayScene.Idle);
             }
         });
+    }
 
     private void OnMonsterSpawn(object? sender, IMonster monster)
-        => _viewModel.UIThread.BeginInvoke(() =>
+    {
+        HookMonsterLifecycle(monster);
+        _viewModel.UIThread.BeginInvoke(() =>
         {
             RememberTarget(monster);
-            HookMonsterLifecycle(monster);
             RefreshScene();
         });
+    }
 
     private void OnMonsterDespawn(object? sender, IMonster monster)
-        => _viewModel.UIThread.BeginInvoke(() =>
+    {
+        UnhookMonsterLifecycle(monster);
+        _viewModel.UIThread.BeginInvoke(() =>
         {
             // Despawn also fires on area unload — never treat it as quest completion.
-            UnhookMonsterLifecycle(monster);
             RefreshScene();
         });
+    }
+
+    private void BeginQuestTracking(IQuest? quest)
+    {
+        int expected = Math.Max(
+            quest?.BriefingMonsterIds.Count ?? 0,
+            quest?.TargetCountHint ?? 0);
+        KeyValuePair<IMonster, MonsterTracking>[] previouslyHooked;
+        lock (_progressSync)
+        {
+            previouslyHooked = _monsterTracking.ToArray();
+            _lifecycleHooked.Clear();
+            _monsterTracking.Clear();
+            _nextMonsterInstanceId = 0;
+            _questActive = true;
+            _trackingGeneration = _completionClock.BeginQuest(expected);
+        }
+        foreach ((IMonster monster, MonsterTracking tracking) in previouslyHooked)
+            UnsubscribeMonsterLifecycle(monster, tracking.Handler);
+
+        // Required when the overlay attaches after the quest has already started. Do not hook
+        // village leftovers from the previous quest before the hunt map has loaded.
+        if (IsOnHuntMap())
+        {
+            foreach (IMonster monster in _context.Game.Monsters)
+                HookMonsterLifecycle(monster);
+        }
+    }
 
     private void HookMonsterLifecycle(IMonster monster)
     {
-        if (!_lifecycleHooked.Add(monster))
-            return;
+        MonsterTracking tracking;
+        lock (_progressSync)
+        {
+            if (!_questActive)
+                return;
 
-        monster.OnDeath += OnMonsterFinished;
-        monster.OnCapture += OnMonsterFinished;
+            if (_monsterTracking.TryGetValue(monster, out MonsterTracking? current)
+                && current is { Generation: var generation }
+                && generation == _trackingGeneration)
+                return;
+
+            EventHandler<EventArgs> handler = (sender, args) => OnMonsterFinished(sender, args);
+            tracking = new MonsterTracking(
+                _trackingGeneration,
+                $"{_trackingGeneration}:{++_nextMonsterInstanceId}",
+                handler);
+            _lifecycleHooked.Add(monster);
+            _monsterTracking[monster] = tracking;
+        }
+
+        monster.OnDeath += tracking.Handler;
+        monster.OnCapture += tracking.Handler;
+
+        // A quest boundary may have invalidated this registration while event accessors ran.
+        bool stillValid;
+        lock (_progressSync)
+            stillValid = _questActive
+                && _lifecycleHooked.Contains(monster)
+                && _monsterTracking.TryGetValue(monster, out MonsterTracking? current)
+                && current is not null
+                && current == tracking;
+        if (!stillValid)
+            UnsubscribeMonsterLifecycle(monster, tracking.Handler);
     }
 
     private void UnhookMonsterLifecycle(IMonster monster)
     {
-        if (!_lifecycleHooked.Remove(monster))
+        MonsterTracking? tracking;
+        lock (_progressSync)
+        {
+            _lifecycleHooked.Remove(monster);
+            _monsterTracking.Remove(monster, out tracking);
+        }
+        if (tracking is not null)
+            UnsubscribeMonsterLifecycle(monster, tracking.Handler);
+    }
+
+    private void UnhookAllMonsterLifecycle(bool deactivate = false)
+    {
+        KeyValuePair<IMonster, MonsterTracking>[] hooked;
+        lock (_progressSync)
+        {
+            if (deactivate)
+                _questActive = false;
+            hooked = _monsterTracking.ToArray();
+            _lifecycleHooked.Clear();
+            _monsterTracking.Clear();
+        }
+        foreach ((IMonster monster, MonsterTracking tracking) in hooked)
+            UnsubscribeMonsterLifecycle(monster, tracking.Handler);
+    }
+
+    private static void UnsubscribeMonsterLifecycle(
+        IMonster monster,
+        EventHandler<EventArgs> handler)
+    {
+        monster.OnDeath -= handler;
+        monster.OnCapture -= handler;
+    }
+
+    private void EnsureCurrentMonsterLifecycle()
+    {
+        if (!_questActive || !IsOnHuntMap())
             return;
 
-        monster.OnDeath -= OnMonsterFinished;
-        monster.OnCapture -= OnMonsterFinished;
+        foreach (IMonster monster in _context.Game.Monsters)
+            HookMonsterLifecycle(monster);
     }
 
     private void OnMonsterFinished(object? sender, EventArgs e)
@@ -250,26 +366,28 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
         if (sender is not IMonster monster)
             return;
 
-        _viewModel.UIThread.BeginInvoke(() =>
-        {
-            MarkQuestTargetDefeated(monster);
-            RefreshScene();
-        });
+        // Commit before dispatching UI work. QuestEnd can follow this callback immediately.
+        TrackMonsterCompletion(monster, _context.Game.TimeElapsed);
+        _viewModel.UIThread.BeginInvoke(RefreshScene);
     }
 
     private void OnStageUpdate(object? sender, EventArgs e)
-        => _viewModel.UIThread.BeginInvoke(() =>
+    {
+        EnsureCurrentMonsterLifecycle();
+        _viewModel.UIThread.BeginInvoke(() =>
         {
             if (_huntSummary && !IsOnHuntMap() && _context.Game.Quest is null)
                 _huntSummary = false;
             RefreshScene();
         });
+    }
 
     private bool IsOnHuntMap()
         => _context.Game.Player.InHuntingZone || _context.Game.Player.StageId == 5;
 
     private void RefreshScene()
     {
+        EnsureCurrentMonsterLifecycle();
         if (_huntSummary)
         {
             ApplyScene(OverlayScene.Combat);
@@ -342,7 +460,7 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
                 break;
 
             MonsterStaticMapped mapped = ResolveStatic(_staticStore, key);
-            bool defeated = _defeatedQuestTargets.Contains(StableKey(key));
+            bool defeated = IsTargetDefeated(key);
             targets.Add(MonsterHudMapper.ToBriefingTarget(mapped) with
             {
                 Kind = BriefingTargetKind.Quest,
@@ -399,89 +517,132 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
 
     private void ClearBriefingProgress()
     {
-        _defeatedQuestTargets.Clear();
-        _lastQuestKeys = [];
+        lock (_progressSync)
+        {
+            _defeatedQuestTargets.Clear();
+            _lastQuestKeys = [];
+        }
         _lastBriefingDto = null;
     }
 
     private List<TargetKey> CollectQuestTargetKeys()
     {
-        _targetKeys.Clear();
-        IQuest? quest = _context.Game.Quest;
+        lock (_progressSync)
+        {
+            _targetKeys.Clear();
+            IQuest? quest = _context.Game.Quest;
+            IReadOnlyList<string> briefingIds = quest?.BriefingMonsterIds ?? [];
 
-        // Memory EmTypes win only when every id resolves in the static monster table.
-        // Bad probes (e.g. monster_022_00) must fall back to quests-overlay.json.
-        bool memoryUsable = quest is { BriefingMonsterIds.Count: > 0 }
-            && quest.BriefingMonsterIds.All(id => _staticStore.FindById(id) is not null);
+            // Memory EmTypes win only when every id resolves in the static monster table.
+            // Bad probes (e.g. monster_022_00) must fall back to quests-overlay.json.
+            bool memoryUsable = briefingIds.Count > 0
+                && briefingIds.All(id => _staticStore.FindById(id) is not null);
 
-        if (memoryUsable)
-            MergeTargetKeysFromQuestBriefingIds();
-        else
-            MergeTargetKeysFromQuestStatic();
+            if (memoryUsable)
+                MergeTargetKeysFromQuestBriefingIds(briefingIds);
+            else
+                MergeTargetKeysFromQuestStatic();
 
-        _lastQuestKeys = _targetKeys.ToList();
-        return _lastQuestKeys;
+            _lastQuestKeys = _targetKeys.ToList();
+            ConfigureCompletionTargets(_lastQuestKeys);
+            return _lastQuestKeys.ToList();
+        }
     }
 
     /// <summary>
-    /// Mark defeated only when a dead/captured body is still scanned, or OnDeath/OnCapture fired.
-    /// Missing from <see cref="IGame.Monsters"/> is normal (other area / not loaded) — not defeat.
-    /// Duplicate species: assign corpses to the lowest occurrence slots first.
+    /// Dead bodies are a fallback when a lifecycle event was missed. Completion is latched by
+    /// monster instance, so corpse despawn and repeated death/capture scans cannot change counts.
     /// </summary>
     private void UpdateDefeatedQuestTargets(IReadOnlyList<TargetKey> questKeys)
     {
         if (questKeys.Count == 0)
             return;
 
-        foreach (IGrouping<string, TargetKey> group in questKeys.GroupBy(StableSpecies))
+        if (!IsOnHuntMap())
+            return;
+
+        foreach (IMonster monster in _context.Game.Monsters)
         {
-            var ordered = group.OrderBy(k => k.Occurrence).ToList();
-            var matches = _context.Game.Monsters
-                .Where(m => IsLargeMonsterCandidate(m) && MatchesMonster(ordered[0], m))
-                .ToList();
-
-            if (matches.Count == 0)
-                continue;
-
-            int alive = matches.Count(IsMonsterAlive);
-            int dead = matches.Count - alive;
-
-            for (int i = 0; i < ordered.Count; i++)
-            {
-                string stable = StableKey(ordered[i]);
-                if (i < dead)
-                    _defeatedQuestTargets.Add(stable);
-                else if (i < dead + alive)
-                    _defeatedQuestTargets.Remove(stable);
-            }
+            HookMonsterLifecycle(monster);
+            if (IsLargeMonsterCandidate(monster) && !IsMonsterAlive(monster))
+                TrackMonsterCompletion(monster, _context.Game.TimeElapsed, questKeys);
         }
+
+        lock (_progressSync)
+            SyncDefeatedTargets(questKeys);
     }
 
-    private void MarkQuestTargetDefeated(IMonster monster)
+    private void TrackMonsterCompletion(
+        IMonster monster,
+        double elapsed,
+        IReadOnlyList<TargetKey>? knownKeys = null)
     {
         if (!IsLargeMonsterCandidate(monster))
             return;
 
-        IEnumerable<TargetKey> keys = _lastQuestKeys.Count > 0
-            ? _lastQuestKeys
-            : CollectQuestTargetKeys();
-
-        // One corpse → first matching undefeated occurrence (FIFO for same species).
-        foreach (TargetKey key in keys.OrderBy(k => k.Occurrence))
+        // Pull the current quest snapshot here, not from briefing rendering. Combat mode can
+        // bypass briefing refresh while anomaly/multi-target ids are still being late-filled.
+        IReadOnlyList<TargetKey> keys = knownKeys ?? CollectQuestTargetKeys();
+        double? newlyConfirmed = null;
+        lock (_progressSync)
         {
-            if (!MatchesMonster(key, monster))
-                continue;
+            if (!_questActive
+                || !_monsterTracking.TryGetValue(monster, out MonsterTracking? tracking)
+                || tracking is null
+                || tracking.Generation != _trackingGeneration)
+                return;
 
-            string stable = StableKey(key);
-            if (_defeatedQuestTargets.Contains(stable))
-                continue;
+            ConfigureCompletionTargets(keys);
 
-            _defeatedQuestTargets.Add(stable);
-            break;
+            string species = _staticStore.ResolveIdentityKey(monster.Name);
+            foreach (TargetKey key in keys)
+            {
+                if (!MatchesMonster(key, monster))
+                    continue;
+                species = StableSpecies(key);
+                break;
+            }
+
+            bool hadConfirmation = _completionClock.ConfirmedElapsed is not null;
+            _completionClock.RecordCompletion(
+                tracking.Generation,
+                tracking.InstanceKey,
+                species,
+                elapsed);
+            SyncDefeatedTargets(keys);
+            if (!hadConfirmation)
+                newlyConfirmed = _completionClock.ConfirmedElapsed;
         }
 
-        if (!string.IsNullOrWhiteSpace(monster.Name))
-            _defeatedQuestTargets.Add(monster.Name);
+        if (newlyConfirmed is { } confirmed)
+            Logger.Info($"Rise quest objective timing confirmed at {confirmed:0.00}s");
+    }
+
+    private void ConfigureCompletionTargets(IReadOnlyList<TargetKey> keys)
+    {
+        _completionClock.ConfigureTargets(
+            _trackingGeneration,
+            keys.Select(StableSpecies).ToArray(),
+            _context.Game.Quest?.TargetCountHint ?? 0);
+    }
+
+    private void SyncDefeatedTargets(IReadOnlyList<TargetKey> keys)
+    {
+        _defeatedQuestTargets.Clear();
+        foreach (IGrouping<string, TargetKey> group in keys.GroupBy(
+                     StableSpecies,
+                     StringComparer.OrdinalIgnoreCase))
+        {
+            int completed = _completionClock.CompletedCount(_trackingGeneration, group.Key);
+            foreach (TargetKey key in group.OrderBy(k => k.Occurrence).Take(completed))
+                _defeatedQuestTargets.Add(StableKey(key));
+        }
+    }
+
+    private bool IsTargetDefeated(TargetKey key)
+    {
+        lock (_progressSync)
+            return _defeatedQuestTargets.Contains(StableKey(key));
     }
 
     private static bool IsMonsterAlive(IMonster monster)
@@ -590,15 +751,15 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
     /// <summary>
     /// Target EmTypes from memory into <see cref="IQuest.BriefingMonsterIds"/>.
     /// </summary>
-    private void MergeTargetKeysFromQuestBriefingIds()
+    private void MergeTargetKeysFromQuestBriefingIds(IReadOnlyList<string> briefingIds)
     {
         IQuest? quest = _context.Game.Quest;
-        if (quest is null || quest.BriefingMonsterIds.Count == 0)
+        if (quest is null || briefingIds.Count == 0)
             return;
 
         string? title = _questStore.FindById(quest.Id)?.Title;
         IReadOnlyList<string> monsters = ExpandStaticMonstersByTitle(
-            quest.BriefingMonsterIds,
+            briefingIds,
             title,
             quest.TargetCountHint);
 
@@ -717,6 +878,11 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
     }
 
     internal readonly record struct TargetKey(string? Name, int Id, int Occurrence = 0);
+
+    private sealed record MonsterTracking(
+        long Generation,
+        string InstanceKey,
+        EventHandler<EventArgs> Handler);
 
     private enum OverlayScene
     {
