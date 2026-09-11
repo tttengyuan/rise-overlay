@@ -13,6 +13,7 @@ using HunterPie.Core.Observability.Logging;
 using HunterPie.UI.Overlay;
 using RiseOverlay.Domain;
 using RiseOverlay.UI.Overlay;
+using System.Windows.Threading;
 
 namespace RiseOverlay.UI.Integration;
 
@@ -28,6 +29,7 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
     private readonly RiseCompactMonsterViewModel _viewModel;
     private readonly DamageMeterWidgetConfig _damageConfig;
     private readonly QuestCompletionClock _completionClock;
+    private readonly UiRefreshGate _panelRefreshGate = new();
     private readonly Dictionary<IPartyMember, DpsMemberTiming> _timings = new();
     private readonly HashSet<IPartyMember> _members = new();
     private readonly HashSet<IMonster> _targetHooked = new();
@@ -176,24 +178,22 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
         if (_summaryFrozen)
             return;
 
-        const double precision = 0.5;
-        double lastBucket = _timeElapsed % precision;
         // Match HunterPie's original meter: the game quest timer is authoritative,
         // but Rise can zero it during the death→result transition. Lock to objective
         // completion once confirmed, and ignore sudden collapses of the live timer.
         double next = ScopedDamageRules.StabilizeDisplayedElapsed(
             previousDisplayed: _timeElapsed,
             incomingGameElapsed: e.TimeElapsed,
-            confirmedObjectiveElapsed: _completionClock.ConfirmedElapsed);
-        double newBucket = next % precision;
-        bool changed = next > _timeElapsed + 0.01 || next < _timeElapsed - 0.01;
+            confirmedObjectiveElapsed: _completionClock.ConfirmedElapsed,
+            allowBackwardReset: e.IsTimerReset);
+        bool changed = Math.Abs(next - _timeElapsed) >= 0.005;
         _timeElapsed = next;
         _completionClock.ObserveLiveElapsed(_timeElapsed);
 
-        if (!e.IsTimerReset && !changed && newBucket >= lastBucket)
+        if (!e.IsTimerReset && !changed)
             return;
 
-        _viewModel.UIThread.BeginInvoke(PushPanel);
+        RequestPanelRefresh();
     }
 
     private void OnQuestStart(object? sender, IQuest e)
@@ -228,12 +228,10 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
         double elapsed = _completionClock.ResolveResultElapsed(
             succeeded: e.Status is QuestStatus.Success,
             fallbackElapsed: stateElapsed);
-        // Never let a collapsed Rise timer wipe a healthy live/objective clock on the card.
-        elapsed = ScopedDamageRules.StabilizeDisplayedElapsed(
-            previousDisplayed: Math.Max(_timeElapsed, stateElapsed),
-            incomingGameElapsed: elapsed,
-            confirmedObjectiveElapsed: _completionClock.ConfirmedElapsed);
-        elapsed = Math.Max(1, elapsed);
+        // ResolveResultElapsed already owns success/failure semantics. Reapplying the live
+        // anti-collapse rule here could replace a confirmed objective time with a later
+        // result-state timestamp (or reuse a completion stamp on a failed quest).
+        elapsed = ScopedDamageRules.ResolveTerminalElapsed(elapsed, _timeElapsed);
         // Resolve the result time before calculating DPS. Otherwise the card can show the
         // objective time while its DPS rows are still divided by the later state time.
         DpsMemberSnapshot[] captured = CaptureSnapshots(elapsed);
@@ -346,7 +344,32 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
         if (_summaryFrozen)
             return;
 
-        _viewModel.UIThread.BeginInvoke(PushPanel);
+        RequestPanelRefresh();
+    }
+
+    private void RequestPanelRefresh()
+    {
+        if (_panelRefreshGate.Request())
+            DispatchPanelRefresh();
+    }
+
+    private void DispatchPanelRefresh()
+        => _viewModel.UIThread.BeginInvoke(
+            DispatcherPriority.Render,
+            new Action(RenderQueuedPanelRefresh));
+
+    private void RenderQueuedPanelRefresh()
+    {
+        _panelRefreshGate.BeginRender();
+        try
+        {
+            PushPanel();
+        }
+        finally
+        {
+            if (_panelRefreshGate.CompleteRenderAndTryReschedule())
+                DispatchPanelRefresh();
+        }
     }
 
     private void HookQuest(IQuest? quest)

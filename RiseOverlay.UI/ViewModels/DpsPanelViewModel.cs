@@ -282,13 +282,18 @@ public sealed class DpsPanelViewModel : INotifyPropertyChanged
 
     private static string FormatHuntDuration(double? seconds)
     {
-        if (seconds is null or <= 0)
+        if (seconds is null or <= 0 || !double.IsFinite(seconds.Value))
             return "";
-        // Ceiling so a sub-second residue never renders as "用时 0:00".
-        var t = TimeSpan.FromSeconds(Math.Ceiling(seconds.Value));
-        return t.TotalHours >= 1
-            ? $"用时 {(int)t.TotalHours}:{t.Minutes:D2}:{t.Seconds:D2}"
-            : $"用时 {t.Minutes}:{t.Seconds:D2}";
+        long totalHundredths = (long)Math.Round(
+            seconds.Value * 100,
+            MidpointRounding.AwayFromZero);
+        long hours = totalHundredths / 360_000;
+        long minutes = totalHundredths / 6_000 % 60;
+        long wholeSeconds = totalHundredths / 100 % 60;
+        long hundredths = totalHundredths % 100;
+        return hours >= 1
+            ? $"用时 {hours}:{minutes:D2}:{wholeSeconds:D2}.{hundredths:D2}"
+            : $"用时 {minutes}:{wholeSeconds:D2}.{hundredths:D2}";
     }
 
     private static string FormatClock(double seconds)

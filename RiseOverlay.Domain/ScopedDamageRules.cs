@@ -3,7 +3,9 @@ namespace RiseOverlay.Domain;
 public static class ScopedDamageRules
 {
     public static double ResolveQuestElapsed(double observedGameElapsed)
-        => Math.Max(0, observedGameElapsed);
+        => double.IsFinite(observedGameElapsed)
+            ? Math.Max(0, observedGameElapsed)
+            : 0;
 
     /// <summary>
     /// Rise can briefly collapse QUEST_TIMER during the death→result transition while the
@@ -13,8 +15,12 @@ public static class ScopedDamageRules
     public static double StabilizeDisplayedElapsed(
         double previousDisplayed,
         double incomingGameElapsed,
-        double? confirmedObjectiveElapsed)
+        double? confirmedObjectiveElapsed,
+        bool allowBackwardReset = false)
     {
+        if (allowBackwardReset)
+            return ResolveQuestElapsed(incomingGameElapsed);
+
         if (confirmedObjectiveElapsed is { } confirmed
             && double.IsFinite(confirmed)
             && confirmed > 0
@@ -22,11 +28,32 @@ public static class ScopedDamageRules
             && !(previousDisplayed > 5 && confirmed < previousDisplayed - 5))
             return confirmed;
 
+        if (double.IsFinite(previousDisplayed)
+            && previousDisplayed > 0
+            && (!double.IsFinite(incomingGameElapsed) || incomingGameElapsed <= 0))
+            return previousDisplayed;
+
         double incoming = ResolveQuestElapsed(incomingGameElapsed);
         if (previousDisplayed > 5 && incoming < previousDisplayed - 5)
             return previousDisplayed;
 
         return incoming;
+    }
+
+    /// <summary>
+    /// A result clock has already applied success/failure semantics. Do not run it back
+    /// through live-clock anti-collapse rules; only use the last live sample when the
+    /// resolved result itself is unusable.
+    /// </summary>
+    public static double ResolveTerminalElapsed(
+        double resolvedResultElapsed,
+        double previousLiveElapsed)
+    {
+        if (double.IsFinite(resolvedResultElapsed) && resolvedResultElapsed > 0)
+            return resolvedResultElapsed;
+        if (double.IsFinite(previousLiveElapsed) && previousLiveElapsed > 0)
+            return previousLiveElapsed;
+        return 1;
     }
 
     /// <summary>

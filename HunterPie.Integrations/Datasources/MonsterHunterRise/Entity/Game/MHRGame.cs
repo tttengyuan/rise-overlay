@@ -43,8 +43,12 @@ public sealed class MHRGame : CommonGame
 
     private readonly MHRChat _chat = new();
     private readonly MHRPlayer _player;
+    private readonly object _questTimerSync = new();
     private float _timeElapsed;
     private (int, DateTime) _lastTeleport = (0, DateTime.Now);
+    private bool _hasObservedRawQuestElapsed;
+    private bool _awaitingFreshRawQuestElapsed = true;
+    private float _stageEntryRawQuestElapsed;
     private bool _isHudOpen;
     private DateTime _lastDamageUpdate = DateTime.MinValue;
     private nint? _lastDamageTarget;
@@ -80,7 +84,7 @@ public sealed class MHRGame : CommonGame
         {
             if (value != _timeElapsed)
             {
-                bool hasReset = value - _timeElapsed > 5;
+                bool hasReset = MHRQuestTimerRules.IsTimerReset(_timeElapsed, value);
 
                 _timeElapsed = value;
                 this.Dispatch(_onTimeElapsedChange, new TimeElapsedChangeEventArgs(hasReset, value));
@@ -172,24 +176,70 @@ public sealed class MHRGame : CommonGame
             offsets: AddressMap.GetOffsets("QUEST_TIMER_OFFSETS")
         );
 
-        // Prefer the real quest timer. Wall-clock fallback is only for hunt/training maps
-        // (village accept would otherwise start "用时" before departing).
-        if (elapsedTime > 0)
+        lock (_questTimerSync)
         {
-            TimeElapsed = elapsedTime;
-        }
-        else if (Player.InHuntingZone || Player.StageId == TRAINING_ROOM_ID)
-        {
-            TimeElapsed = (float)(DateTime.Now - _lastTeleport.Item2).TotalSeconds;
-        }
-        else
-        {
-            TimeElapsed = 0;
-        }
+            DateTime now = DateTime.Now;
+            // StageId is the only player value in this snapshot. InHuntingZone also reads
+            // _stageData, which is updated separately by MHRPlayer's concurrent scan and can
+            // otherwise produce an impossible old-stage/new-zone combination.
+            int stageId = Player.StageId;
+            bool stageChanged = EnsureTimerStage(stageId, now, elapsedTime);
 
-        if (Player.StageId != _lastTeleport.Item1)
-            _lastTeleport = (Player.StageId, DateTime.Now);
+            float stageElapsed = (float)(now - _lastTeleport.Item2).TotalSeconds;
+            bool isHuntOrTraining = MHRQuestTimerRules.IsHuntOrTrainingStage(stageId);
+            if (!isHuntOrTraining)
+            {
+                _hasObservedRawQuestElapsed = false;
+                _awaitingFreshRawQuestElapsed = true;
+                _stageEntryRawQuestElapsed = elapsedTime;
+            }
 
+            bool rawElapsedIsValid = float.IsFinite(elapsedTime) && elapsedTime > 0;
+            bool needsEntrySample = _awaitingFreshRawQuestElapsed
+                && !float.IsFinite(_stageEntryRawQuestElapsed);
+            if (needsEntrySample)
+                _stageEntryRawQuestElapsed = elapsedTime;
+            bool rawChangedSinceStageEntry = rawElapsedIsValid
+                && !needsEntrySample
+                && (_stageEntryRawQuestElapsed <= 0
+                    || Math.Abs(elapsedTime - _stageEntryRawQuestElapsed) >= 0.005f);
+            bool allowRawElapsed = !_awaitingFreshRawQuestElapsed || rawChangedSinceStageEntry;
+
+            TimeElapsed = MHRQuestTimerRules.ResolveLiveElapsed(
+                rawElapsed: elapsedTime,
+                previousElapsed: stageChanged ? 0 : TimeElapsed,
+                currentStageElapsed: stageElapsed,
+                isHuntOrTraining: isHuntOrTraining,
+                hasObservedRawElapsed: _hasObservedRawQuestElapsed,
+                allowRawElapsed: allowRawElapsed);
+            if (isHuntOrTraining && allowRawElapsed && rawElapsedIsValid)
+            {
+                _awaitingFreshRawQuestElapsed = false;
+                _hasObservedRawQuestElapsed = true;
+            }
+        }
+    }
+
+    private bool EnsureTimerStage(int stageId, DateTime now, float entryRawElapsed)
+    {
+        if (stageId == _lastTeleport.Item1)
+            return false;
+
+        _lastTeleport = (stageId, now);
+        _hasObservedRawQuestElapsed = false;
+        _awaitingFreshRawQuestElapsed = true;
+        _stageEntryRawQuestElapsed = entryRawElapsed;
+        return true;
+    }
+
+    private void AdvanceTimerStageFromPlayer()
+    {
+        lock (_questTimerSync)
+        {
+            int stageId = Player.StageId;
+            if (EnsureTimerStage(stageId, DateTime.Now, float.NaN))
+                TimeElapsed = 0;
+        }
     }
 
     [ScannableMethod]
@@ -506,6 +556,9 @@ public sealed class MHRGame : CommonGame
 
     private async void OnPlayerStageUpdate(object? sender, EventArgs e)
     {
+        // Synchronize the timer generation before the first await. Game/player scans run in
+        // parallel, so delayed timer reset here can otherwise leak the previous stage clock.
+        AdvanceTimerStageFromPlayer();
         _damageDone.Clear();
         _lastDamageTarget = null;
         await DamageMessageHandler.ClearAllHuntStatisticsExceptAsync(Array.Empty<IntPtr>());

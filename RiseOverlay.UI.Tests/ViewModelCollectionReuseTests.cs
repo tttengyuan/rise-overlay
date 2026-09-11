@@ -59,7 +59,30 @@ public class ViewModelCollectionReuseTests
 
         Assert.DoesNotContain(longName, vm.PartyTotalText);
         Assert.Equal("本怪 123506", vm.PartyTotalText);
-        Assert.Equal("用时 0:10", vm.PartyTimeText);
+        Assert.Equal("用时 0:10.00", vm.PartyTimeText);
+    }
+
+    [Theory]
+    [InlineData(10.124, "用时 0:10.12")]
+    [InlineData(10.126, "用时 0:10.13")]
+    [InlineData(3599.999, "用时 1:00:00.00")]
+    public void DpsPanel_displays_hunt_time_to_hundredths(double seconds, string expected)
+    {
+        var vm = new DpsPanelViewModel();
+
+        vm.ApplyDto(DpsDto(100) with { HuntDurationSeconds = seconds });
+
+        Assert.Equal(expected, vm.PartyTimeText);
+    }
+
+    [Fact]
+    public void DpsPanel_hides_non_finite_hunt_time()
+    {
+        var vm = new DpsPanelViewModel();
+
+        vm.ApplyDto(DpsDto(100) with { HuntDurationSeconds = double.NaN });
+
+        Assert.Equal("", vm.PartyTimeText);
     }
 
     [Fact]

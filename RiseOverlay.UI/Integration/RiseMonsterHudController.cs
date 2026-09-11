@@ -8,6 +8,7 @@ using HunterPie.UI.Overlay;
 using RiseOverlay.Data;
 using RiseOverlay.Domain;
 using RiseOverlay.UI.Overlay;
+using System.Windows.Threading;
 
 namespace RiseOverlay.UI.Integration;
 
@@ -23,6 +24,7 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
     private readonly MonsterStaticStore _staticStore;
     private readonly QuestStaticStore _questStore;
     private readonly Func<string, string> _localizePart;
+    private readonly UiRefreshGate _hudRefreshGate = new();
     private readonly Dictionary<IMonster, MonsterBinding> _bindings = new();
     private IMonster? _active;
     private bool _hudFrozen;
@@ -257,8 +259,21 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
             PushActiveHud();
         });
 
-    private void OnMonsterDataChanged(IMonster monster)
-        => _viewModel.UIThread.BeginInvoke(() =>
+    private void OnMonsterDataChanged(IMonster _)
+    {
+        if (_hudRefreshGate.Request())
+            DispatchHudRefresh();
+    }
+
+    private void DispatchHudRefresh()
+        => _viewModel.UIThread.BeginInvoke(
+            DispatcherPriority.Render,
+            new Action(RenderQueuedHudRefresh));
+
+    private void RenderQueuedHudRefresh()
+    {
+        _hudRefreshGate.BeginRender();
+        try
         {
             if (_hudFrozen)
             {
@@ -281,18 +296,19 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
                 return;
             }
 
-            if (!ReferenceEquals(_active, monster))
-            {
-                // HP/part updates from non-target monsters must never arbitrate selection.
-                // Only refresh when the current target is no longer valid; target events
-                // themselves promote the newly locked monster explicitly.
-                if (_active is null || !IsAliveLocked(_active))
-                    RefreshActiveMonster();
-                return;
-            }
-
-            PushActiveHud();
-        });
+            // Read the latest aggregate state once per render instead of queueing one complete
+            // HUD rebuild for every HP/part/ailment notification in the same scan cycle.
+            if (_active is null || !IsAliveLocked(_active))
+                RefreshActiveMonster();
+            else
+                PushActiveHud();
+        }
+        finally
+        {
+            if (_hudRefreshGate.CompleteRenderAndTryReschedule())
+                DispatchHudRefresh();
+        }
+    }
 
     private void RefreshActiveMonster()
     {

@@ -60,6 +60,60 @@ public class ScopedDamageRulesTests
                 confirmedObjectiveElapsed: null));
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    public void Displayed_elapsed_keeps_last_positive_value_when_timer_is_invalid(double incoming)
+    {
+        Assert.Equal(
+            3.25,
+            ScopedDamageRules.StabilizeDisplayedElapsed(
+                previousDisplayed: 3.25,
+                incomingGameElapsed: incoming,
+                confirmedObjectiveElapsed: null));
+    }
+
+    [Fact]
+    public void Displayed_elapsed_sanitizes_invalid_timer_before_first_valid_sample()
+    {
+        Assert.Equal(
+            0,
+            ScopedDamageRules.StabilizeDisplayedElapsed(
+                previousDisplayed: 0,
+                incomingGameElapsed: double.NaN,
+                confirmedObjectiveElapsed: null));
+    }
+
+    [Fact]
+    public void Displayed_elapsed_accepts_authoritative_timer_restart_after_stage_fallback()
+    {
+        Assert.Equal(
+            0.25,
+            ScopedDamageRules.StabilizeDisplayedElapsed(
+                previousDisplayed: 30,
+                incomingGameElapsed: 0.25,
+                confirmedObjectiveElapsed: null,
+                allowBackwardReset: true));
+    }
+
+    [Theory]
+    [InlineData(100, 120, 100)]
+    [InlineData(double.NaN, 120, 120)]
+    [InlineData(0, 120, 120)]
+    [InlineData(double.PositiveInfinity, double.NaN, 1)]
+    public void Terminal_elapsed_trusts_resolved_result_and_only_falls_back_when_invalid(
+        double resolvedResultElapsed,
+        double previousLiveElapsed,
+        double expected)
+    {
+        Assert.Equal(
+            expected,
+            ScopedDamageRules.ResolveTerminalElapsed(
+                resolvedResultElapsed,
+                previousLiveElapsed));
+    }
+
     [Fact]
     public void First_hit_uses_absolute_quest_time()
     {
