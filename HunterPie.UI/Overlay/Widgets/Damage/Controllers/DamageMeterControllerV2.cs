@@ -266,7 +266,7 @@ public class DamageMeterControllerV2 : IContextHandler
 
         ObservableColor color = PlayerConfigHelper.GetColorFromPlayer(
             game: _context.Process.Type,
-            slot: Math.Max(pet.Slot - 5, 0),
+            slot: Math.Max(pet.Slot, 0),
             isSelf: pet.IsMyself
         );
         var petViewModel = new PetViewModel(

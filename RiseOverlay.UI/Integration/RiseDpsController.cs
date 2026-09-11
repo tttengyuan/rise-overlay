@@ -50,6 +50,8 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
     private string? _scopeName;
     private Dictionary<int, long> _scopeDamageByEntity = new();
     private long _scopeTotal;
+    private readonly Dictionary<nint, Dictionary<int, long>> _damagePeakByAddress = new();
+    private readonly Dictionary<nint, long> _totalPeakByAddress = new();
     private MHRMonster? _promotedTarget;
 
     public RiseDpsController(
@@ -181,6 +183,9 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
         // Match HunterPie's original meter: the game quest timer is authoritative,
         // but Rise can zero it during the death→result transition. Lock to objective
         // completion once confirmed, and ignore sudden collapses of the live timer.
+        // Observe the raw game sample before anti-collapse locking, so a near-zero
+        // confirmed stamp cannot prevent peak hunt time from being remembered.
+        _completionClock.ObserveLiveElapsed(e.TimeElapsed);
         double next = ScopedDamageRules.StabilizeDisplayedElapsed(
             previousDisplayed: _timeElapsed,
             incomingGameElapsed: e.TimeElapsed,
@@ -519,6 +524,8 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
         _scopeName = null;
         _scopeDamageByEntity = new();
         _scopeTotal = 0;
+        _damagePeakByAddress.Clear();
+        _totalPeakByAddress.Clear();
         _promotedTarget = null;
     }
 
@@ -532,16 +539,42 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
         _promotedTarget = null;
         if (focused is not null)
         {
-            if (_scopeAddress != focused.Address || !ReferenceEquals(_scopeMonster, focused))
+            if (_scopeAddress != focused.Address)
             {
+                nint? previousAddress = _scopeAddress;
+                // New monster instance / lock-on. Restore any peak already seen for this
+                // address (area remount) instead of flashing zeros.
                 _scopeAddress = focused.Address;
                 _scopeMonster = focused;
                 _scopeName = focused.Name;
-                _scopeDamageByEntity = new();
-                _scopeTotal = 0;
+
+                if (!_damagePeakByAddress.ContainsKey(focused.Address)
+                    && previousAddress is nint oldAddr
+                    && _totalPeakByAddress.GetValueOrDefault(oldAddr) > 0
+                    && !_context.Game.Monsters.OfType<MHRMonster>().Any(m => m.Address == oldAddr))
+                {
+                    // Garangolm-style remount: old pointer gone, new pointer, same hunt.
+                    // Carry peaks forward so a zero native answer cannot blank the card.
+                    _damagePeakByAddress[focused.Address] =
+                        new Dictionary<int, long>(_damagePeakByAddress[oldAddr]);
+                    _totalPeakByAddress[focused.Address] = _totalPeakByAddress[oldAddr];
+                }
+
+                if (_damagePeakByAddress.TryGetValue(focused.Address, out Dictionary<int, long>? cached))
+                {
+                    _scopeDamageByEntity = new Dictionary<int, long>(cached);
+                    _scopeTotal = _totalPeakByAddress.GetValueOrDefault(focused.Address);
+                }
+                else
+                {
+                    _scopeDamageByEntity = new();
+                    _scopeTotal = 0;
+                }
             }
             else
             {
+                // Same address: scanner often recreates the MHRMonster wrapper. Never wipe.
+                _scopeMonster = focused;
                 _scopeName = focused.Name;
             }
 
@@ -568,8 +601,26 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
         if (!game.TryGetDamageSnapshot(address, out Dictionary<int, long> byIndex, out long total))
             return;
 
-        _scopeDamageByEntity = byIndex;
-        _scopeTotal = total;
+        Dictionary<int, long> previous = _damagePeakByAddress.TryGetValue(address, out Dictionary<int, long>? cached)
+            ? cached
+            : _scopeDamageByEntity;
+        long previousTotal = _totalPeakByAddress.TryGetValue(address, out long cachedTotal)
+            ? cachedTotal
+            : _scopeTotal;
+
+        (Dictionary<int, long> merged, long mergedTotal) = ScopedDamageRules.MergePeakSnapshot(
+            previous,
+            previousTotal,
+            byIndex,
+            total);
+
+        _damagePeakByAddress[address] = merged;
+        _totalPeakByAddress[address] = mergedTotal;
+        if (_scopeAddress == address)
+        {
+            _scopeDamageByEntity = merged;
+            _scopeTotal = mergedTotal;
+        }
     }
 
     private MHRMonster? FindFocusedMonster(MHRMonster? promoted)

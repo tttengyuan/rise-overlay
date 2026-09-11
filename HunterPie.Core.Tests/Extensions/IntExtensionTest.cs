@@ -12,7 +12,7 @@ public class IntExtensionTest
         var testCase = new
         {
             Value = 3,
-            Expected = 8
+            Expected = 13
         };
 
         int actual = testCase.Value.ToPetId();

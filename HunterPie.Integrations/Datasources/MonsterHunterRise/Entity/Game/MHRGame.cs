@@ -1,4 +1,4 @@
-﻿
+
 using HunterPie.Core.Address.Map;
 using HunterPie.Core.Client.Localization;
 using HunterPie.Core.Domain;
@@ -49,6 +49,8 @@ public sealed class MHRGame : CommonGame
     private bool _hasObservedRawQuestElapsed;
     private bool _awaitingFreshRawQuestElapsed = true;
     private float _stageEntryRawQuestElapsed;
+    private int _damageStageId;
+    private bool _hasObservedDamageStage;
     private bool _isHudOpen;
     private DateTime _lastDamageUpdate = DateTime.MinValue;
     private nint? _lastDamageTarget;
@@ -186,7 +188,10 @@ public sealed class MHRGame : CommonGame
             bool stageChanged = EnsureTimerStage(stageId, now, elapsedTime);
 
             float stageElapsed = (float)(now - _lastTeleport.Item2).TotalSeconds;
-            bool isHuntOrTraining = MHRQuestTimerRules.IsHuntOrTrainingStage(stageId);
+            // Quest.TimeLeft uses the same elapsed field; keep the live timer advancing
+            // whenever a quest object is active even if StageId briefly looks non-hunt.
+            bool isHuntOrTraining = MHRQuestTimerRules.IsHuntOrTrainingStage(stageId)
+                || _quest is not null;
             if (!isHuntOrTraining)
             {
                 _hasObservedRawQuestElapsed = false;
@@ -203,7 +208,11 @@ public sealed class MHRGame : CommonGame
                 && !needsEntrySample
                 && (_stageEntryRawQuestElapsed <= 0
                     || Math.Abs(elapsedTime - _stageEntryRawQuestElapsed) >= 0.005f);
-            bool allowRawElapsed = !_awaitingFreshRawQuestElapsed || rawChangedSinceStageEntry;
+            bool allowRawElapsed = MHRQuestTimerRules.ShouldTrustRawElapsed(
+                awaitingFreshRawElapsed: _awaitingFreshRawQuestElapsed,
+                rawChangedSinceStageEntry: rawChangedSinceStageEntry,
+                rawElapsed: elapsedTime,
+                stageElapsed: stageElapsed);
 
             TimeElapsed = MHRQuestTimerRules.ResolveLiveElapsed(
                 rawElapsed: elapsedTime,
@@ -237,8 +246,14 @@ public sealed class MHRGame : CommonGame
         lock (_questTimerSync)
         {
             int stageId = Player.StageId;
+            bool wasHunt = MHRQuestTimerRules.IsHuntOrTrainingStage(_lastTeleport.Item1);
+            bool nowHunt = MHRQuestTimerRules.IsHuntOrTrainingStage(stageId);
             if (EnsureTimerStage(stageId, DateTime.Now, float.NaN))
-                TimeElapsed = 0;
+            {
+                // Area remounts stay on the same quest clock — do not flash 0:00.
+                if (!nowHunt || !wasHunt)
+                    TimeElapsed = 0;
+            }
         }
     }
 
@@ -559,9 +574,22 @@ public sealed class MHRGame : CommonGame
         // Synchronize the timer generation before the first await. Game/player scans run in
         // parallel, so delayed timer reset here can otherwise leak the previous stage clock.
         AdvanceTimerStageFromPlayer();
-        _damageDone.Clear();
-        _lastDamageTarget = null;
-        await DamageMessageHandler.ClearAllHuntStatisticsExceptAsync(Array.Empty<IntPtr>());
+
+        int stageId = Player.StageId;
+        bool clearStats = MHRQuestTimerRules.ShouldClearHuntStatisticsOnStageChange(
+            previousStageId: _damageStageId,
+            nextStageId: stageId,
+            hasObservedStage: _hasObservedDamageStage);
+        _damageStageId = stageId;
+        _hasObservedDamageStage = true;
+
+        if (clearStats)
+        {
+            _damageDone.Clear();
+            _lastDamageTarget = null;
+            await DamageMessageHandler.ClearAllHuntStatisticsExceptAsync(Array.Empty<IntPtr>());
+        }
+
         await DamageMessageHandler.RequestHuntStatisticsAsync(CommonConstants.AllTargets);
     }
 

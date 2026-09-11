@@ -10,6 +10,6 @@ public struct ResponseDamageMessage
     public IPCMessage Header;
     public nint Target;
 
-    [MarshalAs(UnmanagedType.ByValArray, SizeConst = 10)]
+    [MarshalAs(UnmanagedType.ByValArray, SizeConst = 14)]
     public EntityDamageData[] Entities;
 }

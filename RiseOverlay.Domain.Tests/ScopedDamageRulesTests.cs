@@ -17,14 +17,36 @@ public class ScopedDamageRulesTests
     }
 
     [Fact]
-    public void Displayed_elapsed_locks_to_confirmed_objective_time()
+    public void Displayed_elapsed_floors_to_confirmed_when_live_timer_collapses()
     {
         Assert.Equal(
-            640.5,
+            641,
             ScopedDamageRules.StabilizeDisplayedElapsed(
                 previousDisplayed: 641,
                 incomingGameElapsed: 0.2,
                 confirmedObjectiveElapsed: 640.5));
+    }
+
+    [Fact]
+    public void Displayed_elapsed_keeps_advancing_after_objective_confirmation()
+    {
+        Assert.Equal(
+            206,
+            ScopedDamageRules.StabilizeDisplayedElapsed(
+                previousDisplayed: 200,
+                incomingGameElapsed: 206,
+                confirmedObjectiveElapsed: 200));
+    }
+
+    [Fact]
+    public void Displayed_elapsed_does_not_freeze_minutes_behind_live_timer()
+    {
+        Assert.Equal(
+            809,
+            ScopedDamageRules.StabilizeDisplayedElapsed(
+                previousDisplayed: 667,
+                incomingGameElapsed: 809,
+                confirmedObjectiveElapsed: 667));
     }
 
     [Fact]
@@ -36,6 +58,17 @@ public class ScopedDamageRulesTests
                 previousDisplayed: 640,
                 incomingGameElapsed: 0.2,
                 confirmedObjectiveElapsed: 0.2));
+    }
+
+    [Fact]
+    public void Displayed_elapsed_rejects_collapsed_confirmed_against_healthy_incoming()
+    {
+        Assert.Equal(
+            640,
+            ScopedDamageRules.StabilizeDisplayedElapsed(
+                previousDisplayed: 0.02,
+                incomingGameElapsed: 640,
+                confirmedObjectiveElapsed: 0.02));
     }
 
     [Fact]
@@ -99,6 +132,7 @@ public class ScopedDamageRulesTests
 
     [Theory]
     [InlineData(100, 120, 100)]
+    [InlineData(0.02, 640, 640)]
     [InlineData(double.NaN, 120, 120)]
     [InlineData(0, 120, 120)]
     [InlineData(double.PositiveInfinity, double.NaN, 1)]
@@ -157,4 +191,38 @@ public class ScopedDamageRulesTests
 
         Assert.Equal(0, snapshot[0]);
     }
+    [Fact]
+    public void MergePeakSnapshot_keeps_prior_damage_when_incoming_collapses()
+    {
+        var previous = new Dictionary<int, long> { [0] = 12000, [4] = 3000 };
+        var incoming = new Dictionary<int, long> { [0] = 0, [4] = 0 };
+
+        (Dictionary<int, long> merged, long total) = ScopedDamageRules.MergePeakSnapshot(
+            previous,
+            previousTotal: 15000,
+            incoming,
+            incomingTotal: 0);
+
+        Assert.Equal(12000, merged[0]);
+        Assert.Equal(3000, merged[4]);
+        Assert.Equal(15000, total);
+    }
+
+    [Fact]
+    public void MergePeakSnapshot_still_grows_with_new_hits()
+    {
+        var previous = new Dictionary<int, long> { [0] = 1000 };
+        var incoming = new Dictionary<int, long> { [0] = 2500, [4] = 400 };
+
+        (Dictionary<int, long> merged, long total) = ScopedDamageRules.MergePeakSnapshot(
+            previous,
+            previousTotal: 1000,
+            incoming,
+            incomingTotal: 2900);
+
+        Assert.Equal(2500, merged[0]);
+        Assert.Equal(400, merged[4]);
+        Assert.Equal(2900, total);
+    }
+
 }

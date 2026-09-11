@@ -95,20 +95,25 @@ public sealed class MHRParty : CommonParty, IUpdatable<EntityDamageData>, IUpdat
             Remove(data.Index);
 
         MHRPartyMember member = new(data.MemberType, data.IsMyself);
-        MHRPartyMember memberPet = new(MemberType.Pet, false);
-
-        MHRPartyMemberData petData = data.ToPetData();
 
         _partyMembers.Add(data.Index, member);
-        _partyMemberPets.Add(petData.Index, memberPet);
         _partyHashNameLookup.Add(data.GetHash(), member);
 
         member.Update(data);
-        memberPet.Update(petData);
 
         _logger.Debug($"Added new player to party: id: {data.Index} name: {data.Name} weap: {data.WeaponId}, hash: {member.GetHashCode():X}");
 
         this.Dispatch(_onMemberJoin, member);
+
+        // Followers occupy indices 4-5. Only hunters have tracked otomo damage slots,
+        // and those remapped pet indices must stay outside the follower range.
+        if (data.MemberType is not MemberType.Player)
+            return;
+
+        MHRPartyMember memberPet = new(MemberType.Pet, false);
+        MHRPartyMemberData petData = data.ToPetData();
+        _partyMemberPets.Add(petData.Index, memberPet);
+        memberPet.Update(petData);
         this.Dispatch(_onMemberJoin, memberPet);
     }
 
@@ -122,18 +127,18 @@ public sealed class MHRParty : CommonParty, IUpdatable<EntityDamageData>, IUpdat
             int petIndex = memberIndex.ToPetId();
 
             MHRPartyMember member = _partyMembers[memberIndex];
-            MHRPartyMember memberPet = _partyMemberPets[petIndex];
-
             _ = _partyMembers.Remove(memberIndex);
-            _ = _partyMemberPets.Remove(petIndex);
             _ = _partyHashNameLookup.Remove(member.GetHash());
 
             _logger.Debug($"Removed player: id: {memberIndex} name: {member.Name} hash: {member.GetHashCode():X}");
 
             this.Dispatch(_onMemberLeave, member);
-            this.Dispatch(_onMemberLeave, memberPet);
-
             member.Dispose();
+
+            if (!_partyMemberPets.Remove(petIndex, out MHRPartyMember? memberPet))
+                return;
+
+            this.Dispatch(_onMemberLeave, memberPet);
             memberPet.Dispose();
         }
     }

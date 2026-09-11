@@ -360,6 +360,12 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
 
         foreach (IMonster monster in _context.Game.Monsters)
             HookMonsterLifecycle(monster);
+
+        // Combat mode does not rebuild briefing every tick; still retract remount false-kills
+        // so ConfirmedElapsed cannot freeze 用时 while the target is alive again.
+        IReadOnlyList<TargetKey> keys = CollectQuestTargetKeys();
+        if (keys.Count > 0)
+            RetractFalseCompletions(keys);
     }
 
     private void OnMonsterFinished(object? sender, EventArgs e)
@@ -569,8 +575,34 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
                 TrackMonsterCompletion(monster, _context.Game.TimeElapsed, questKeys);
         }
 
+        RetractFalseCompletions(questKeys);
+
         lock (_progressSync)
             SyncDefeatedTargets(questKeys);
+    }
+
+    /// <summary>
+    /// Garangolm-style area remounts fire death on the old pointer while a living copy
+    /// keeps fighting. Retract a full species latch when that living target is still here.
+    /// </summary>
+    private void RetractFalseCompletions(IReadOnlyList<TargetKey> questKeys)
+    {
+        foreach (IGrouping<string, TargetKey> group in questKeys.GroupBy(
+                     StableSpecies,
+                     StringComparer.OrdinalIgnoreCase))
+        {
+            bool alive = _context.Game.Monsters.Any(m =>
+                IsLargeMonsterCandidate(m)
+                && IsMonsterAlive(m)
+                && group.Any(key => MatchesMonster(key, m)));
+            if (!alive)
+                continue;
+
+            _completionClock.RetractSpeciesCompletionIfStillAlive(
+                _trackingGeneration,
+                group.Key,
+                hasAliveInstance: true);
+        }
     }
 
     private void TrackMonsterCompletion(
@@ -578,7 +610,8 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
         double elapsed,
         IReadOnlyList<TargetKey>? knownKeys = null)
     {
-        if (!IsLargeMonsterCandidate(monster))
+        if (!IsLargeMonsterCandidate(monster)
+            || !MonsterCompletionRules.IsConfirmedFinished(monster.Health, monster.MaxHealth))
             return;
 
         // Pull the current quest snapshot here, not from briefing rendering. Combat mode can

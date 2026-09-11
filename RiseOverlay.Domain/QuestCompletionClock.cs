@@ -118,6 +118,45 @@ public sealed class QuestCompletionClock
 
     public void Reset() => BeginQuest(expectedTargetCount: 0);
 
+    /// <summary>
+    /// Area remounts can look like a kill (old pointer dies) while the same species is still
+    /// fighting under a new address. If we already latched a full species completion and a
+    /// living instance is still on the map, drop those stamps so 用时 can keep advancing.
+    /// </summary>
+    public void RetractSpeciesCompletionIfStillAlive(
+        long generation,
+        string species,
+        bool hasAliveInstance)
+    {
+        if (!hasAliveInstance || string.IsNullOrWhiteSpace(species))
+            return;
+
+        lock (_sync)
+        {
+            if (generation != _generation)
+                return;
+
+            int required = _targetSpecies.Count(s =>
+                string.Equals(s, species, StringComparison.OrdinalIgnoreCase));
+            if (required <= 0)
+                return;
+
+            int completed = _completionsByInstance.Values.Count(c =>
+                string.Equals(c.Species, species, StringComparison.OrdinalIgnoreCase));
+            if (completed < required)
+                return;
+
+            string[] orphanKeys = _completionsByInstance
+                .Where(kv => string.Equals(kv.Value.Species, species, StringComparison.OrdinalIgnoreCase))
+                .Select(kv => kv.Key)
+                .ToArray();
+            foreach (string key in orphanKeys)
+                _completionsByInstance.Remove(key);
+
+            RecomputeConfirmedElapsed();
+        }
+    }
+
     public double ResolveResultElapsed(bool succeeded, double fallbackElapsed)
     {
         bool hasValidFallback = IsValid(fallbackElapsed);
@@ -129,9 +168,28 @@ public sealed class QuestCompletionClock
             return safeFallback;
 
         if (!hasValidFallback)
+        {
+            lock (_sync)
+            {
+                if (LooksCollapsed(confirmed) && _peakLiveElapsed > 5)
+                    return _peakLiveElapsed;
+            }
             return confirmed;
+        }
+
+        // A collapsed objective stamp must not beat a healthier end/live clock.
+        if (LooksCollapsed(confirmed))
+        {
+            double peak;
+            lock (_sync)
+                peak = _peakLiveElapsed;
+            double best = Math.Max(safeFallback, peak);
+            return best > confirmed ? best : confirmed;
+        }
 
         // Prefer objective completion when it is at/before the end state time.
+        // False early stamps from remounts must be retracted while the target is still alive;
+        // do not second-guess a healthy confirmed stamp here (carve delay can be minutes).
         if (confirmed <= fallbackElapsed + 1)
             return confirmed;
 
@@ -173,6 +231,9 @@ public sealed class QuestCompletionClock
             ? latestRequiredCompletion
             : null;
     }
+
+    private static bool LooksCollapsed(double elapsed)
+        => IsValid(elapsed) && elapsed <= 5;
 
     private static bool IsValid(double elapsed)
         => double.IsFinite(elapsed)

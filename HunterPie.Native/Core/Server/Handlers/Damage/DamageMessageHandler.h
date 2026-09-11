@@ -16,7 +16,7 @@ namespace Core::Server
         struct ResponseHuntStatisticsMessage : IPCMessage
         {
             intptr_t target;
-            Entities::EntityDamageData entities[10];
+            Entities::EntityDamageData entities[14];
         };
 
         struct RequestDeleteHuntStatisticsMessage : IPCMessage

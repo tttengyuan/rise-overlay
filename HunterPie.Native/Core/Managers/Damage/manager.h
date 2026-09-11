@@ -6,9 +6,12 @@ using namespace Core::Entities;
 
 namespace HunterPie::Core::Damage
 {
+    // Indices 0-3 players, 4-5 followers, 10-13 pets (owner+10). Keep >= 14.
+    constexpr size_t kMaxTrackedEntities = 14;
+
     struct HuntStatistics
     {
-        EntityDamageData entities[10];
+        EntityDamageData entities[kMaxTrackedEntities];
     };
 
     class DamageTrackManager

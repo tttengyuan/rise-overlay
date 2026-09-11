@@ -23,8 +23,13 @@ public class MessageHelper
     {
         int size = Marshal.SizeOf<T>();
         IntPtr mAlloc = Marshal.AllocHGlobal(size);
+        // Zero-fill so a shorter native payload cannot leave garbage in trailing fields
+        // (e.g. managed SizeConst grown before the in-game Native DLL was replaced).
+        Marshal.Copy(new byte[size], 0, mAlloc, size);
 
-        Marshal.Copy(buffer, 0, mAlloc, size);
+        int copy = Math.Min(buffer.Length, size);
+        if (copy > 0)
+            Marshal.Copy(buffer, 0, mAlloc, copy);
 
         T deserialized = Marshal.PtrToStructure<T>(mAlloc);
 

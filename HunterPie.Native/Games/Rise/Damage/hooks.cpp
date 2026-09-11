@@ -42,9 +42,10 @@ MHREntityData* Hook::CalculateEntityDamage(
         GetEntityByDamageType(damageData->attackerDamageType)
     };
 
-    // Each player's main pet will inherits the owner's index, but be flagged as a PET
+    // Pets share the owner's Id (0-3). Remap into 10-13 so they do not collide with
+    // follower companions, which occupy party indices 4-5 in Rise.
     if (entity.type == PET && entity.index <= 3)
-        entity.index = entity.index + 4 + 1;
+        entity.index = entity.index + 10;
 
     const auto entityData = EntityDamageData{
         reinterpret_cast<intptr_t>(target),

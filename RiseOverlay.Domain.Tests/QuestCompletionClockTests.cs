@@ -134,6 +134,18 @@ public class QuestCompletionClockTests
     }
 
     [Fact]
+    public void Collapsed_confirmed_without_peak_prefers_healthier_fallback()
+    {
+        var clock = new QuestCompletionClock();
+        long quest = clock.BeginQuest(1);
+        clock.ConfigureTargets(quest, ["khezu"]);
+        clock.RecordCompletion(quest, "monster-a", "khezu", 0.2);
+
+        Assert.Equal(0.2, clock.ConfirmedElapsed);
+        Assert.Equal(900, clock.ResolveResultElapsed(true, 900));
+    }
+
+    [Fact]
     public void Successful_result_keeps_confirmed_time_when_end_timer_collapsed()
     {
         var clock = new QuestCompletionClock();
@@ -155,6 +167,35 @@ public class QuestCompletionClockTests
         clock.RecordCompletion(quest, "monster-a", "khezu", 1260);
 
         Assert.Equal(1138, clock.ResolveResultElapsed(true, 1138));
+    }
+
+    [Fact]
+    public void Remounted_alive_target_retracts_full_species_completion()
+    {
+        var clock = new QuestCompletionClock();
+        long quest = clock.BeginQuest(1);
+        clock.ConfigureTargets(quest, ["garangolm"]);
+        clock.RecordCompletion(quest, "gen:0xAAA", "garangolm", 667);
+        Assert.Equal(667, clock.ConfirmedElapsed);
+
+        clock.RetractSpeciesCompletionIfStillAlive(quest, "garangolm", hasAliveInstance: true);
+
+        Assert.Null(clock.ConfirmedElapsed);
+        Assert.Equal(0, clock.CompletedCount(quest, "garangolm"));
+    }
+
+    [Fact]
+    public void Partial_multi_target_completion_is_kept_while_sibling_still_alive()
+    {
+        var clock = new QuestCompletionClock();
+        long quest = clock.BeginQuest(2);
+        clock.ConfigureTargets(quest, ["khezu", "khezu"]);
+        clock.RecordCompletion(quest, "monster-a", "khezu", 500);
+        Assert.Null(clock.ConfirmedElapsed);
+
+        clock.RetractSpeciesCompletionIfStillAlive(quest, "khezu", hasAliveInstance: true);
+
+        Assert.Equal(1, clock.CompletedCount(quest, "khezu"));
     }
 }
 

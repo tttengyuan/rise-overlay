@@ -32,7 +32,16 @@ public static class MHRQuestTimerRules
     {
         bool isTerminal = status is QuestStatus.Success or QuestStatus.Fail or QuestStatus.Quit;
         if (isTerminal && IsValidElapsed(questStructureElapsed, allowZero: false))
+        {
+            // Rise often collapses structure TimeElapsed to ~0 on the success frame while
+            // the cached live timer (or a recovered later read) is still healthy.
+            if (questStructureElapsed <= 5
+                && IsValidElapsed(globalElapsed, allowZero: false)
+                && globalElapsed > questStructureElapsed + 5)
+                return globalElapsed;
+
             return questStructureElapsed;
+        }
 
         return IsValidElapsed(globalElapsed, allowZero: true)
             ? globalElapsed
@@ -68,6 +77,47 @@ public static class MHRQuestTimerRules
             ? currentStageElapsed
             : 0;
         return Math.Max(previous, stage);
+    }
+
+    /// <summary>
+    /// Overlay restart / stage resync mid-hunt samples the same QUEST_TIMER repeatedly, so
+    /// "changed since entry" never trips and the wall-clock stage fallback sticks at ~0:02
+    /// while 剩余 still tracks the real quest. Trust a raw timer that is already clearly
+    /// ahead of the stage fallback.
+    /// </summary>
+    public static bool ShouldTrustRawElapsed(
+        bool awaitingFreshRawElapsed,
+        bool rawChangedSinceStageEntry,
+        float rawElapsed,
+        float stageElapsed)
+    {
+        if (!awaitingFreshRawElapsed || rawChangedSinceStageEntry)
+            return true;
+
+        return IsValidElapsed(rawElapsed, allowZero: false)
+               && rawElapsed > 5
+               && rawElapsed > stageElapsed + 5;
+    }
+
+    /// <summary>
+    /// Native hunt stats must survive overlay reconnect and same-quest area transitions.
+    /// Only clear when leaving a hunt map, or when entering a hunt from a non-hunt stage
+    /// (village → quest). First observation mid-hunt must not wipe in-progress damage.
+    /// </summary>
+    public static bool ShouldClearHuntStatisticsOnStageChange(
+        int previousStageId,
+        int nextStageId,
+        bool hasObservedStage)
+    {
+        bool nextHunt = IsHuntOrTrainingStage(nextStageId);
+        if (!hasObservedStage)
+            return !nextHunt;
+
+        bool previousHunt = IsHuntOrTrainingStage(previousStageId);
+        if (!nextHunt)
+            return true;
+
+        return !previousHunt;
     }
 
     private static bool IsValidElapsed(float elapsed, bool allowZero)

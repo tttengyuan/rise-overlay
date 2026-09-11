@@ -18,4 +18,20 @@ public class MonsterCompletionRulesTests
     {
         Assert.Equal(expected, MonsterCompletionRules.ShouldApplyMonsterFinish(existing, incoming));
     }
+
+    [Theory]
+    [InlineData(-1, 0, false)]
+    [InlineData(0, 0, false)]
+    [InlineData(100, 100, false)]
+    [InlineData(0, 100, true)]
+    [InlineData(0.5, 100, false)]
+    public void Completion_requires_an_initialized_health_sample(
+        double health,
+        double maxHealth,
+        bool expected)
+    {
+        Assert.Equal(
+            expected,
+            MonsterCompletionRules.IsConfirmedFinished(health, maxHealth));
+    }
 }

@@ -9,8 +9,9 @@ public static class ScopedDamageRules
 
     /// <summary>
     /// Rise can briefly collapse QUEST_TIMER during the death→result transition while the
-    /// HUD still shows a live DPS card. Prefer a confirmed objective completion time, and
-    /// otherwise ignore sudden backward jumps of the live timer.
+    /// HUD still shows a live DPS card. A confirmed objective stamp floors the display against
+    /// that collapse, but must not freeze the live hunt clock — false early completions
+    /// (area remount / stale death) would otherwise stick 用时 minutes behind the game.
     /// </summary>
     public static double StabilizeDisplayedElapsed(
         double previousDisplayed,
@@ -21,23 +22,26 @@ public static class ScopedDamageRules
         if (allowBackwardReset)
             return ResolveQuestElapsed(incomingGameElapsed);
 
+        double floor = 0;
         if (confirmedObjectiveElapsed is { } confirmed
-            && double.IsFinite(confirmed)
-            && confirmed > 0
-            // A collapsed objective stamp must not override a healthy live card clock.
+            && LooksHealthy(confirmed)
             && !(previousDisplayed > 5 && confirmed < previousDisplayed - 5))
-            return confirmed;
+            floor = confirmed;
 
         if (double.IsFinite(previousDisplayed)
             && previousDisplayed > 0
             && (!double.IsFinite(incomingGameElapsed) || incomingGameElapsed <= 0))
-            return previousDisplayed;
+            return Math.Max(previousDisplayed, floor);
 
         double incoming = ResolveQuestElapsed(incomingGameElapsed);
         if (previousDisplayed > 5 && incoming < previousDisplayed - 5)
-            return previousDisplayed;
+            return Math.Max(previousDisplayed, floor);
 
-        return incoming;
+        // Collapsed/near-zero live samples after an objective stamp: hold the floor.
+        if (floor > 0 && (LooksCollapsed(incoming) || incoming + 5 < floor))
+            return Math.Max(previousDisplayed > 0 ? previousDisplayed : floor, floor);
+
+        return Math.Max(incoming, floor);
     }
 
     /// <summary>
@@ -49,12 +53,24 @@ public static class ScopedDamageRules
         double resolvedResultElapsed,
         double previousLiveElapsed)
     {
+        // Rise can freeze a ~0 result stamp after a healthy live hunt clock.
+        if (LooksCollapsed(resolvedResultElapsed) && LooksHealthy(previousLiveElapsed))
+            return previousLiveElapsed;
         if (double.IsFinite(resolvedResultElapsed) && resolvedResultElapsed > 0)
             return resolvedResultElapsed;
         if (double.IsFinite(previousLiveElapsed) && previousLiveElapsed > 0)
             return previousLiveElapsed;
         return 1;
     }
+
+    /// <summary>
+    /// Near-zero QUEST_TIMER samples during death→result are not trustworthy hunt clocks.
+    /// </summary>
+    public static bool LooksCollapsed(double elapsed)
+        => double.IsFinite(elapsed) && elapsed > 0 && elapsed <= 5;
+
+    public static bool LooksHealthy(double elapsed)
+        => double.IsFinite(elapsed) && elapsed > 5;
 
     /// <summary>
     /// The compact panel scopes damage to the selected monster, but its clock remains
@@ -101,5 +117,35 @@ public static class ScopedDamageRules
             result[entityIndex] = Math.Max(0, damage);
 
         return result;
+    }
+
+    /// <summary>
+    /// Native hunt stats can briefly answer 0 after a stage flicker or monster remount.
+    /// Keep the peak per-entity counters so the DPS card does not collapse mid-hunt.
+    /// </summary>
+    public static (Dictionary<int, long> ByEntity, long Total) MergePeakSnapshot(
+        IReadOnlyDictionary<int, long> previous,
+        long previousTotal,
+        IReadOnlyDictionary<int, long> incoming,
+        long incomingTotal)
+    {
+        var merged = new Dictionary<int, long>();
+        foreach ((int index, long damage) in previous)
+            merged[index] = Math.Max(0, damage);
+
+        foreach ((int index, long damage) in incoming)
+        {
+            long next = Math.Max(0, damage);
+            merged[index] = merged.TryGetValue(index, out long prior)
+                ? Math.Max(prior, next)
+                : next;
+        }
+
+        long total = Math.Max(Math.Max(0, previousTotal), Math.Max(0, incomingTotal));
+        long sum = merged.Values.Sum();
+        if (sum > total)
+            total = sum;
+
+        return (merged, total);
     }
 }

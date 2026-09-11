@@ -34,6 +34,17 @@ public class MHRQuestTimerRulesTests
     }
 
     [Fact]
+    public void ResolveEndElapsed_rejects_collapsed_structure_timer()
+    {
+        Assert.Equal(
+            640f,
+            MHRQuestTimerRules.ResolveEndElapsed(
+                QuestStatus.Success,
+                0.02f,
+                640f));
+    }
+
+    [Fact]
     public void ResolveEndElapsed_rejects_finite_structure_memory_garbage()
     {
         Assert.Equal(
@@ -93,6 +104,51 @@ public class MHRQuestTimerRulesTests
         bool expected)
     {
         Assert.Equal(expected, MHRQuestTimerRules.IsTimerReset(previous, next));
+    }
+
+    [Theory]
+    [InlineData(false, false, 110f, 2f, true)]
+    [InlineData(true, true, 110f, 2f, true)]
+    [InlineData(true, false, 110f, 2f, true)]
+    [InlineData(true, false, 3f, 2f, false)]
+    [InlineData(true, false, 110f, 108f, false)]
+    public void Mid_hunt_raw_timer_is_trusted_without_waiting_for_a_delta(
+        bool awaitingFresh,
+        bool rawChanged,
+        float rawElapsed,
+        float stageElapsed,
+        bool expected)
+    {
+        Assert.Equal(
+            expected,
+            MHRQuestTimerRules.ShouldTrustRawElapsed(
+                awaitingFresh,
+                rawChanged,
+                rawElapsed,
+                stageElapsed));
+    }
+
+    [Theory]
+    // First observation mid-hunt must keep native stats.
+    [InlineData(0, 201, false, false)]
+    // Village → hunt starts a fresh counter set.
+    [InlineData(1, 201, true, true)]
+    // Hunt → village clears.
+    [InlineData(201, 1, true, true)]
+    // Same-quest area transition keeps counters.
+    [InlineData(201, 202, true, false)]
+    public void Hunt_statistics_clear_only_on_village_boundaries(
+        int previousStageId,
+        int nextStageId,
+        bool hasObservedStage,
+        bool expectedClear)
+    {
+        Assert.Equal(
+            expectedClear,
+            MHRQuestTimerRules.ShouldClearHuntStatisticsOnStageChange(
+                previousStageId,
+                nextStageId,
+                hasObservedStage));
     }
 
     [Theory]
