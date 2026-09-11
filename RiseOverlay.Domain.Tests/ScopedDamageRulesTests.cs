@@ -17,6 +17,50 @@ public class ScopedDamageRulesTests
     }
 
     [Fact]
+    public void Displayed_elapsed_locks_to_confirmed_objective_time()
+    {
+        Assert.Equal(
+            640.5,
+            ScopedDamageRules.StabilizeDisplayedElapsed(
+                previousDisplayed: 641,
+                incomingGameElapsed: 0.2,
+                confirmedObjectiveElapsed: 640.5));
+    }
+
+    [Fact]
+    public void Displayed_elapsed_rejects_collapsed_confirmed_stamp()
+    {
+        Assert.Equal(
+            640,
+            ScopedDamageRules.StabilizeDisplayedElapsed(
+                previousDisplayed: 640,
+                incomingGameElapsed: 0.2,
+                confirmedObjectiveElapsed: 0.2));
+    }
+
+    [Fact]
+    public void Displayed_elapsed_ignores_sudden_live_timer_collapse()
+    {
+        Assert.Equal(
+            640,
+            ScopedDamageRules.StabilizeDisplayedElapsed(
+                previousDisplayed: 640,
+                incomingGameElapsed: 0,
+                confirmedObjectiveElapsed: null));
+    }
+
+    [Fact]
+    public void Displayed_elapsed_still_follows_a_healthy_live_timer()
+    {
+        Assert.Equal(
+            641.5,
+            ScopedDamageRules.StabilizeDisplayedElapsed(
+                previousDisplayed: 640,
+                incomingGameElapsed: 641.5,
+                confirmedObjectiveElapsed: null));
+    }
+
+    [Fact]
     public void First_hit_uses_absolute_quest_time()
     {
         Assert.Equal(

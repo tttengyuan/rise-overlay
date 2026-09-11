@@ -284,7 +284,8 @@ public sealed class DpsPanelViewModel : INotifyPropertyChanged
     {
         if (seconds is null or <= 0)
             return "";
-        var t = TimeSpan.FromSeconds(seconds.Value);
+        // Ceiling so a sub-second residue never renders as "用时 0:00".
+        var t = TimeSpan.FromSeconds(Math.Ceiling(seconds.Value));
         return t.TotalHours >= 1
             ? $"用时 {(int)t.TotalHours}:{t.Minutes:D2}:{t.Seconds:D2}"
             : $"用时 {t.Minutes}:{t.Seconds:D2}";

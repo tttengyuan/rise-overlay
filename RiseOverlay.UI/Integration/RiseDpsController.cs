@@ -178,12 +178,19 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
 
         const double precision = 0.5;
         double lastBucket = _timeElapsed % precision;
-        double newBucket = e.TimeElapsed % precision;
-        // Match HunterPie's original meter: the game quest timer is authoritative.
-        // Monster HP/list state must never pause or offset this clock.
-        _timeElapsed = ScopedDamageRules.ResolveQuestElapsed(e.TimeElapsed);
+        // Match HunterPie's original meter: the game quest timer is authoritative,
+        // but Rise can zero it during the death→result transition. Lock to objective
+        // completion once confirmed, and ignore sudden collapses of the live timer.
+        double next = ScopedDamageRules.StabilizeDisplayedElapsed(
+            previousDisplayed: _timeElapsed,
+            incomingGameElapsed: e.TimeElapsed,
+            confirmedObjectiveElapsed: _completionClock.ConfirmedElapsed);
+        double newBucket = next % precision;
+        bool changed = next > _timeElapsed + 0.01 || next < _timeElapsed - 0.01;
+        _timeElapsed = next;
+        _completionClock.ObserveLiveElapsed(_timeElapsed);
 
-        if (!e.IsTimerReset && newBucket >= lastBucket)
+        if (!e.IsTimerReset && !changed && newBucket >= lastBucket)
             return;
 
         _viewModel.UIThread.BeginInvoke(PushPanel);
@@ -221,6 +228,12 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
         double elapsed = _completionClock.ResolveResultElapsed(
             succeeded: e.Status is QuestStatus.Success,
             fallbackElapsed: stateElapsed);
+        // Never let a collapsed Rise timer wipe a healthy live/objective clock on the card.
+        elapsed = ScopedDamageRules.StabilizeDisplayedElapsed(
+            previousDisplayed: Math.Max(_timeElapsed, stateElapsed),
+            incomingGameElapsed: elapsed,
+            confirmedObjectiveElapsed: _completionClock.ConfirmedElapsed);
+        elapsed = Math.Max(1, elapsed);
         // Resolve the result time before calculating DPS. Otherwise the card can show the
         // objective time while its DPS rows are still divided by the later state time.
         DpsMemberSnapshot[] captured = CaptureSnapshots(elapsed);

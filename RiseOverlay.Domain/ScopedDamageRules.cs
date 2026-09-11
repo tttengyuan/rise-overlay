@@ -6,6 +6,30 @@ public static class ScopedDamageRules
         => Math.Max(0, observedGameElapsed);
 
     /// <summary>
+    /// Rise can briefly collapse QUEST_TIMER during the death→result transition while the
+    /// HUD still shows a live DPS card. Prefer a confirmed objective completion time, and
+    /// otherwise ignore sudden backward jumps of the live timer.
+    /// </summary>
+    public static double StabilizeDisplayedElapsed(
+        double previousDisplayed,
+        double incomingGameElapsed,
+        double? confirmedObjectiveElapsed)
+    {
+        if (confirmedObjectiveElapsed is { } confirmed
+            && double.IsFinite(confirmed)
+            && confirmed > 0
+            // A collapsed objective stamp must not override a healthy live card clock.
+            && !(previousDisplayed > 5 && confirmed < previousDisplayed - 5))
+            return confirmed;
+
+        double incoming = ResolveQuestElapsed(incomingGameElapsed);
+        if (previousDisplayed > 5 && incoming < previousDisplayed - 5)
+            return previousDisplayed;
+
+        return incoming;
+    }
+
+    /// <summary>
     /// The compact panel scopes damage to the selected monster, but its clock remains
     /// the real quest clock just like HunterPie's original damage meter.
     /// </summary>

@@ -132,5 +132,29 @@ public class QuestCompletionClockTests
 
         Assert.Equal(1138.85, clock.ResolveResultElapsed(true, double.NaN), 2);
     }
+
+    [Fact]
+    public void Successful_result_keeps_confirmed_time_when_end_timer_collapsed()
+    {
+        var clock = new QuestCompletionClock();
+        long quest = clock.BeginQuest(1);
+        clock.ConfigureTargets(quest, ["khezu"]);
+        clock.ObserveLiveElapsed(640);
+        clock.RecordCompletion(quest, "monster-a", "khezu", 0.2);
+
+        Assert.Equal(640, clock.ConfirmedElapsed);
+        Assert.Equal(640, clock.ResolveResultElapsed(true, 0.2));
+    }
+
+    [Fact]
+    public void Suspicious_confirmed_after_healthy_end_timer_still_uses_fallback()
+    {
+        var clock = new QuestCompletionClock();
+        long quest = clock.BeginQuest(1);
+        clock.ConfigureTargets(quest, ["khezu"]);
+        clock.RecordCompletion(quest, "monster-a", "khezu", 1260);
+
+        Assert.Equal(1138, clock.ResolveResultElapsed(true, 1138));
+    }
 }
 

@@ -108,4 +108,28 @@ public class MonsterStaticStoreTests
         var byId = store.FindById(byTitle.Id);
         Assert.Same(byTitle, byId);
     }
+
+    [Theory]
+    [InlineData("棘龙", "棘龙")]
+    [InlineData("棘茶龙", "棘茶龙")]
+    [InlineData("Espinas", "棘龙")]
+    [InlineData("Flaming Espinas", "棘茶龙")]
+    public void MatchesSpecies_accepts_same_species_aliases(string left, string right)
+    {
+        var store = MonsterStaticStore.Load(ResolveJsonPath());
+        Assert.True(store.MatchesSpecies(left, right));
+        Assert.True(store.MatchesSpecies(right, left));
+    }
+
+    [Theory]
+    [InlineData("棘龙", "棘茶龙")]
+    [InlineData("Espinas", "Flaming Espinas")]
+    [InlineData("棘龙", "Flaming Espinas")]
+    [InlineData("Espinas", "棘茶龙")]
+    public void MatchesSpecies_rejects_related_but_distinct_variants(string left, string right)
+    {
+        var store = MonsterStaticStore.Load(ResolveJsonPath());
+        Assert.False(store.MatchesSpecies(left, right));
+        Assert.False(store.MatchesSpecies(right, left));
+    }
 }

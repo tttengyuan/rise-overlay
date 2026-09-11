@@ -5,6 +5,7 @@ using HunterPie.Core.Game.Entity.Enemy;
 using HunterPie.Core.Game.Entity.Game.Quest;
 using HunterPie.Core.Game.Events;
 using HunterPie.Core.Observability.Logging;
+using HunterPie.Integrations.Datasources.MonsterHunterRise.Entity.Enemy;
 using HunterPie.UI.Overlay;
 using RiseOverlay.Data;
 using RiseOverlay.Domain;
@@ -594,19 +595,19 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
 
             ConfigureCompletionTargets(keys);
 
+            // Invaders / unmatched corpses must not stamp quest-target completion chips.
+            // Always attribute the kill to the live monster's identity — never remap through
+            // a fuzzy title match onto a different quest-board species.
+            if (!keys.Any(key => MatchesMonster(key, monster)))
+                return;
+
             string species = _staticStore.ResolveIdentityKey(monster.Name);
-            foreach (TargetKey key in keys)
-            {
-                if (!MatchesMonster(key, monster))
-                    continue;
-                species = StableSpecies(key);
-                break;
-            }
+            string instanceKey = ResolveCompletionInstanceKey(monster, tracking);
 
             bool hadConfirmation = _completionClock.ConfirmedElapsed is not null;
             _completionClock.RecordCompletion(
                 tracking.Generation,
-                tracking.InstanceKey,
+                instanceKey,
                 species,
                 elapsed);
             SyncDefeatedTargets(keys);
@@ -650,24 +651,25 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
 
     private bool MatchesMonster(TargetKey key, IMonster monster)
     {
-        if (!string.IsNullOrWhiteSpace(key.Name) && !string.IsNullOrWhiteSpace(monster.Name))
-        {
-            string keyName = _staticStore.ResolveIdentityKey(key.Name);
-            string liveName = _staticStore.ResolveIdentityKey(monster.Name);
-
-            if (string.Equals(keyName, liveName, StringComparison.OrdinalIgnoreCase))
-                return true;
-
-            // Afflicted / variant titles sometimes prefix the species name.
-            string normalizedKeyName = MonsterStaticStore.NormalizeTitle(key.Name);
-            string normalizedLiveName = MonsterStaticStore.NormalizeTitle(monster.Name);
-            if (normalizedLiveName.EndsWith(normalizedKeyName, StringComparison.OrdinalIgnoreCase)
-                || normalizedKeyName.EndsWith(normalizedLiveName, StringComparison.OrdinalIgnoreCase))
-                return true;
-        }
+        if (!string.IsNullOrWhiteSpace(key.Name)
+            && !string.IsNullOrWhiteSpace(monster.Name)
+            && _staticStore.MatchesSpecies(key.Name, monster.Name))
+            return true;
 
         // Localization table ids sometimes match across spawn/despawn of the same species.
         return key.Id >= 0 && monster.Id >= 0 && key.Id == monster.Id;
+    }
+
+    /// <summary>
+    /// Prefer the native monster address so corpse re-wraps cannot double-count one kill
+    /// as two quest completions.
+    /// </summary>
+    private static string ResolveCompletionInstanceKey(IMonster monster, MonsterTracking tracking)
+    {
+        if (monster is MHRMonster { Address: not 0 } rise)
+            return $"{tracking.Generation}:0x{rise.Address:X}";
+
+        return tracking.InstanceKey;
     }
 
     private string StableSpecies(TargetKey key)

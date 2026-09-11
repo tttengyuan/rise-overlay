@@ -14,6 +14,7 @@ public sealed class QuestCompletionClock
     private long _generation;
     private int _expectedTargetCount;
     private double? _confirmedElapsed;
+    private double _peakLiveElapsed;
 
     public double? ConfirmedElapsed
     {
@@ -33,8 +34,22 @@ public sealed class QuestCompletionClock
             _targetSpecies = [];
             _completionsByInstance.Clear();
             _confirmedElapsed = null;
+            _peakLiveElapsed = 0;
             return _generation;
         }
+    }
+
+    /// <summary>
+    /// Remembers the highest healthy live quest timer seen this hunt so a collapsed
+    /// death→result QUEST_TIMER cannot stamp objective completion as ~0.
+    /// </summary>
+    public void ObserveLiveElapsed(double elapsed)
+    {
+        if (!IsValid(elapsed))
+            return;
+
+        lock (_sync)
+            _peakLiveElapsed = Math.Max(_peakLiveElapsed, elapsed);
     }
 
     public void ConfigureTargets(
@@ -62,8 +77,7 @@ public sealed class QuestCompletionClock
         double elapsed)
     {
         if (string.IsNullOrWhiteSpace(instanceKey)
-            || string.IsNullOrWhiteSpace(species)
-            || !IsValid(elapsed))
+            || string.IsNullOrWhiteSpace(species))
             return;
 
         lock (_sync)
@@ -72,7 +86,20 @@ public sealed class QuestCompletionClock
                 || _completionsByInstance.ContainsKey(instanceKey))
                 return;
 
-            _completionsByInstance.Add(instanceKey, new Completion(species, elapsed));
+            double stamped = elapsed;
+            if (IsValid(elapsed))
+                _peakLiveElapsed = Math.Max(_peakLiveElapsed, elapsed);
+
+            // Rise often zeros QUEST_TIMER on death before QuestEnd. Prefer the peak
+            // live timer observed during the hunt over a collapsed stamp.
+            if (_peakLiveElapsed > 5
+                && (!IsValid(stamped) || stamped < _peakLiveElapsed - 5))
+                stamped = _peakLiveElapsed;
+
+            if (!IsValid(stamped))
+                return;
+
+            _completionsByInstance.Add(instanceKey, new Completion(species, stamped));
             RecomputeConfirmedElapsed();
         }
     }
@@ -104,9 +131,16 @@ public sealed class QuestCompletionClock
         if (!hasValidFallback)
             return confirmed;
 
-        return confirmed <= fallbackElapsed + 1
-            ? confirmed
-            : safeFallback;
+        // Prefer objective completion when it is at/before the end state time.
+        if (confirmed <= fallbackElapsed + 1)
+            return confirmed;
+
+        // Confirmed is later than end state: only trust a healthy end timer. A collapsed
+        // Rise QUEST_TIMER (near zero while confirmed is minutes) must not win.
+        if (fallbackElapsed <= 5 || fallbackElapsed < confirmed * 0.5)
+            return confirmed;
+
+        return safeFallback;
     }
 
     private void RecomputeConfirmedElapsed()

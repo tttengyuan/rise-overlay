@@ -198,6 +198,32 @@ public sealed class MonsterStaticStore
     }
 
     /// <summary>
+    /// True when both names refer to the same static species. Known variants such as
+    /// Espinas / Flaming Espinas must not match via substring even though the English
+    /// titles share a suffix.
+    /// </summary>
+    public bool MatchesSpecies(string? left, string? right)
+    {
+        if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
+            return false;
+
+        string leftKey = ResolveIdentityKey(left);
+        string rightKey = ResolveIdentityKey(right);
+        if (string.Equals(leftKey, rightKey, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        // Both sides resolved to concrete static species — never fuzzy-match across variants.
+        if (FindByTitle(left) is not null && FindByTitle(right) is not null)
+            return false;
+
+        // Unresolved afflicted / localization titles may still prefix or suffix the species.
+        string normalizedLeft = NormalizeTitle(left);
+        string normalizedRight = NormalizeTitle(right);
+        return normalizedRight.EndsWith(normalizedLeft, StringComparison.OrdinalIgnoreCase)
+               || normalizedLeft.EndsWith(normalizedRight, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// Canonical comparison key for names coming from different Rise localization tables.
     /// In particular, static data uses U+30FB while HunterPie zh-cn uses U+00B7 for Apex names.
     /// </summary>
