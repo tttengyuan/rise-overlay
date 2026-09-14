@@ -20,6 +20,10 @@ New-Item -ItemType Directory -Force -Path (Join-Path $pub 'libs') | Out-Null
 $langSrc = Join-Path $root 'Localization\localization'
 $langOverride = Join-Path $root 'Languages'
 $langDst = Join-Path $pub 'Languages'
+# Rebuild the folder instead of merging into it: an older revision of this script copied the
+# source directory rather than its contents, which left a stale Languages\Languages duplicate
+# behind that every release then shipped.
+if (Test-Path $langDst) { Remove-Item $langDst -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $langDst | Out-Null
 if (Test-Path $langSrc) {
     Copy-Item -Force (Join-Path $langSrc '*.xml') $langDst

@@ -46,8 +46,17 @@ if (-not $SkipBump) {
 Push-Location $root
 try {
     dotnet build HunterPie\HunterPie.csproj -c Release --verbosity minimal
+    if ($LASTEXITCODE -ne 0) {
+        # Fallback for machines where the NuGet restore target is broken
+        # (XPlatMachineWideSetting -> Path.Combine(null, ...) when %ProgramData% cannot be
+        # resolved). Reuses the existing obj\project.assets.json. The extra WPF property
+        # keeps the generated *_wpftmp.csproj from failing with NETSDK1060.
+        Write-Host "Build failed - retrying with --no-restore."
+        dotnet build HunterPie\HunterPie.csproj -c Release --verbosity minimal --no-restore `
+            -p:IncludePackageReferencesDuringMarkupCompilation=false
+    }
     if ($LASTEXITCODE -ne 0) { throw "build failed" }
-    powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'sync-publish.ps1')
+    & (Join-Path $PSScriptRoot 'sync-publish.ps1')
 } finally {
     Pop-Location
 }
@@ -60,8 +69,44 @@ $zipPath = Join-Path $dist $zipName
 if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
-[System.IO.Compression.ZipFile]::CreateFromDirectory($pub, $zipPath, [System.IO.Compression.CompressionLevel]::Optimal, $false)
-Write-Host "Packed: $zipPath"
+
+# publish\RiseOverlay is also the folder the app is run from during development, so it
+# accumulates runtime state. Zip a filtered staging copy instead of the folder itself,
+# otherwise every release ships that state. Notably config.json holds the developer's
+# SupporterSecretToken, and Logs\ grows by hundreds of diagnostic files per release.
+# config.json / config.json.bak* / internal\ are all regenerated with defaults by
+# ConfigManager on first run, so fresh installs do not need them.
+$stage = Join-Path $root 'publish\.stage'
+$excludeNames = @(
+    'Logs',
+    'internal',
+    'config.json',
+    'config.json.bak',
+    'config.json.bak-pos',
+    'HunterPie_Log.txt'
+)
+if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
+New-Item -ItemType Directory -Force -Path $stage | Out-Null
+Get-ChildItem -LiteralPath $pub -Force | ForEach-Object {
+    if ($excludeNames -contains $_.Name) { return }
+    if ($_.Extension -eq '.pdb') { return }
+    if ($_.PSIsContainer) {
+        Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $stage $_.Name) -Recurse -Force
+    } else {
+        Copy-Item -LiteralPath $_.FullName -Destination $stage -Force
+    }
+}
+
+$stagedCount = (Get-ChildItem -LiteralPath $stage -Force).Count
+
+# Belt and braces: an older sync-publish revision left a Languages\Languages duplicate in
+# publish\RiseOverlay, and every release up to 5.0.5 shipped that stale copy.
+$nestedLanguages = Join-Path $stage 'Languages\Languages'
+if (Test-Path $nestedLanguages) { Remove-Item $nestedLanguages -Recurse -Force }
+
+[System.IO.Compression.ZipFile]::CreateFromDirectory($stage, $zipPath, [System.IO.Compression.CompressionLevel]::Optimal, $false)
+Remove-Item $stage -Recurse -Force
+Write-Host "Packed: $zipPath (top-level entries: $stagedCount)"
 
 if ($SkipPush) {
     Write-Host "SkipPush set — upload manually:"
