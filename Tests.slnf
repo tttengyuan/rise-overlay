@@ -1,0 +1,11 @@
+{
+  "solution": {
+    "path": "HunterPie.sln",
+    "projects": [
+      "HunterPie.Core.Tests\\HunterPie.Core.Tests.csproj",
+      "RiseOverlay.Domain.Tests\\RiseOverlay.Domain.Tests.csproj",
+      "RiseOverlay.Data.Tests\\RiseOverlay.Data.Tests.csproj",
+      "RiseOverlay.UI.Tests\\RiseOverlay.UI.Tests.csproj"
+    ]
+  }
+}

@@ -32,8 +32,12 @@ jobs:
     - name: Build project
       run: dotnet build HunterPie --nologo -v q --property WarningLevel=0 /clp:ErrorsOnly
 
+    # HunterPie.sln contains the C++ HunterPie.Native.vcxproj, which the dotnet CLI
+    # cannot build (MSB4278: Microsoft.Cpp.Default.props ships with Visual Studio and
+    # is not importable from dotnet msbuild). That made this step fail on every push
+    # regardless of test results. Tests.slnf scopes the run to the managed test projects.
     - name: Run unit tests
-      run: dotnet test HunterPie.sln --nologo -v q --property WarningLevel=0
+      run: dotnet test Tests.slnf --nologo -v q --property WarningLevel=0
 
     - name: Run formatter
       run: dotnet format --verify-no-changes
