@@ -230,12 +230,11 @@ public sealed class RiseDpsController : IContextHandler, IDisposable
         UnhookQuest(clearCounts: false);
 
         double stateElapsed = Math.Max(1, e.TimeElapsed.TotalSeconds);
+        // Same as original HunterPie: freeze the quest-end timer (in-game 完成时间 / 任务信息).
+        // Objective completion only backfills a collapsed Rise death→result sample.
         double elapsed = _completionClock.ResolveResultElapsed(
             succeeded: e.Status is QuestStatus.Success,
             fallbackElapsed: stateElapsed);
-        // ResolveResultElapsed already owns success/failure semantics. Reapplying the live
-        // anti-collapse rule here could replace a confirmed objective time with a later
-        // result-state timestamp (or reuse a completion stamp on a failed quest).
         elapsed = ScopedDamageRules.ResolveTerminalElapsed(elapsed, _timeElapsed);
         // Resolve the result time before calculating DPS. Otherwise the card can show the
         // objective time while its DPS rows are still divided by the later state time.

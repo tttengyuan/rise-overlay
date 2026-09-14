@@ -162,41 +162,30 @@ public sealed class QuestCompletionClock
         bool hasValidFallback = IsValid(fallbackElapsed);
         double safeFallback = hasValidFallback ? fallbackElapsed : 0;
         double? completion;
+        double peak;
         lock (_sync)
+        {
             completion = _confirmedElapsed;
-        if (!succeeded || completion is not { } confirmed)
+            peak = _peakLiveElapsed;
+        }
+
+        // Match original HunterPie: the quest-end timer (same field as the in-game quest
+        // info / 完成时间) wins whenever it is healthy. Objective stamps only backfill a
+        // collapsed Rise death→result QUEST_TIMER.
+        if (!succeeded)
             return safeFallback;
 
-        if (!hasValidFallback)
-        {
-            lock (_sync)
-            {
-                if (LooksCollapsed(confirmed) && _peakLiveElapsed > 5)
-                    return _peakLiveElapsed;
-            }
-            return confirmed;
-        }
+        if (hasValidFallback && !LooksCollapsed(safeFallback))
+            return safeFallback;
 
-        // A collapsed objective stamp must not beat a healthier end/live clock.
-        if (LooksCollapsed(confirmed))
-        {
-            double peak;
-            lock (_sync)
-                peak = _peakLiveElapsed;
-            double best = Math.Max(safeFallback, peak);
-            return best > confirmed ? best : confirmed;
-        }
-
-        // Prefer objective completion when it is at/before the end state time.
-        // False early stamps from remounts must be retracted while the target is still alive;
-        // do not second-guess a healthy confirmed stamp here (carve delay can be minutes).
-        if (confirmed <= fallbackElapsed + 1)
+        if (completion is { } confirmed && !LooksCollapsed(confirmed))
             return confirmed;
 
-        // Confirmed is later than end state: only trust a healthy end timer. A collapsed
-        // Rise QUEST_TIMER (near zero while confirmed is minutes) must not win.
-        if (fallbackElapsed <= 5 || fallbackElapsed < confirmed * 0.5)
-            return confirmed;
+        if (peak > 5)
+            return peak;
+
+        if (completion is { } collapsedConfirmed)
+            return collapsedConfirmed;
 
         return safeFallback;
     }

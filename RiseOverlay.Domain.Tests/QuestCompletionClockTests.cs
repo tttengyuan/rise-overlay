@@ -3,7 +3,7 @@ using RiseOverlay.Domain;
 public class QuestCompletionClockTests
 {
     [Fact]
-    public void Successful_result_uses_last_required_target_completion()
+    public void Successful_result_prefers_healthy_quest_end_timer_like_original_HunterPie()
     {
         var clock = new QuestCompletionClock();
         long quest = clock.BeginQuest(2);
@@ -11,7 +11,20 @@ public class QuestCompletionClockTests
         clock.RecordCompletion(quest, "monster-a", "rathian", 900);
         clock.RecordCompletion(quest, "monster-b", "khezu", 1138.85);
 
-        Assert.Equal(1138.85, clock.ResolveResultElapsed(true, 1260), 2);
+        // Match the in-game quest / completion clock, not the earlier objective stamp.
+        Assert.Equal(1260, clock.ResolveResultElapsed(true, 1260), 2);
+    }
+
+    [Fact]
+    public void Early_objective_stamp_does_not_beat_healthy_quest_end_timer()
+    {
+        var clock = new QuestCompletionClock();
+        long quest = clock.BeginQuest(1);
+        clock.ConfigureTargets(quest, ["garangolm"]);
+        clock.ObserveLiveElapsed(809);
+        clock.RecordCompletion(quest, "monster-a", "garangolm", 667);
+
+        Assert.Equal(809, clock.ResolveResultElapsed(true, 809));
     }
 
     [Fact]
