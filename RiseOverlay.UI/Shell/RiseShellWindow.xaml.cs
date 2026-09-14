@@ -32,6 +32,12 @@ public partial class RiseShellWindow : Window
     private static readonly Brush ThemeSelectedLabelBg = Freeze(Color.FromRgb(0x1A, 0x3A, 0x3A));
     private static readonly Brush ThemeSelectedLabel = Freeze(Color.FromRgb(0x5E, 0xCF, 0xC4));
 
+    /// <summary>
+    /// Enumerating processes is a kernel-wide operation, and the status dot does not need
+    /// second-level accuracy. 5s is plenty and keeps the poll off the hot path.
+    /// </summary>
+    private static readonly TimeSpan AttachPollInterval = TimeSpan.FromSeconds(5);
+
     private readonly DispatcherTimer _pollTimer;
     private readonly RiseGitHubUpdateService _updateService = new();
     private bool _forceClose;
@@ -39,6 +45,7 @@ public partial class RiseShellWindow : Window
     private bool _syncingHudToggles;
     private bool _checkingUpdate;
     private bool _startupUpdatePrompted;
+    private bool _riseRunning;
 
     /// <summary>Raised when the user toggles design/drag mode from the shell.</summary>
     public event Action<bool>? DesignModeChanged;
@@ -57,10 +64,15 @@ public partial class RiseShellWindow : Window
         BuildThemeButtons();
         SyncHudTogglesFromConfig();
         RiseHudDisplaySettings.Subscribe(SyncHudTogglesFromConfig);
+        _riseRunning = IsRiseRunning();
         UpdateAttachStatus();
 
-        _pollTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
-        _pollTimer.Tick += (_, _) => UpdateAttachStatus();
+        _pollTimer = new DispatcherTimer { Interval = AttachPollInterval };
+        _pollTimer.Tick += (_, _) =>
+        {
+            _riseRunning = IsRiseRunning();
+            UpdateAttachStatus();
+        };
         _pollTimer.Start();
 
         Closing += OnWindowClosing;
@@ -265,9 +277,28 @@ public partial class RiseShellWindow : Window
         Hide();
     }
 
+    /// <summary>
+    /// <see cref="Process.GetProcessesByName(string)"/> hands back live <see cref="Process"/>
+    /// objects that each hold an open kernel handle. Polling without disposing them leaks a
+    /// handle per process per tick for the whole session, so always release them.
+    /// </summary>
+    private static bool IsRiseRunning()
+    {
+        Process[] processes = Process.GetProcessesByName("MonsterHunterRise");
+        try
+        {
+            return processes.Length > 0;
+        }
+        finally
+        {
+            foreach (Process process in processes)
+                process.Dispose();
+        }
+    }
+
     private void UpdateAttachStatus()
     {
-        bool riseRunning = Process.GetProcessesByName("MonsterHunterRise").Length > 0;
+        bool riseRunning = _riseRunning;
         bool overlayOn = ClientConfig.Config.Overlay.IsEnabled;
         if (riseRunning)
         {
