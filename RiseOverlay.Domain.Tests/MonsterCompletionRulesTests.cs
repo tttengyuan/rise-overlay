@@ -24,7 +24,6 @@ public class MonsterCompletionRulesTests
     [InlineData(0, 0, false)]
     [InlineData(100, 100, false)]
     [InlineData(0, 100, true)]
-    [InlineData(0.5, 100, false)]
     public void Completion_requires_an_initialized_health_sample(
         double health,
         double maxHealth,
@@ -33,5 +32,29 @@ public class MonsterCompletionRulesTests
         Assert.Equal(
             expected,
             MonsterCompletionRules.IsConfirmedFinished(health, maxHealth));
+    }
+
+    /// <summary>
+    /// Rise leaves sub-1 float residue in memory after a slay, so a fractional sample is a
+    /// corpse rather than a living monster. This deliberately mirrors
+    /// <see cref="MonsterHealthDisplay.ForHud"/>: the corpse-scan fallback in
+    /// QuestBriefingController already collapses the same values through IsMonsterAlive, so
+    /// tightening this to <c>health &lt;= 0</c> would make the two disagree and drop real
+    /// completions.
+    /// </summary>
+    [Theory]
+    [InlineData(0.0)]
+    [InlineData(0.5)]
+    [InlineData(0.999)]
+    public void Sub_one_health_residue_counts_as_finished(double health)
+    {
+        Assert.True(MonsterCompletionRules.IsConfirmedFinished(health, 100));
+    }
+
+    /// <summary>Exact 1 HP is a living finisher and must never complete an objective.</summary>
+    [Fact]
+    public void One_health_point_is_not_finished()
+    {
+        Assert.False(MonsterCompletionRules.IsConfirmedFinished(1, 100));
     }
 }
