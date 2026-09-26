@@ -574,18 +574,35 @@ public sealed class MHRMonster : CommonMonster
         int ailmentId = 0;
         foreach (nint ailmentAddress in ailmentsPointers)
         {
+            // Empty slots still occupy an index in the game's fixed ailment array.
+            // Do not dereference them, but keep later definitions (for example Ride at 7) aligned.
+            if (ailmentAddress.IsNullPointer())
+            {
+                ailmentId++;
+                continue;
+            }
+
             MHRMonsterAilmentStructure structure = await Memory.ReadAsync<MHRMonsterAilmentStructure>(ailmentAddress);
 
-            int counter = await Memory.ReadAsync<int>(structure.CounterPtr + 0x20);
-            float buildup = await Memory.ReadAsync<float>(structure.BuildUpPtr + 0x20);
-            float maxBuildup = await Memory.ReadAsync<float>(structure.MaxBuildUpPtr + 0x20);
+            int counter = structure.CounterPtr.IsNullPointer()
+                ? 0
+                : await Memory.ReadAsync<int>(structure.CounterPtr + 0x20);
+            float buildup = structure.BuildUpPtr.IsNullPointer()
+                ? 0
+                : await Memory.ReadAsync<float>(structure.BuildUpPtr + 0x20);
+            float maxBuildup = structure.MaxBuildUpPtr.IsNullPointer()
+                ? 0
+                : await Memory.ReadAsync<float>(structure.MaxBuildUpPtr + 0x20);
 
             if (!_ailments.ContainsKey(ailmentAddress))
             {
                 AilmentDefinition? ailmentDef = MonsterAilmentRepository.FindBy(GameType.Rise, ailmentId);
 
                 if (ailmentDef is not { } definition)
+                {
+                    ailmentId++;
                     continue;
+                }
 
                 MHRMonsterAilment dummy = new(definition);
                 _ailments.TryAdd(ailmentAddress, dummy);

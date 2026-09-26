@@ -6,7 +6,10 @@ public sealed record StatusLineModel(
     bool StunActive,
     TimeSpan? StunActiveRemaining,
     double? StaminaPercent,
-    TimeSpan? DownRemaining);
+    TimeSpan? DownRemaining,
+    double? RideBuildupPercent = null,
+    bool RideActive = false,
+    TimeSpan? RideActiveRemaining = null);
 
 public sealed record PartDto(
     string Name,

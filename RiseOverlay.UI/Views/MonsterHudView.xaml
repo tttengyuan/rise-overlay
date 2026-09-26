@@ -458,59 +458,88 @@
                            Visibility="{Binding PastWeakenLine, Converter={StaticResource BoolToVis}}" />
             </Grid>
 
-            <!-- 6. Status + active stun chip -->
+            <!-- 6. Status + active stun / ride chips -->
             <Grid Margin="0,0,0,6">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <Border Grid.Column="0"
-                        Margin="0,0,6,0"
-                        Padding="5,1"
-                        CornerRadius="2"
-                        BorderThickness="1"
-                        BorderBrush="{DynamicResource Brushes.AccentStun}"
-                        Background="#33EAB308"
-                        VerticalAlignment="Center"
-                        Visibility="{Binding StunActive, Converter={StaticResource BoolToVis}}">
-                    <Border.Style>
-                        <Style TargetType="Border">
-                            <Setter Property="Opacity" Value="1" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding StunActive}" Value="True">
-                                    <DataTrigger.EnterActions>
-                                        <BeginStoryboard x:Name="StunPulseBoard">
-                                            <Storyboard RepeatBehavior="Forever" AutoReverse="True">
-                                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                                 From="1" To="0.42"
-                                                                 Duration="0:0:0.45" />
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </DataTrigger.EnterActions>
-                                    <DataTrigger.ExitActions>
-                                        <StopStoryboard BeginStoryboardName="StunPulseBoard" />
-                                    </DataTrigger.ExitActions>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Border.Style>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="晕眩中"
-                                   Foreground="{DynamicResource Brushes.AccentStun}"
-                                   FontSize="{DynamicResource Fonts.Size.Small}"
-                                   FontWeight="SemiBold"
-                                   VerticalAlignment="Center" />
-                        <TextBlock Text="{Binding StunCountdownText}"
-                                   Foreground="#FFFFF7CC"
-                                   FontSize="{DynamicResource Fonts.Size.Body}"
-                                   FontWeight="Bold"
-                                   Typography.NumeralAlignment="Tabular"
-                                   Margin="5,0,0,0"
-                                   VerticalAlignment="Center"
-                                   MinWidth="28" />
-                    </StackPanel>
-                </Border>
+                <StackPanel Grid.Column="0"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center">
+                    <Border Margin="0,0,6,0"
+                            Padding="5,1"
+                            CornerRadius="2"
+                            BorderThickness="1"
+                            BorderBrush="{DynamicResource Brushes.AccentStun}"
+                            Background="#33EAB308"
+                            VerticalAlignment="Center"
+                            Visibility="{Binding StunActive, Converter={StaticResource BoolToVis}}">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Opacity" Value="1" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding StunActive}" Value="True">
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard x:Name="StunPulseBoard">
+                                                <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                     From="1" To="0.42"
+                                                                     Duration="0:0:0.45" />
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                        <DataTrigger.ExitActions>
+                                            <StopStoryboard BeginStoryboardName="StunPulseBoard" />
+                                        </DataTrigger.ExitActions>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="晕眩中"
+                                       Foreground="{DynamicResource Brushes.AccentStun}"
+                                       FontSize="{DynamicResource Fonts.Size.Small}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding StunCountdownText}"
+                                       Foreground="#FFFFF7CC"
+                                       FontSize="{DynamicResource Fonts.Size.Body}"
+                                       FontWeight="Bold"
+                                       Typography.NumeralAlignment="Tabular"
+                                       Margin="5,0,0,0"
+                                       VerticalAlignment="Center"
+                                       MinWidth="28" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Ride chip: highlight only, no pulse (user preference). -->
+                    <Border Margin="0,0,6,0"
+                            Padding="5,1"
+                            CornerRadius="2"
+                            BorderThickness="1"
+                            BorderBrush="{DynamicResource Brushes.AccentTeal}"
+                            Background="#332DD4BF"
+                            VerticalAlignment="Center"
+                            Visibility="{Binding RideActive, Converter={StaticResource BoolToVis}}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="御龙中"
+                                       Foreground="{DynamicResource Brushes.AccentTeal}"
+                                       FontSize="{DynamicResource Fonts.Size.Small}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding RideCountdownText}"
+                                       Foreground="#FFCCFBF1"
+                                       FontSize="{DynamicResource Fonts.Size.Body}"
+                                       FontWeight="Bold"
+                                       Typography.NumeralAlignment="Tabular"
+                                       Margin="5,0,0,0"
+                                       VerticalAlignment="Center"
+                                       MinWidth="28" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
 
                 <controls:StatusLineText Grid.Column="1"
                                          Text="{Binding StatusLineText}"

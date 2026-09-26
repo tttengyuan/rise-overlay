@@ -49,6 +49,65 @@ public class MonsterLiveAdapterTests
         Assert.Equal(88, live.Status.StunBuildupPercent);
         Assert.False(live.Status.StunActive);
         Assert.Equal(62, live.Status.StaminaPercent);
+        Assert.Null(live.Status.RideBuildupPercent);
+        Assert.False(live.Status.RideActive);
+    }
+
+    [Fact]
+    public void ToSnapshot_maps_ride_buildup_to_status_line_not_ailments()
+    {
+        var fixture = new MonsterLiveFixture(
+            Name: "怨虎龙",
+            Id: 89,
+            Health: 10000,
+            MaxHealth: 24500,
+            Stamina: 500,
+            MaxStamina: 1000,
+            CaptureThreshold: 0.25,
+            IsEnraged: false,
+            Parts: [],
+            Ailments:
+            [
+                new("AILMENT_RIDE", null, 0, 0, 62, 100),
+                new("AILMENT_POISON", null, 0, 0, 12, 100),
+            ],
+            Enrage: null,
+            QuestAllowsCapture: true);
+
+        var live = MonsterLiveAdapter.ToSnapshot(fixture);
+
+        Assert.Equal(62, live.Status.RideBuildupPercent);
+        Assert.False(live.Status.RideActive);
+        Assert.Null(live.Status.RideActiveRemaining);
+        Assert.DoesNotContain(live.Ailments, a => a.Key == "ride");
+        Assert.Contains(live.Ailments, a => a.Key == "poison");
+    }
+
+    [Fact]
+    public void ToSnapshot_maps_active_ride_timer_to_status_line()
+    {
+        var fixture = new MonsterLiveFixture(
+            Name: "怨虎龙",
+            Id: 89,
+            Health: 10000,
+            MaxHealth: 24500,
+            Stamina: 500,
+            MaxStamina: 1000,
+            CaptureThreshold: 0.25,
+            IsEnraged: false,
+            Parts: [],
+            Ailments:
+            [
+                new("AILMENT_RIDE", null, 8.2, 12, 100, 100),
+            ],
+            Enrage: null,
+            QuestAllowsCapture: true);
+
+        var live = MonsterLiveAdapter.ToSnapshot(fixture);
+
+        Assert.True(live.Status.RideActive);
+        Assert.Equal(TimeSpan.FromSeconds(8.2), live.Status.RideActiveRemaining);
+        Assert.DoesNotContain(live.Ailments, a => a.Key == "ride");
     }
 
     [Fact]

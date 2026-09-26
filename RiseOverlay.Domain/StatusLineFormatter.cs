@@ -13,6 +13,10 @@ public static class StatusLineFormatter
             parts.Add($"晕眩 {Math.Round(sp):0}%");
         if (s.StaminaPercent is { } st)
             parts.Add($"耐力 {Math.Round(st):0}%");
+        if (s.RideActive && s.RideActiveRemaining is { } ra)
+            parts.Add($"御龙中 {FormatStunCountdown(ra)}");
+        else if (s.RideBuildupPercent is { } rp)
+            parts.Add($"御龙 {Math.Round(rp):0}%");
         return string.Join(" · ", parts);
     }
 

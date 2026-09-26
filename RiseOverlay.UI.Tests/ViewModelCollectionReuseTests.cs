@@ -163,6 +163,43 @@ public class ViewModelCollectionReuseTests
         Assert.Equal("任务失败", vm.CompletionText);
     }
 
+    [Fact]
+    public void MonsterHud_shows_ride_buildup_in_status_line()
+    {
+        var vm = new MonsterHudViewModel();
+        var dto = MonsterDto(500) with
+        {
+            Status = new StatusLineModel(
+                null, null, false, null, 80, null,
+                RideBuildupPercent: 62)
+        };
+
+        vm.ApplyDto(dto);
+
+        Assert.False(vm.RideActive);
+        Assert.Contains("御龙 62%", vm.StatusLineText);
+    }
+
+    [Fact]
+    public void MonsterHud_moves_active_ride_countdown_to_highlight_chip()
+    {
+        var vm = new MonsterHudViewModel();
+        var dto = MonsterDto(500) with
+        {
+            Status = new StatusLineModel(
+                null, null, false, null, 80, null,
+                RideBuildupPercent: 100,
+                RideActive: true,
+                RideActiveRemaining: TimeSpan.FromSeconds(8.2))
+        };
+
+        vm.ApplyDto(dto);
+
+        Assert.True(vm.RideActive);
+        Assert.Equal("8.2s", vm.RideCountdownText);
+        Assert.DoesNotContain("御龙", vm.StatusLineText);
+    }
+
     private static MonsterHudDto MonsterDto(double partHp, IReadOnlyList<ElementId>? weak = null) => new(
         "搔鸟", 1000, 2000, true, 25,
         [ElementId.Water, ElementId.Fire], [ElementId.Water],

@@ -227,6 +227,8 @@ public sealed class MonsterHudViewModel : INotifyPropertyChanged
     private bool _captureFlash;
     private bool _stunActive;
     private string _stunCountdownText = "";
+    private bool _rideActive;
+    private string _rideCountdownText = "";
     private string _statusLineText = "";
     private string _ailmentsLineText = "";
     private CaptureDisplayState _captureState = CaptureDisplayState.Capturable;
@@ -406,6 +408,18 @@ public sealed class MonsterHudViewModel : INotifyPropertyChanged
         set => SetField(ref _stunCountdownText, value);
     }
 
+    public bool RideActive
+    {
+        get => _rideActive;
+        set => SetField(ref _rideActive, value);
+    }
+
+    public string RideCountdownText
+    {
+        get => _rideCountdownText;
+        set => SetField(ref _rideCountdownText, value);
+    }
+
     public string StatusLineText
     {
         get => _statusLineText;
@@ -493,10 +507,17 @@ public sealed class MonsterHudViewModel : INotifyPropertyChanged
             ? StatusLineFormatter.FormatStunCountdown(rem)
             : "";
 
-        // Active stun is shown as a pulsing chip; keep the rest of the status line without duplicating it.
-        var statusForLine = StunActive
-            ? dto.Status with { StunActive = false, StunActiveRemaining = null, StunBuildupPercent = null }
-            : dto.Status;
+        RideActive = dto.Status.RideActive && dto.Status.RideActiveRemaining is { TotalSeconds: > 0 };
+        RideCountdownText = dto.Status.RideActiveRemaining is { } rideRem
+            ? StatusLineFormatter.FormatStunCountdown(rideRem)
+            : "";
+
+        // Active stun/ride chips own their countdown; strip duplicates from the text line.
+        var statusForLine = dto.Status;
+        if (StunActive)
+            statusForLine = statusForLine with { StunActive = false, StunActiveRemaining = null, StunBuildupPercent = null };
+        if (RideActive)
+            statusForLine = statusForLine with { RideActive = false, RideActiveRemaining = null, RideBuildupPercent = null };
         StatusLineText = StatusLineFormatter.Format(statusForLine);
 
         SyncParts(dto.Parts ?? Array.Empty<PartDto>());
@@ -581,7 +602,8 @@ public sealed class MonsterHudViewModel : INotifyPropertyChanged
                 StunActive: false,
                 StunActiveRemaining: null,
                 StaminaPercent: 62,
-                DownRemaining: TimeSpan.FromSeconds(2)),
+                DownRemaining: TimeSpan.FromSeconds(2),
+                RideBuildupPercent: 62),
             Parts:
             [
                 new PartDto("头部", 620, 1200, false, false, [ElementId.Water]),

@@ -16,7 +16,7 @@ public static class MonsterLiveAdapter
             ["AILMENT_EXHAUST"] = ("exhaust", "减气"),
             ["AILMENT_STUN"] = ("stun", "晕眩"),
             ["STATUS_ENRAGE"] = ("enrage", "愤怒"),
-            ["AILMENT_RIDE"] = ("ride", "骑乘"),
+            ["AILMENT_RIDE"] = ("ride", "御龙"),
             ["AILMENT_MOUNT"] = ("mount", "骑乘"),
             ["AILMENT_FIRE"] = ("fire", "火异"),
             ["AILMENT_WATER"] = ("water", "水异"),
@@ -40,13 +40,16 @@ public static class MonsterLiveAdapter
             .ToArray();
 
         var ailments = (fixture.Ailments ?? Array.Empty<MonsterLiveAilmentFixture>())
-            .Where(a => !IsEnrageId(a.Id) && !IsStunId(a.Id))
+            .Where(a => !IsEnrageId(a.Id) && !IsStunId(a.Id) && !IsRideId(a.Id))
             .Select(MapAilment)
             .Where(a => VisibleAilmentKeys.Contains(a.Key))
             .ToArray();
 
         var stun = (fixture.Ailments ?? Array.Empty<MonsterLiveAilmentFixture>())
             .FirstOrDefault(a => IsStunId(a.Id));
+
+        var ride = (fixture.Ailments ?? Array.Empty<MonsterLiveAilmentFixture>())
+            .FirstOrDefault(a => IsRideId(a.Id));
 
         var enrage = fixture.Enrage;
         TimeSpan? enrageRemaining = null;
@@ -63,6 +66,18 @@ public static class MonsterLiveAdapter
             stunActive = stun.Timer > 0;
             if (stunActive)
                 stunActiveRemaining = TimeSpan.FromSeconds(stun.Timer);
+        }
+
+        double? rideBuildup = null;
+        bool rideActive = false;
+        TimeSpan? rideActiveRemaining = null;
+        if (ride is not null)
+        {
+            if (ride.MaxBuildUp > 0)
+                rideBuildup = ride.BuildUp / ride.MaxBuildUp * 100.0;
+            rideActive = ride.Timer > 0;
+            if (rideActive)
+                rideActiveRemaining = TimeSpan.FromSeconds(ride.Timer);
         }
 
         double? staminaPercent = null;
@@ -87,7 +102,10 @@ public static class MonsterLiveAdapter
                 StunActive: stunActive,
                 StunActiveRemaining: stunActiveRemaining,
                 StaminaPercent: staminaPercent,
-                DownRemaining: null),
+                DownRemaining: null,
+                RideBuildupPercent: rideBuildup,
+                RideActive: rideActive,
+                RideActiveRemaining: rideActiveRemaining),
             QuestAllowsCapture: fixture.QuestAllowsCapture,
             CaptureThresholdPercent: capturePercent,
             IsAnomaly: fixture.IsAnomaly);
@@ -262,6 +280,12 @@ public static class MonsterLiveAdapter
     private static bool IsStunId(string id)
         => string.Equals(id, "AILMENT_STUN", StringComparison.OrdinalIgnoreCase)
            || string.Equals(id, "stun", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsRideId(string id)
+        => string.Equals(id, "AILMENT_RIDE", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(id, "AILMENT_MOUNT", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(id, "ride", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(id, "mount", StringComparison.OrdinalIgnoreCase);
 }
 
 public sealed record MonsterLivePartFixture(
