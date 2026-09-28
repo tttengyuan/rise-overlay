@@ -29,6 +29,7 @@ public static class StatusLineFormatter
         return FormatClock(remaining);
     }
 
-    private static string FormatClock(TimeSpan t)
+    /// <summary>m:ss 时钟格式。公开以便 UI 层复用同一套格式化，避免两处漂移。</summary>
+    public static string FormatClock(TimeSpan t)
         => $"{(int)t.TotalMinutes}:{t.Seconds:D2}";
 }

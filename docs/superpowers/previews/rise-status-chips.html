@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Rise Overlay · 状态行 / 异常状态 色块改造</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#080a0f;color:#c9d1d9;padding:26px 24px 60px;
+  font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.head{max-width:1180px;margin:0 auto 22px}
+h1{font-size:19px;font-weight:600;color:#e6edf3}
+h1 em{font-style:normal;color:#5d6b7c;font-weight:400;font-size:13px;margin-left:10px}
+.sub{font-size:12px;color:#66738a;margin-top:9px;line-height:1.75}
+.sub b{color:#8b98ab}
+.note{margin-top:12px;font-size:11.5px;color:#c9a227;background:rgba(201,162,39,.08);
+  border-left:2px solid rgba(201,162,39,.6);padding:9px 12px;border-radius:0 4px 4px 0;line-height:1.7}
+
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(348px,1fr));
+  gap:20px;max-width:1180px;margin:0 auto}
+.card{background:#0e1119;border:1px solid #1b212c;border-radius:12px;padding:13px}
+.cap{display:flex;align-items:center;gap:8px;margin-bottom:11px;font-size:10.5px;letter-spacing:.09em}
+.cap .no{font-family:Consolas,monospace;color:#3f4a58;font-weight:700;font-size:12px}
+.cap .nm{color:#dbe4ee;font-weight:700;letter-spacing:.13em}
+.cap .kw{color:#4d5866;margin-left:auto;letter-spacing:0}
+.meta{margin-top:10px;padding-top:9px;border-top:1px dashed #1b212c;font-size:10px;line-height:1.7}
+.meta .wpf{color:#5a6b80;font-family:Consolas,monospace;font-size:9.5px}
+
+/* ---- 模拟 HUD 面板（严格 300px） ---- */
+.hud{width:300px;padding:8px 9px;border-radius:6px;background:var(--bg);
+  border:1px solid var(--bd);font-size:11px;color:var(--fg)}
+.hud .sec{font-size:9px;color:var(--muted);margin:0 0 3px}
+.hud .row{margin-bottom:7px}
+.hud .hr{height:6px;border-radius:2px;background:var(--track);margin:6px 0 7px;overflow:hidden}
+.hud .hr i{display:block;height:100%;width:62%;background:var(--hp);border-radius:2px}
+
+/* ---- 色块 ---- */
+.chips{display:flex;flex-wrap:wrap;align-items:center;gap:2px 9px}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:10px;line-height:1.55;white-space:nowrap}
+.chip i{display:block;width:2px;height:9px;border-radius:1px;background:var(--c);flex:none}
+.chip b{color:var(--c);font-weight:400}
+.chip em{color:var(--fg);font-style:normal;font-variant-numeric:tabular-nums}
+.chip.on b{font-weight:700}
+
+/* ---- 改造前对照 ---- */
+.before{max-width:1180px;margin:0 auto 22px;border:1px solid #1b212c;border-radius:10px;
+  padding:13px 15px;background:#0e1119}
+.before .t{font-size:10.5px;color:#4d5866;letter-spacing:.09em;margin-bottom:9px}
+.before .plain{font-size:10px;color:#8a939e;letter-spacing:.02em}
+.before .after{font-size:10px;margin-top:7px}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>状态行 / 异常状态 · 色块改造 <em>愤怒 · 晕眩 · 耐力 · 御龙 · 异常</em></h1>
+  <div class="sub">
+    改造前这两行是<b>一整条灰色字符串</b>——ViewModel 里 <code>string.Join</code> 拼好的，
+    XAML 拿到的只是个 <code>string</code>，没法给其中某两个字单独上色。<br>
+    现在 ViewModel <b>额外暴露</b>一份结构化集合（原有字符串属性原样保留），HUD 才能画成<b>分段色块</b>。
+  </div>
+  <div class="note">
+    色块 = 左侧 2px 语义色条 + 标签（语义色）+ 数值（前景色）。承载容器是 <code>WrapPanel</code>，
+    <b>超宽自动换行，绝不溢出 300px</b>。激活态（异常生效中 / 晕眩中 / 御龙中）标签加粗。
+  </div>
+</div>
+
+<div class="before">
+  <div class="t">对照 · 同一份数据，两种呈现</div>
+  <div class="plain">改造前：　愤怒 1:18 · 晕眩 7% · 耐力 98% · 御龙 34%</div>
+  <div class="plain" style="margin-top:4px">改造前：　减气 39%　毒 66%</div>
+  <div class="after" style="--fg:#dbe4ee">
+    改造后：　
+    <span class="chips" style="display:inline-flex">
+      <span class="chip" style="--c:#FF8A3D"><i></i><b>愤怒</b><em>1:18</em></span>
+      <span class="chip" style="--c:#EAB308"><i></i><b>晕眩</b><em>7%</em></span>
+      <span class="chip" style="--c:#4A9B9B"><i></i><b>耐力</b><em>98%</em></span>
+      <span class="chip" style="--c:#C9AA62"><i></i><b>御龙</b><em>34%</em></span>
+      <span class="chip" style="--c:#E11D48"><i></i><b>减气</b><em>39%</em></span>
+      <span class="chip" style="--c:#E11D48"><i></i><b>毒</b><em>66%</em></span>
+    </span>
+  </div>
+</div>
+
+<div class="gallery">
+
+  <!-- 霓虹赛博 -->
+  <div class="card">
+    <div class="cap"><span class="no">01</span><span class="nm">NEON CYBER</span><span class="kw">霓虹赛博</span></div>
+    <div class="hud" style="--bg:#0A1018;--bd:#3A00E5FF;--fg:#E8FBFF;--muted:#6E8FA3;--track:#061019;--hp:linear-gradient(90deg,#00E5FF,#7A5CFF,#FF2BD6)">
+      <div class="sec">泡狐龙 · 62%</div>
+      <div class="hr"><i></i></div>
+      <div class="row">
+        <div class="chips">
+          <span class="chip" style="--c:#FF8A3D"><i></i><b>愤怒</b><em>1:18</em></span>
+          <span class="chip on" style="--c:#7A5CFF"><i></i><b>晕眩中</b><em>3.2s</em></span>
+          <span class="chip" style="--c:#00E5FF"><i></i><b>耐力</b><em>98%</em></span>
+          <span class="chip" style="--c:#7DE9FF"><i></i><b>御龙</b><em>34%</em></span>
+        </div>
+      </div>
+      <div class="chips">
+        <span class="chip on" style="--c:#FF2BD6"><i></i><b>毒</b><em>生效</em></span>
+        <span class="chip" style="--c:#FF2BD6"><i></i><b>减气</b><em>39%</em></span>
+      </div>
+    </div>
+    <div class="meta">
+      <div class="wpf">Enrage←AccentBreak / Stun←AccentStun / Stamina←AccentTeal / Ride←AccentCapture / Ailment←AccentQurio</div>
+    </div>
+  </div>
+
+  <!-- 玻璃 -->
+  <div class="card">
+    <div class="cap"><span class="no">02</span><span class="nm">GLASS</span><span class="kw">玻璃拟态</span></div>
+    <div class="hud" style="--bg:#16202A;--bd:#59FFFFFF;--fg:#F2F7FA;--muted:#9DB3C2;--track:#33000000;--hp:linear-gradient(90deg,#5EE7C4,#4FA8E8);border-radius:13px">
+      <div class="sec">泡狐龙 · 62%</div>
+      <div class="hr"><i></i></div>
+      <div class="row">
+        <div class="chips">
+          <span class="chip" style="--c:#FF8C42"><i></i><b>愤怒</b><em>1:18</em></span>
+          <span class="chip on" style="--c:#FDE047"><i></i><b>晕眩中</b><em>3.2s</em></span>
+          <span class="chip" style="--c:#5EE7C4"><i></i><b>耐力</b><em>98%</em></span>
+          <span class="chip" style="--c:#A8F0D8"><i></i><b>御龙</b><em>34%</em></span>
+        </div>
+      </div>
+      <div class="chips">
+        <span class="chip on" style="--c:#FF6B8A"><i></i><b>毒</b><em>生效</em></span>
+        <span class="chip" style="--c:#FF6B8A"><i></i><b>减气</b><em>39%</em></span>
+      </div>
+    </div>
+    <div class="meta">
+      <div class="wpf">同一套键，换主题自动换色，无需逐主题定色</div>
+    </div>
+  </div>
+
+  <!-- 极简线条 -->
+  <div class="card">
+    <div class="cap"><span class="no">03</span><span class="nm">MINIMAL LINE</span><span class="kw">极简线条</span></div>
+    <div class="hud" style="--bg:#0C0E12;--bd:#20252D;--fg:#F2F5F8;--muted:#8A939E;--track:#262C35;--hp:#E8ECF1;border-radius:2px">
+      <div class="sec">泡狐龙 · 62%</div>
+      <div class="hr" style="height:1px"><i style="height:1px"></i></div>
+      <div class="row">
+        <div class="chips">
+          <span class="chip" style="--c:#E8ECF1"><i></i><b>愤怒</b><em>1:18</em></span>
+          <span class="chip on" style="--c:#C3CAD3"><i></i><b>晕眩中</b><em>3.2s</em></span>
+          <span class="chip" style="--c:#9AA4B0"><i></i><b>耐力</b><em>98%</em></span>
+          <span class="chip" style="--c:#C3CAD3"><i></i><b>御龙</b><em>34%</em></span>
+        </div>
+      </div>
+      <div class="chips">
+        <span class="chip on" style="--c:#E8ECF1"><i></i><b>毒</b><em>生效</em></span>
+        <span class="chip" style="--c:#E8ECF1"><i></i><b>减气</b><em>39%</em></span>
+      </div>
+    </div>
+    <div class="meta">
+      <div class="wpf">灰阶主题下自动退化为明度层次，不刺眼</div>
+    </div>
+  </div>
+
+  <!-- 朱红和风 -->
+  <div class="card">
+    <div class="cap"><span class="no">04</span><span class="nm">CRIMSON WA</span><span class="kw">朱红和风（浅色）</span></div>
+    <div class="hud" style="--bg:#F3ECE0;--bd:#C9B9A0;--fg:#1B1714;--muted:#6B5F52;--track:#DED3C0;--hp:#B8322A;border-radius:3px">
+      <div class="sec">泡狐龙 · 62%</div>
+      <div class="hr"><i></i></div>
+      <div class="row">
+        <div class="chips">
+          <span class="chip" style="--c:#B8322A"><i></i><b>愤怒</b><em>1:18</em></span>
+          <span class="chip on" style="--c:#B8860B"><i></i><b>晕眩中</b><em>3.2s</em></span>
+          <span class="chip" style="--c:#8F241E"><i></i><b>耐力</b><em>98%</em></span>
+          <span class="chip" style="--c:#8F241E"><i></i><b>御龙</b><em>34%</em></span>
+        </div>
+      </div>
+      <div class="chips">
+        <span class="chip on" style="--c:#B8322A"><i></i><b>毒</b><em>生效</em></span>
+        <span class="chip" style="--c:#B8322A"><i></i><b>减气</b><em>39%</em></span>
+      </div>
+    </div>
+    <div class="meta">
+      <div class="wpf">浅底上深色语义条，对比度充足</div>
+    </div>
+  </div>
+
+  <!-- 冰霜 -->
+  <div class="card">
+    <div class="cap"><span class="no">05</span><span class="nm">FROST</span><span class="kw">冰霜</span></div>
+    <div class="hud" style="--bg:#0E1E2A;--bd:#4D96D7FF;--fg:#D6F0FF;--muted:#7FA6BF;--track:#0A1A24;--hp:linear-gradient(90deg,#6FC9FF,#CDF2FF);border-radius:9px">
+      <div class="sec">泡狐龙 · 62%</div>
+      <div class="hr"><i></i></div>
+      <div class="row">
+        <div class="chips">
+          <span class="chip" style="--c:#FFA98F"><i></i><b>愤怒</b><em>1:18</em></span>
+          <span class="chip on" style="--c:#FFE08F"><i></i><b>晕眩中</b><em>3.2s</em></span>
+          <span class="chip" style="--c:#8FD6FF"><i></i><b>耐力</b><em>98%</em></span>
+          <span class="chip" style="--c:#CDF2FF"><i></i><b>御龙</b><em>34%</em></span>
+        </div>
+      </div>
+      <div class="chips">
+        <span class="chip on" style="--c:#FF7FB0"><i></i><b>毒</b><em>生效</em></span>
+        <span class="chip" style="--c:#FF7FB0"><i></i><b>减气</b><em>39%</em></span>
+      </div>
+    </div>
+    <div class="meta">
+      <div class="wpf">冷色系语义条，与冰蓝面板同调</div>
+    </div>
+  </div>
+
+  <!-- 暗黑锐利 -->
+  <div class="card">
+    <div class="cap"><span class="no">06</span><span class="nm">DARK SHARP</span><span class="kw">暗黑锐利</span></div>
+    <div class="hud" style="--bg:#0B0B0D;--bd:#2A2A30;--fg:#F2F2F4;--muted:#7A7A82;--track:#1A1A1E;--hp:linear-gradient(90deg,#FF2D2D,#FF7A00);border-radius:0">
+      <div class="sec">泡狐龙 · 62%</div>
+      <div class="hr"><i></i></div>
+      <div class="row">
+        <div class="chips">
+          <span class="chip" style="--c:#FF7A00"><i></i><b>愤怒</b><em>1:18</em></span>
+          <span class="chip on" style="--c:#FFD54D"><i></i><b>晕眩中</b><em>3.2s</em></span>
+          <span class="chip" style="--c:#E0E0E4"><i></i><b>耐力</b><em>98%</em></span>
+          <span class="chip" style="--c:#FF9B9B"><i></i><b>御龙</b><em>34%</em></span>
+        </div>
+      </div>
+      <div class="chips">
+        <span class="chip on" style="--c:#FF2D2D"><i></i><b>毒</b><em>生效</em></span>
+        <span class="chip" style="--c:#FF2D2D"><i></i><b>减气</b><em>39%</em></span>
+      </div>
+    </div>
+    <div class="meta">
+      <div class="wpf">直角面板 + 高饱和语义条</div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

@@ -43,4 +43,42 @@
     <Color x:Key="Colors.Element.Dragon">#FF7D6A96</Color>
     <SolidColorBrush x:Key="Brushes.Element.Dragon" Color="{StaticResource Colors.Element.Dragon}" />
     <SolidColorBrush x:Key="Brushes.Element.Foreground" Color="White" />
+
+    <!-- ===== 皮肤层（中性默认：不改变原有观感） ===== -->
+    <SolidColorBrush x:Key="Brushes.PanelGlow" Color="#00000000" />
+    <sys:Double x:Key="Theme.GlowOpacity">0</sys:Double>
+    <LinearGradientBrush x:Key="Brushes.PanelGloss" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#FFFFFFFF" Offset="0" />
+        <GradientStop Color="#00FFFFFF" Offset="1" />
+    </LinearGradientBrush>
+    <sys:Double x:Key="Theme.GlossOpacity">0</sys:Double>
+    <SolidColorBrush x:Key="Theme.PanelTexture" Color="#00000000" />
+    <sys:Double x:Key="Theme.TextureOpacity">0</sys:Double>
+    <sys:Double x:Key="Theme.CornerSlashOpacity">0</sys:Double>
+    <LinearGradientBrush x:Key="Brushes.HpBarGloss" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Color="#00FFFFFF" Offset="0" />
+        <GradientStop Color="#FFFFFFFF" Offset="0.5" />
+        <GradientStop Color="#00FFFFFF" Offset="1" />
+    </LinearGradientBrush>
+    <sys:Double x:Key="Theme.HpGlossOpacity">0</sys:Double>
+    <sys:Double x:Key="Theme.HpHeight">8</sys:Double>
+    <FontFamily x:Key="Fonts.Family.Hud">Segoe UI</FontFamily>
+
+    <!-- ===== 色板外提（沿用原硬编码值） ===== -->
+    <SolidColorBrush x:Key="Brushes.RailTrack" Color="#FF1A222C" />
+    <SolidColorBrush x:Key="Brushes.FlinchFill" Color="#FFB8C0CC" />
+    <SolidColorBrush x:Key="Brushes.RailBroken" Color="#FF596466" />
+    <SolidColorBrush x:Key="Brushes.RailDefault" Color="#FFB8995F" />
+    <SolidColorBrush x:Key="Brushes.StatusText" Color="#FFD0B778" />
+    <SolidColorBrush x:Key="Brushes.HpTrack" Color="#FF1A222C" />
+    <SolidColorBrush x:Key="Brushes.WeakenLine" Color="#FFFFF1F2" />
+    <SolidColorBrush x:Key="Brushes.CaptureBorder" Color="#FFC9AA62" />
+    <SolidColorBrush x:Key="Brushes.CaptureFill" Color="#24B8995F" />
+    <SolidColorBrush x:Key="Brushes.CaptureText" Color="#FFE2CA87" />
+    <!-- ===== 状态色块：引用本主题既有强调色，随主题自动跟随 ===== -->
+    <SolidColorBrush x:Key="Brushes.StatusEnrage" Color="{StaticResource Colors.AccentBreak}" />
+    <SolidColorBrush x:Key="Brushes.StatusStun" Color="{StaticResource Colors.AccentStun}" />
+    <SolidColorBrush x:Key="Brushes.StatusStamina" Color="{StaticResource Colors.AccentTeal}" />
+    <SolidColorBrush x:Key="Brushes.StatusRide" Color="{StaticResource Colors.AccentCapture}" />
+    <SolidColorBrush x:Key="Brushes.StatusAilment" Color="{StaticResource Colors.AccentQurio}" />
 </ResourceDictionary>

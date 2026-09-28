@@ -200,6 +200,43 @@ public partial class RiseShellWindow : Window
             RiseThemeIds.Transparent => Gradient(
                 Color.FromArgb(0x40, 0x14, 0x18, 0x20),
                 Color.FromArgb(0x55, 0x50, 0xC8, 0xBE)),
+            RiseThemeIds.NeonCyber => Gradient(
+                Color.FromRgb(0x0A, 0x10, 0x18),
+                Color.FromRgb(0x00, 0xE5, 0xFF),
+                Color.FromRgb(0xFF, 0x2B, 0xD6)),
+            RiseThemeIds.Hologram => Gradient(
+                Color.FromRgb(0x06, 0x0A, 0x12),
+                Color.FromRgb(0x00, 0xFF, 0xD5),
+                Color.FromRgb(0x4D, 0x9B, 0xFF),
+                Color.FromRgb(0xFF, 0x6B, 0xD6)),
+            RiseThemeIds.Molten => Gradient(
+                Color.FromRgb(0x12, 0x0A, 0x06),
+                Color.FromRgb(0xFF, 0x6A, 0x00),
+                Color.FromRgb(0xFF, 0xC4, 0x00)),
+            RiseThemeIds.MinimalLine => Gradient(
+                Color.FromRgb(0x0C, 0x0E, 0x12),
+                Color.FromRgb(0xE8, 0xEC, 0xF1)),
+            RiseThemeIds.PixelRetro => Gradient(
+                Color.FromRgb(0x0A, 0x0D, 0x0A),
+                Color.FromRgb(0x5D, 0xFF, 0x8F)),
+            RiseThemeIds.SegmentGauge => Gradient(
+                Color.FromRgb(0x08, 0x0C, 0x11),
+                Color.FromRgb(0x39, 0xFF, 0x88)),
+            RiseThemeIds.LiquidFill => Gradient(
+                Color.FromRgb(0x0D, 0x21, 0x30),
+                Color.FromRgb(0x5F, 0xD8, 0xFF),
+                Color.FromRgb(0x0F, 0x7F, 0xD0)),
+            RiseThemeIds.DarkSharp => Gradient(
+                Color.FromRgb(0x0B, 0x0B, 0x0D),
+                Color.FromRgb(0xFF, 0x2D, 0x2D),
+                Color.FromRgb(0xFF, 0x7A, 0x00)),
+            RiseThemeIds.CrimsonWa => Gradient(
+                Color.FromRgb(0xF3, 0xEC, 0xE0),
+                Color.FromRgb(0xB8, 0x32, 0x2A)),
+            RiseThemeIds.Frost => Gradient(
+                Color.FromRgb(0x0E, 0x1E, 0x2A),
+                Color.FromRgb(0x6F, 0xC9, 0xFF),
+                Color.FromRgb(0xCD, 0xF2, 0xFF)),
             _ => Gradient(
                 Color.FromRgb(0x1A, 0x24, 0x33),
                 Color.FromRgb(0xC9, 0xA2, 0x27),

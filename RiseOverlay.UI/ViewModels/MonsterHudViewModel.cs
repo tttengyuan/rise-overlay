@@ -426,6 +426,17 @@ public sealed class MonsterHudViewModel : INotifyPropertyChanged
         set => SetField(ref _statusLineText, value);
     }
 
+    /// <summary>
+    /// 状态行的结构化色块（愤怒 / 晕眩 / 耐力 / 御龙），内容与 <see cref="StatusLineText"/> 等价，
+    /// 供 UI 做分段着色。纯新增属性，原有字符串绑定不受影响。
+    /// </summary>
+    public ObservableCollection<HudStatusChip> StatusChips { get; } = new();
+
+    /// <summary>
+    /// 异常状态的结构化色块，内容与 <see cref="AilmentsLineText"/> 等价，供 UI 做分段着色。
+    /// </summary>
+    public ObservableCollection<HudStatusChip> AilmentChips { get; } = new();
+
     public string AilmentsLineText
     {
         get => _ailmentsLineText;
@@ -519,10 +530,84 @@ public sealed class MonsterHudViewModel : INotifyPropertyChanged
         if (RideActive)
             statusForLine = statusForLine with { RideActive = false, RideActiveRemaining = null, RideBuildupPercent = null };
         StatusLineText = StatusLineFormatter.Format(statusForLine);
+        SyncChips(StatusChips, BuildStatusChips(statusForLine));
 
         SyncParts(dto.Parts ?? Array.Empty<PartDto>());
 
         AilmentsLineText = AilmentLineFormatter.Format(dto.Ailments ?? Array.Empty<AilmentDto>());
+        SyncChips(AilmentChips, BuildAilmentChips(dto.Ailments));
+    }
+
+    // ---- 结构化色块：与上面的纯文本行同源同格式，仅供 UI 分段着色 ----
+
+    private static IReadOnlyList<HudStatusChip> BuildStatusChips(StatusLineModel s)
+    {
+        var chips = new List<HudStatusChip>(4);
+
+        if (s.EnrageRemaining is { } enrage)
+            chips.Add(new HudStatusChip("愤怒", StatusLineFormatter.FormatClock(enrage), HudChipKind.Enrage));
+
+        if (s.StunActive && s.StunActiveRemaining is { } stunRemaining)
+            chips.Add(new HudStatusChip("晕眩中", StatusLineFormatter.FormatStunCountdown(stunRemaining), HudChipKind.Stun, true));
+        else if (s.StunBuildupPercent is { } stunBuildup)
+            chips.Add(new HudStatusChip("晕眩", $"{Math.Round(stunBuildup):0}%", HudChipKind.Stun));
+
+        if (s.StaminaPercent is { } stamina)
+            chips.Add(new HudStatusChip("耐力", $"{Math.Round(stamina):0}%", HudChipKind.Stamina));
+
+        if (s.RideActive && s.RideActiveRemaining is { } rideRemaining)
+            chips.Add(new HudStatusChip("御龙中", StatusLineFormatter.FormatStunCountdown(rideRemaining), HudChipKind.Ride, true));
+        else if (s.RideBuildupPercent is { } rideBuildup)
+            chips.Add(new HudStatusChip("御龙", $"{Math.Round(rideBuildup):0}%", HudChipKind.Ride));
+
+        return chips;
+    }
+
+    private static IReadOnlyList<HudStatusChip> BuildAilmentChips(IEnumerable<AilmentDto>? ailments)
+    {
+        if (ailments is null)
+            return Array.Empty<HudStatusChip>();
+
+        var chips = new List<HudStatusChip>(4);
+        foreach (AilmentDto ailment in ailments)
+        {
+            if (string.Equals(ailment.Key, "stun", StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (!ailment.IsActive && ailment.Percent <= 0)
+                continue;
+
+            chips.Add(new HudStatusChip(
+                ailment.DisplayName,
+                ailment.IsActive ? "生效" : $"{Math.Round(ailment.Percent):0}%",
+                HudChipKind.Ailment,
+                ailment.IsActive));
+        }
+
+        return chips;
+    }
+
+    /// <summary>内容未变化时不重建集合，避免每秒多次 Clear/Add 引起 UI 抖动。</summary>
+    private static void SyncChips(ObservableCollection<HudStatusChip> target, IReadOnlyList<HudStatusChip> next)
+    {
+        if (target.Count == next.Count)
+        {
+            bool identical = true;
+            for (int i = 0; i < next.Count; i++)
+            {
+                if (!Equals(target[i], next[i]))
+                {
+                    identical = false;
+                    break;
+                }
+            }
+
+            if (identical)
+                return;
+        }
+
+        target.Clear();
+        foreach (HudStatusChip chip in next)
+            target.Add(chip);
     }
 
     private void TriggerCaptureFlash()

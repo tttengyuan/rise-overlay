@@ -3,68 +3,65 @@
                     xmlns:sys="clr-namespace:System;assembly=System.Runtime">
 
     <!-- ===== 面板 ===== -->
-    <Color x:Key="Colors.PanelBackground">#CC16202A</Color>
+    <Color x:Key="Colors.PanelBackground">#FF0C0E12</Color>
     <SolidColorBrush x:Key="Brushes.PanelBackground" Color="{StaticResource Colors.PanelBackground}" />
-    <Color x:Key="Colors.PanelBorder">#59FFFFFF</Color>
+    <Color x:Key="Colors.PanelBorder">#FF20252D</Color>
     <SolidColorBrush x:Key="Brushes.PanelBorder" Color="{StaticResource Colors.PanelBorder}" />
-    <Color x:Key="Colors.PanelBorderSubtle">#26FFFFFF</Color>
+    <Color x:Key="Colors.PanelBorderSubtle">#FF181C23</Color>
     <SolidColorBrush x:Key="Brushes.PanelBorderSubtle" Color="{StaticResource Colors.PanelBorderSubtle}" />
 
     <!-- ===== 前景 ===== -->
-    <Color x:Key="Colors.Foreground">#FFF2F7FA</Color>
+    <Color x:Key="Colors.Foreground">#FFF2F5F8</Color>
     <SolidColorBrush x:Key="Brushes.Foreground" Color="{StaticResource Colors.Foreground}" />
-    <Color x:Key="Colors.ForegroundMuted">#FF9DB3C2</Color>
+    <Color x:Key="Colors.ForegroundMuted">#FF8A939E</Color>
     <SolidColorBrush x:Key="Brushes.ForegroundMuted" Color="{StaticResource Colors.ForegroundMuted}" />
 
     <!-- ===== 强调色 ===== -->
-    <Color x:Key="Colors.AccentTeal">#FF5EE7C4</Color>
+    <Color x:Key="Colors.AccentTeal">#FF9AA4B0</Color>
     <SolidColorBrush x:Key="Brushes.AccentTeal" Color="{StaticResource Colors.AccentTeal}" />
-    <Color x:Key="Colors.AccentHealth">#FF5EE7C4</Color>
-    <LinearGradientBrush x:Key="Brushes.AccentHealth" StartPoint="0,0.5" EndPoint="1,0.5">
-            <GradientStop Color="#FF5EE7C4" Offset="0.0" />
-            <GradientStop Color="#FF4FA8E8" Offset="1.0" />
-    </LinearGradientBrush>
-    <Color x:Key="Colors.AccentQurio">#FFFF6B8A</Color>
+    <Color x:Key="Colors.AccentHealth">#FFE8ECF1</Color>
+    <SolidColorBrush x:Key="Brushes.AccentHealth" Color="#FFE8ECF1" />
+    <Color x:Key="Colors.AccentQurio">#FFE8ECF1</Color>
     <SolidColorBrush x:Key="Brushes.AccentQurio" Color="{StaticResource Colors.AccentQurio}" />
     <LinearGradientBrush x:Key="Brushes.AccentSever" StartPoint="0,0.5" EndPoint="1,0.5">
-            <GradientStop Color="#FF5EE7C4" Offset="0.0" />
-            <GradientStop Color="#FF7FE0FF" Offset="1.0" />
+            <GradientStop Color="#FFC3CAD3" Offset="0.0" />
+            <GradientStop Color="#FFE8ECF1" Offset="1.0" />
     </LinearGradientBrush>
-    <Color x:Key="Colors.AccentStun">#FFFDE047</Color>
+    <Color x:Key="Colors.AccentStun">#FFC3CAD3</Color>
     <SolidColorBrush x:Key="Brushes.AccentStun" Color="{StaticResource Colors.AccentStun}" />
-    <Color x:Key="Colors.AccentBreak">#FFFF8C42</Color>
+    <Color x:Key="Colors.AccentBreak">#FFE8ECF1</Color>
     <SolidColorBrush x:Key="Brushes.AccentBreak" Color="{StaticResource Colors.AccentBreak}" />
-    <Color x:Key="Colors.AccentCapture">#FFA8F0D8</Color>
+    <Color x:Key="Colors.AccentCapture">#FFC3CAD3</Color>
     <SolidColorBrush x:Key="Brushes.AccentCapture" Color="{StaticResource Colors.AccentCapture}" />
 
     <!-- ===== 字体 / 圆角 ===== -->
     <sys:Double x:Key="Fonts.Size.Small">10</sys:Double>
     <sys:Double x:Key="Fonts.Size.Body">11</sys:Double>
     <sys:Double x:Key="Fonts.Size.Title">12</sys:Double>
-    <FontFamily x:Key="Fonts.Family.Hud">Segoe UI</FontFamily>
-    <CornerRadius x:Key="Theme.PanelCornerRadius">15</CornerRadius>
+    <FontFamily x:Key="Fonts.Family.Hud">Segoe UI Light</FontFamily>
+    <CornerRadius x:Key="Theme.PanelCornerRadius">2</CornerRadius>
 
     <!-- ===== 元素色 ===== -->
-    <Color x:Key="Colors.Element.Fire">#FFFB7185</Color>
+    <Color x:Key="Colors.Element.Fire">#FFA8B0BA</Color>
     <SolidColorBrush x:Key="Brushes.Element.Fire" Color="{StaticResource Colors.Element.Fire}" />
-    <Color x:Key="Colors.Element.Water">#FF38BDF8</Color>
+    <Color x:Key="Colors.Element.Water">#FF8A939E</Color>
     <SolidColorBrush x:Key="Brushes.Element.Water" Color="{StaticResource Colors.Element.Water}" />
-    <Color x:Key="Colors.Element.Thunder">#FFFBBF24</Color>
+    <Color x:Key="Colors.Element.Thunder">#FFC3CAD3</Color>
     <SolidColorBrush x:Key="Brushes.Element.Thunder" Color="{StaticResource Colors.Element.Thunder}" />
-    <Color x:Key="Colors.Element.Ice">#FF7DD3FC</Color>
+    <Color x:Key="Colors.Element.Ice">#FF9AA4B0</Color>
     <SolidColorBrush x:Key="Brushes.Element.Ice" Color="{StaticResource Colors.Element.Ice}" />
-    <Color x:Key="Colors.Element.Dragon">#FFC4B5FD</Color>
+    <Color x:Key="Colors.Element.Dragon">#FFB0B8C2</Color>
     <SolidColorBrush x:Key="Brushes.Element.Dragon" Color="{StaticResource Colors.Element.Dragon}" />
-    <SolidColorBrush x:Key="Brushes.Element.Foreground" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="Brushes.Element.Foreground" Color="#FF0C0E12" />
 
     <!-- ===== 皮肤层：面板发光 / 反光 / 纹理 / 切角 ===== -->
-    <SolidColorBrush x:Key="Brushes.PanelGlow" Color="#FF5EE7C4" />
-    <sys:Double x:Key="Theme.GlowOpacity">0.22</sys:Double>
+    <SolidColorBrush x:Key="Brushes.PanelGlow" Color="#FF000000" />
+    <sys:Double x:Key="Theme.GlowOpacity">0</sys:Double>
     <LinearGradientBrush x:Key="Brushes.PanelGloss" StartPoint="0,0" EndPoint="0,1">
         <GradientStop Color="#FFFFFFFF" Offset="0" />
         <GradientStop Color="#00FFFFFF" Offset="1" />
     </LinearGradientBrush>
-    <sys:Double x:Key="Theme.GlossOpacity">0.24</sys:Double>
+    <sys:Double x:Key="Theme.GlossOpacity">0</sys:Double>
     <SolidColorBrush x:Key="Theme.PanelTexture" Color="#00000000" />
     <sys:Double x:Key="Theme.TextureOpacity">0</sys:Double>
     <sys:Double x:Key="Theme.CornerSlashOpacity">0.0</sys:Double>
@@ -75,20 +72,20 @@
         <GradientStop Color="#FFFFFFFF" Offset="0.5" />
         <GradientStop Color="#00FFFFFF" Offset="1" />
     </LinearGradientBrush>
-    <sys:Double x:Key="Theme.HpGlossOpacity">0.7</sys:Double>
-    <sys:Double x:Key="Theme.HpHeight">10</sys:Double>
+    <sys:Double x:Key="Theme.HpGlossOpacity">0</sys:Double>
+    <sys:Double x:Key="Theme.HpHeight">1</sys:Double>
 
     <!-- ===== 色板外提：轨 / 槽 / 文本 ===== -->
-    <SolidColorBrush x:Key="Brushes.RailTrack" Color="#33000000" />
-    <SolidColorBrush x:Key="Brushes.FlinchFill" Color="#99FFFFFF" />
-    <SolidColorBrush x:Key="Brushes.RailBroken" Color="#4D8A9BA8" />
-    <SolidColorBrush x:Key="Brushes.RailDefault" Color="#FF5EE7C4" />
-    <SolidColorBrush x:Key="Brushes.StatusText" Color="#FFBFE9DB" />
-    <SolidColorBrush x:Key="Brushes.HpTrack" Color="#33000000" />
-    <SolidColorBrush x:Key="Brushes.WeakenLine" Color="#FFF2F7FA" />
-    <SolidColorBrush x:Key="Brushes.CaptureBorder" Color="#FF5EE7C4" />
-    <SolidColorBrush x:Key="Brushes.CaptureFill" Color="#335EE7C4" />
-    <SolidColorBrush x:Key="Brushes.CaptureText" Color="#FFA8F0D8" />
+    <SolidColorBrush x:Key="Brushes.RailTrack" Color="#FF262C35" />
+    <SolidColorBrush x:Key="Brushes.FlinchFill" Color="#FF39414D" />
+    <SolidColorBrush x:Key="Brushes.RailBroken" Color="#FF39414D" />
+    <SolidColorBrush x:Key="Brushes.RailDefault" Color="#FFD5DBE2" />
+    <SolidColorBrush x:Key="Brushes.StatusText" Color="#FF5B6570" />
+    <SolidColorBrush x:Key="Brushes.HpTrack" Color="#FF262C35" />
+    <SolidColorBrush x:Key="Brushes.WeakenLine" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="Brushes.CaptureBorder" Color="#FF5B6570" />
+    <SolidColorBrush x:Key="Brushes.CaptureFill" Color="#145B6570" />
+    <SolidColorBrush x:Key="Brushes.CaptureText" Color="#FF9AA4B0" />
     <!-- ===== 状态色块：引用本主题既有强调色，随主题自动跟随 ===== -->
     <SolidColorBrush x:Key="Brushes.StatusEnrage" Color="{StaticResource Colors.AccentBreak}" />
     <SolidColorBrush x:Key="Brushes.StatusStun" Color="{StaticResource Colors.AccentStun}" />

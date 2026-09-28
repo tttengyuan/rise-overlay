@@ -6,6 +6,7 @@
              xmlns:domain="clr-namespace:RiseOverlay.Domain;assembly=RiseOverlay.Domain"
              xmlns:vm="clr-namespace:RiseOverlay.UI.ViewModels"
              Width="300"
+             FontFamily="{DynamicResource Fonts.Family.Hud}"
              Focusable="False"
              IsTabStop="False">
     <UserControl.Resources>
@@ -17,6 +18,65 @@
             <controls:ElementChip Element="{Binding Element}"
                                   Dimmed="{Binding IsDimmed}"
                                   Margin="0,0,3,0" />
+        </DataTemplate>
+
+        <!-- 状态 / 异常色块：左侧语义色条 + 标签 + 数值，按 HudChipKind 取主题色 -->
+        <DataTemplate x:Key="StatusChipTemplate">
+            <StackPanel Orientation="Horizontal" Margin="0,1,7,1">
+                <Border Width="2" Height="9" CornerRadius="1"
+                        VerticalAlignment="Center" Margin="0,0,4,0">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Background" Value="{DynamicResource Brushes.StatusEnrage}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Kind}" Value="Stun">
+                                    <Setter Property="Background" Value="{DynamicResource Brushes.StatusStun}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Kind}" Value="Stamina">
+                                    <Setter Property="Background" Value="{DynamicResource Brushes.StatusStamina}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Kind}" Value="Ride">
+                                    <Setter Property="Background" Value="{DynamicResource Brushes.StatusRide}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Kind}" Value="Ailment">
+                                    <Setter Property="Background" Value="{DynamicResource Brushes.StatusAilment}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                </Border>
+                <TextBlock Text="{Binding Label}" FontSize="{DynamicResource Fonts.Size.Small}"
+                           VerticalAlignment="Center">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="{DynamicResource Brushes.StatusEnrage}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Kind}" Value="Stun">
+                                    <Setter Property="Foreground" Value="{DynamicResource Brushes.StatusStun}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Kind}" Value="Stamina">
+                                    <Setter Property="Foreground" Value="{DynamicResource Brushes.StatusStamina}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Kind}" Value="Ride">
+                                    <Setter Property="Foreground" Value="{DynamicResource Brushes.StatusRide}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Kind}" Value="Ailment">
+                                    <Setter Property="Foreground" Value="{DynamicResource Brushes.StatusAilment}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                    <Setter Property="FontWeight" Value="Bold" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+                <TextBlock Text="{Binding Value}"
+                           FontSize="{DynamicResource Fonts.Size.Small}"
+                           Margin="3,0,0,0"
+                           VerticalAlignment="Center"
+                           Typography.NumeralAlignment="Tabular"
+                           Foreground="{DynamicResource Brushes.Foreground}" />
+            </StackPanel>
         </DataTemplate>
 
         <DataTemplate DataType="{x:Type vm:PartRowViewModel}">
@@ -34,13 +94,13 @@
                         CornerRadius="1" Margin="0,1,0,1" MinHeight="20">
                     <Border.Style>
                         <Style TargetType="Border">
-                            <Setter Property="Background" Value="#FFB8995F" />
+                            <Setter Property="Background" Value="{DynamicResource Brushes.RailDefault}" />
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsSeverable}" Value="True">
                                     <Setter Property="Background" Value="{DynamicResource Brushes.AccentSever}" />
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding IsBroken}" Value="True">
-                                    <Setter Property="Background" Value="#FF596466" />
+                                    <Setter Property="Background" Value="{DynamicResource Brushes.RailBroken}" />
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding IsQurio}" Value="True">
                                     <Setter Property="Background" Value="{DynamicResource Brushes.AccentQurio}" />
@@ -100,7 +160,7 @@
                                Margin="2,0">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
-                                <Setter Property="Foreground" Value="#FFD0B778" />
+                                <Setter Property="Foreground" Value="{DynamicResource Brushes.StatusText}" />
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding IsBroken}" Value="True">
                                         <Setter Property="Foreground" Value="{DynamicResource Brushes.ForegroundMuted}" />
@@ -150,10 +210,10 @@
                 <StackPanel Grid.Row="1" Grid.Column="1" Margin="5,0,0,0">
                     <Border Height="2"
                             Margin="0,0,0,2"
-                            Background="#1A222C"
+                            Background="{DynamicResource Brushes.RailTrack}"
                             CornerRadius="1"
                             Visibility="{Binding ShowFlinchBar, Converter={StaticResource BoolToVis}}">
-                        <Border Background="#B8C0CC"
+                        <Border Background="{DynamicResource Brushes.FlinchFill}"
                                 Opacity="0.75"
                                 CornerRadius="1"
                                 RenderTransformOrigin="0,0.5">
@@ -163,7 +223,7 @@
                         </Border>
                     </Border>
                     <Border Height="3"
-                            Background="#1A222C"
+                            Background="{DynamicResource Brushes.RailTrack}"
                             CornerRadius="1"
                             Visibility="{Binding ShowBreakBar, Converter={StaticResource BoolToVis}}">
                         <Border CornerRadius="1" RenderTransformOrigin="0,0.5">
@@ -186,7 +246,7 @@
                         </Border>
                     </Border>
                     <Border Height="3"
-                            Background="#FF596466"
+                            Background="{DynamicResource Brushes.RailBroken}"
                             Opacity="0.5"
                             CornerRadius="1"
                             Visibility="{Binding ShowBrokenRail, Converter={StaticResource BoolToVis}}" />
@@ -274,7 +334,38 @@
         </Border.Style>
 
 
-        <StackPanel>
+        <Grid>
+            <!-- ===== 皮肤层（由主题资源驱动；中性默认下完全不可见） ===== -->
+            <!-- A 纹理：DrawingBrush 平铺，静态，零动画成本 -->
+            <Border Margin="-8,-6"
+                    Background="{DynamicResource Theme.PanelTexture}"
+                    Opacity="{DynamicResource Theme.TextureOpacity}"
+                    CornerRadius="{DynamicResource Theme.PanelCornerRadius}"
+                    IsHitTestVisible="False" />
+            <!-- B 顶部反光 -->
+            <Border Margin="-8,-6"
+                    Height="28"
+                    VerticalAlignment="Top"
+                    Background="{DynamicResource Brushes.PanelGloss}"
+                    Opacity="{DynamicResource Theme.GlossOpacity}"
+                    CornerRadius="{DynamicResource Theme.PanelCornerRadius}"
+                    IsHitTestVisible="False" />
+            <!-- C 内发光描边 -->
+            <Border Margin="-8,-6"
+                    BorderBrush="{DynamicResource Brushes.PanelGlow}"
+                    BorderThickness="2"
+                    Opacity="{DynamicResource Theme.GlowOpacity}"
+                    CornerRadius="{DynamicResource Theme.PanelCornerRadius}"
+                    IsHitTestVisible="False" />
+            <!-- D 右上斜角标记 -->
+            <Path Margin="0,-6,-8,0"
+                  Data="M0,0 L15,0 L15,15 Z"
+                  Fill="{DynamicResource Brushes.PanelGlow}"
+                  Opacity="{DynamicResource Theme.CornerSlashOpacity}"
+                  HorizontalAlignment="Right"
+                  VerticalAlignment="Top"
+                  IsHitTestVisible="False" />
+            <StackPanel>
             <!-- 1. Completion banner: terminal state wins over capture availability. -->
             <Border Visibility="{Binding CompletionVisible, Converter={StaticResource BoolToVis}}"
                     BorderThickness="1"
@@ -284,12 +375,12 @@
                     HorizontalAlignment="Stretch">
                 <Border.Style>
                     <Style TargetType="Border">
-                        <Setter Property="BorderBrush" Value="#70D94B58" />
-                        <Setter Property="Background" Value="#2ED94B58" />
+                        <Setter Property="BorderBrush" Value="{DynamicResource Brushes.AccentHealth}" />
+                        <Setter Property="Background" Value="{DynamicResource Brushes.CaptureFill}" />
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding CompletionIsCaptured}" Value="True">
-                                <Setter Property="BorderBrush" Value="#70B8995F" />
-                                <Setter Property="Background" Value="#2EB8995F" />
+                                <Setter Property="BorderBrush" Value="{DynamicResource Brushes.CaptureBorder}" />
+                                <Setter Property="Background" Value="{DynamicResource Brushes.CaptureFill}" />
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>
@@ -300,10 +391,10 @@
                            HorizontalAlignment="Center">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock">
-                            <Setter Property="Foreground" Value="#FFFFA0A8" />
+                            <Setter Property="Foreground" Value="{DynamicResource Brushes.Foreground}" />
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding CompletionIsCaptured}" Value="True">
-                                    <Setter Property="Foreground" Value="#FFE2CA87" />
+                                    <Setter Property="Foreground" Value="{DynamicResource Brushes.CaptureText}" />
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
@@ -313,15 +404,15 @@
 
             <!-- 2. Capture banner -->
             <Border Visibility="{Binding CaptureBannerVisible, Converter={StaticResource BoolToVis}}"
-                    BorderBrush="#FFC9AA62"
+                    BorderBrush="{DynamicResource Brushes.CaptureBorder}"
                     BorderThickness="1"
-                    Background="#24B8995F"
+                    Background="{DynamicResource Brushes.CaptureFill}"
                     CornerRadius="2"
                     Padding="6,2"
                     Margin="0,0,0,6"
                     HorizontalAlignment="Stretch">
                 <TextBlock Text="可捕获"
-                           Foreground="#FFE2CA87"
+                           Foreground="{DynamicResource Brushes.CaptureText}"
                            FontSize="{DynamicResource Fonts.Size.Body}"
                            FontWeight="SemiBold"
                            HorizontalAlignment="Center" />
@@ -369,8 +460,8 @@
                         Visibility="{Binding CaptureBadgeVisible, Converter={StaticResource BoolToVis}}">
                     <Border.Style>
                         <Style TargetType="Border">
-                            <Setter Property="Background" Value="#26333A44" />
-                            <Setter Property="BorderBrush" Value="#303F4854" />
+                            <Setter Property="Background" Value="{DynamicResource Brushes.RailTrack}" />
+                            <Setter Property="BorderBrush" Value="{DynamicResource Brushes.PanelBorderSubtle}" />
                             <Setter Property="BorderThickness" Value="1" />
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding CaptureBadgeIsCapturable}" Value="True">
@@ -412,8 +503,8 @@
 
             <!-- 4. HP bar + weaken line (主血条始终红色；部位条另用青色) -->
             <Border x:Name="HpTrack"
-                    Height="8"
-                    Background="#1A222C"
+                    Height="{DynamicResource Theme.HpHeight}"
+                    Background="{DynamicResource Brushes.HpTrack}"
                     CornerRadius="2"
                     Margin="0,0,0,3"
                     ClipToBounds="True">
@@ -425,10 +516,34 @@
                             <ScaleTransform ScaleX="{Binding HealthRatio}" />
                         </Border.RenderTransform>
                     </Border>
+                    <!-- 血条扫光：Transform 动画，零 layout 开销 -->
+                    <Border x:Name="HpGloss"
+                            Width="46"
+                            HorizontalAlignment="Left"
+                            CornerRadius="2"
+                            Background="{DynamicResource Brushes.HpBarGloss}"
+                            Opacity="{DynamicResource Theme.HpGlossOpacity}"
+                            IsHitTestVisible="False">
+                        <Border.RenderTransform>
+                            <TranslateTransform x:Name="HpGlossShift" X="-46" />
+                        </Border.RenderTransform>
+                        <Border.Triggers>
+                            <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                                <BeginStoryboard>
+                                    <Storyboard RepeatBehavior="Forever">
+                                        <DoubleAnimation Storyboard.TargetName="HpGlossShift"
+                                                         Storyboard.TargetProperty="X"
+                                                         From="-46" To="300"
+                                                         Duration="0:0:2.4" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </Border.Triggers>
+                    </Border>
                     <Border Width="2"
                             Height="8"
                             HorizontalAlignment="Left"
-                            Background="#FFFFF1F2"
+                            Background="{DynamicResource Brushes.WeakenLine}"
                             Visibility="{Binding WeakenLineVisible, Converter={StaticResource BoolToVis}}">
                         <Border.Margin>
                             <MultiBinding Converter="{StaticResource FractionToLeftMargin}">
@@ -473,9 +588,11 @@
                             CornerRadius="2"
                             BorderThickness="1"
                             BorderBrush="{DynamicResource Brushes.AccentStun}"
-                            Background="#33EAB308"
                             VerticalAlignment="Center"
                             Visibility="{Binding StunActive, Converter={StaticResource BoolToVis}}">
+                        <Border.Background>
+                            <SolidColorBrush Color="{DynamicResource Colors.AccentStun}" Opacity="0.22" />
+                        </Border.Background>
                         <Border.Style>
                             <Style TargetType="Border">
                                 <Setter Property="Opacity" Value="1" />
@@ -504,7 +621,7 @@
                                        FontWeight="SemiBold"
                                        VerticalAlignment="Center" />
                             <TextBlock Text="{Binding StunCountdownText}"
-                                       Foreground="#FFFFF7CC"
+                                       Foreground="{DynamicResource Brushes.Foreground}"
                                        FontSize="{DynamicResource Fonts.Size.Body}"
                                        FontWeight="Bold"
                                        Typography.NumeralAlignment="Tabular"
@@ -520,9 +637,11 @@
                             CornerRadius="2"
                             BorderThickness="1"
                             BorderBrush="{DynamicResource Brushes.AccentTeal}"
-                            Background="#332DD4BF"
                             VerticalAlignment="Center"
                             Visibility="{Binding RideActive, Converter={StaticResource BoolToVis}}">
+                        <Border.Background>
+                            <SolidColorBrush Color="{DynamicResource Colors.AccentTeal}" Opacity="0.22" />
+                        </Border.Background>
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="御龙中"
                                        Foreground="{DynamicResource Brushes.AccentTeal}"
@@ -530,7 +649,7 @@
                                        FontWeight="SemiBold"
                                        VerticalAlignment="Center" />
                             <TextBlock Text="{Binding RideCountdownText}"
-                                       Foreground="#FFCCFBF1"
+                                       Foreground="{DynamicResource Brushes.Foreground}"
                                        FontSize="{DynamicResource Fonts.Size.Body}"
                                        FontWeight="Bold"
                                        Typography.NumeralAlignment="Tabular"
@@ -541,9 +660,17 @@
                     </Border>
                 </StackPanel>
 
-                <controls:StatusLineText Grid.Column="1"
-                                         Text="{Binding StatusLineText}"
-                                         VerticalAlignment="Center" />
+                <ItemsControl Grid.Column="1"
+                              ItemsSource="{Binding StatusChips}"
+                              ItemTemplate="{StaticResource StatusChipTemplate}"
+                              VerticalAlignment="Center"
+                              Margin="2,0,0,0">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
             </Grid>
 
             <!-- 7. Parts -->
@@ -556,12 +683,17 @@
             </StackPanel>
 
             <!-- 8. Ailments: one dense text line, no progress bars. -->
-            <TextBlock Text="{Binding AilmentsLineText}"
-                       Foreground="{DynamicResource Brushes.ForegroundMuted}"
-                       FontSize="{DynamicResource Fonts.Size.Small}"
-                       TextWrapping="NoWrap"
-                       TextTrimming="CharacterEllipsis"
-                       Visibility="{Binding ShowAilmentsLine, Converter={StaticResource BoolToVis}}" />
+            <ItemsControl ItemsSource="{Binding AilmentChips}"
+                          ItemTemplate="{StaticResource StatusChipTemplate}"
+                          Margin="0,1,0,0"
+                          Visibility="{Binding ShowAilmentsLine, Converter={StaticResource BoolToVis}}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
         </StackPanel>
+        </Grid>
     </Border>
 </UserControl>
