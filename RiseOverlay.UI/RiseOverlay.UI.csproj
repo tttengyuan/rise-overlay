@@ -11,6 +11,8 @@
 
   <ItemGroup>
     <Resource Include="Resources\rise-hp-icon.png" />
+    <!-- 怪物图标（112 张 64px，由 Scripts/gen_monster_icons.py 生成，供 MonsterIcons.xaml 的 pack URI 引用） -->
+    <Resource Include="Resources\Monsters\*.png" />
   </ItemGroup>
 
   <ItemGroup>

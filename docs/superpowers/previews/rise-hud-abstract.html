@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Rise Overlay · 不依赖外形的 6 种空间化表达</title>
+<style>
+  :root{
+    --page-bg:#080B10; --page-card:#111721; --page-line:#1D2633;
+    --ink:#E6EDF5; --ink-2:#9AA3B2; --ink-3:#66707E;
+    --panel-bg:rgba(9,13,20,.955); --panel-border:#262C36;
+    --fg:#FFFFFF; --fg-muted:#9AA3B2; --track:#161D26;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--page-bg);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:44px 28px 80px}
+  h1{font-size:22px;font-weight:500;margin:0 0 10px}
+  .sub{font-size:13px;color:var(--ink-2);line-height:1.8;margin:0 0 10px;max-width:940px}
+  .sub b{color:var(--ink);font-weight:500}
+  .kicker{font-size:12px;color:var(--ink-3);line-height:1.8;margin:0 0 30px;max-width:940px;
+    border-left:2px solid #2A3340;padding-left:14px}
+  .kicker code{color:#8FA6BF;font-size:11.5px}
+
+  .gallery{display:flex;flex-wrap:wrap;gap:36px 30px;align-items:flex-start}
+  .cell{width:300px}
+  .idx{font-size:11px;color:var(--ink-3);letter-spacing:1px;margin-bottom:3px}
+  .lname{font-size:13px;font-weight:500;margin-bottom:2px}
+  .ldesc{font-size:11.5px;color:var(--ink-2);line-height:1.6;margin-bottom:9px;min-height:54px}
+  .lmeta{font-size:10.5px;color:var(--ink-3);line-height:1.65;margin-top:7px}
+  .lmeta b{color:var(--ink-2);font-weight:500}
+
+  .hud{width:300px;border-radius:6px;padding:6px 8px;font-size:11px;color:var(--fg);
+    overflow:hidden;border:1px solid var(--panel-border);background:var(--panel-bg)}
+  .mname{font-size:12px;font-weight:500;margin-bottom:3px}
+  .hp-row{display:flex;align-items:center;gap:6px}
+  .hp-track{flex:1;height:8px;background:var(--track);border-radius:1px;overflow:hidden}
+  .hp-fill{height:100%;border-radius:1px;background:linear-gradient(90deg,#8E2F2B,#D94B43)}
+  .hp-text{font-size:9px;color:var(--fg-muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .srow{display:flex;flex-wrap:wrap;gap:3px;margin:6px 0 7px}
+  .schip{display:flex;align-items:center;gap:3px;padding:1px 4px;border-radius:2px;background:rgba(255,255,255,.045)}
+  .schip em{width:2px;height:9px;border-radius:1px;display:block;font-style:normal}
+  .schip span{font-size:9px;color:var(--fg-muted)}
+  .schip b{font-size:9px;font-weight:500;color:var(--fg)}
+  .ptitle{font-size:9px;color:var(--fg-muted);margin-bottom:3px}
+  .arow{display:flex;flex-wrap:wrap;gap:3px;margin-top:6px}
+  .achip{display:flex;align-items:center;gap:3px;padding:1px 4px;border-radius:2px;background:rgba(255,255,255,.045)}
+  .achip em{width:2px;height:9px;border-radius:1px;display:block;font-style:normal}
+  .achip span{font-size:9px;color:var(--fg-muted)}
+  .achip b{font-size:9px;font-weight:500;color:var(--fg)}
+  .legend{margin-top:4px;font-size:9px;color:var(--fg-muted);line-height:1.6;
+    font-variant-numeric:tabular-nums}
+  .legend .sep{color:#3A434F;margin:0 3px}
+  .legend .gone{color:#5C6673;text-decoration:line-through}
+
+  .ruler{position:relative;height:16px;width:300px;margin-bottom:6px}
+  .ruler::before,.ruler::after{content:"";position:absolute;top:6px;width:1px;height:8px;background:var(--ink-3)}
+  .ruler::before{left:0}.ruler::after{right:0}
+  .ruler i{position:absolute;left:0;right:0;top:9px;height:1px;background:var(--page-line)}
+  .ruler span{position:absolute;left:50%;transform:translateX(-50%);top:-4px;font-size:10px;
+    color:var(--ink-3);background:var(--page-bg);padding:0 6px}
+
+  .verdict{background:var(--page-card);border:.5px solid var(--page-line);border-radius:8px;
+    padding:16px 18px;font-size:12.5px;line-height:1.85;color:var(--ink-2);margin-top:46px}
+  .verdict b{color:var(--ink);font-weight:500}
+  .verdict h3{font-size:13px;font-weight:500;color:var(--ink);margin:0 0 8px}
+  .verdict table{border-collapse:collapse;font-size:11.5px;margin-top:10px;width:100%}
+  .verdict th,.verdict td{text-align:left;padding:5px 10px 5px 0;
+    border-bottom:1px solid var(--page-line);font-weight:400;color:var(--ink-2);vertical-align:top}
+  .verdict th{color:var(--ink-3);font-size:11px;font-weight:500}
+  @media (prefers-reduced-motion: reduce){ *{animation:none !important} }
+</style>
+</head>
+<body>
+<script>
+window.__ERRS__ = [];
+window.addEventListener('error', function (e) {
+  var t = e.target;
+  if (t && t.tagName === 'SCRIPT') { window.__ERRS__.push('script-load-fail: ' + t.src); return; }
+  var st = e.error && e.error.stack ? e.error.stack.split('\n').slice(0,6).join(' | ') : '(no stack)';
+  window.__ERRS__.push(e.message + ' @' + (e.filename||'').slice(-28) + ':' + e.lineno + ' :: ' + st);
+}, true);
+</script>
+
+<div class="wrap">
+  <h1>不依赖外形的 6 种空间化表达</h1>
+  <p class="sub">上一版画怪物剪影，被指出是死路：<b>Rise 有几十只怪，一怪一形，不可能逐只画轮廓。</b>这个约束是对的，方案从根上就错了。</p>
+  <p class="kicker">收紧后的约束：<b>要有空间感和画面感，但不得依赖任何具体外形。</b><br>
+  那就只能用<b>所有怪物都共有的东西</b>——部位的<b>方位</b>（头在前、尾在后、背在上、腹在下）与<b>连接关系</b>（头连躯干、尾连躯干、左右对称）。<br>
+  六版全部只基于这两样，<code>换任何一只怪都成立，零美术资产</code>。</p>
+
+  <div class="gallery" id="gallery"></div>
+
+  <div class="verdict" id="verdict">测算中…</div>
+</div>
+
+<pre id="__diag__" style="display:none"></pre>
+
+<script>
+var SCHIPS = [
+  {l:'愤怒', v:'0:14', c:'#FF8C42'}, {l:'晕眩', v:'88%', c:'#EAB308'},
+  {l:'耐力', v:'62%', c:'#4A9B9B'}, {l:'御龙', v:'62%', c:'#C9AA62'}
+];
+var AILS = [
+  {l:'毒', v:'42%', c:'#E11D48'}, {l:'麻', v:'生效', c:'#EAB308'},
+  {l:'眠', v:'15%', c:'#4F87A6'}, {l:'爆', v:'67%', c:'#FF8C42'},
+  {l:'减气', v:'8%', c:'#4A9B9B'}
+];
+
+var PARTS = [
+  {name:'头部', short:'头', hp:620,  max:1200, broken:false, sever:false, qurio:false},
+  {name:'前肢', short:'前', hp:0,    max:900,  broken:true,  sever:false, qurio:false},
+  {name:'腹部', short:'腹', hp:1100, max:1500, broken:false, sever:false, qurio:false},
+  {name:'尾巴', short:'尾', hp:280,  max:800,  broken:false, sever:true,  qurio:false},
+  {name:'背鳍', short:'鳍', hp:450,  max:700,  broken:false, sever:false, qurio:false}
+];
+function k(n){ for(var i=0;i<PARTS.length;i++) if(PARTS[i].name===n) return PARTS[i].broken?0:PARTS[i].hp/PARTS[i].max; }
+function pi(n){ return Math.round(k(n)*100); }
+function isB(n){ for(var i=0;i<PARTS.length;i++) if(PARTS[i].name===n) return PARTS[i].broken; }
+
+/* 六套配色：只给色相+饱和度，亮度由血量决定（越低越暗） */
+var HUES = {
+  nexus:{h:168, s:58}, cells:{h:280, s:52}, petals:{h:40, s:62},
+  spec:{h:198, s:62}, orbit:{h:252, s:58}, star:{h:220, s:22}
+};
+function fillOf(key, n){
+  var H = HUES[key], t = k(n);
+  if(isB(n)) return 'rgba(255,255,255,.045)';
+  return 'hsl('+H.h+','+H.s+'%,'+(16+30*t).toFixed(1)+'%)';
+}
+function strokeOf(key, n){
+  var H = HUES[key], t = k(n);
+  if(isB(n)) return 'rgba(255,255,255,.22)';
+  return 'hsl('+H.h+','+H.s+'%,'+(30+32*t).toFixed(1)+'%)';
+}
+function glowOf(key, n){
+  var H = HUES[key], t = k(n);
+  if(isB(n)) return 'rgba(255,255,255,.14)';
+  return 'hsl('+H.h+','+H.s+'%,'+(38+30*t).toFixed(1)+'%)';
+}
+
+/* 通用：带血量弧的圆环节点 */
+function ringNode(key, n, cx, cy, r, sw){
+  var C = 2*Math.PI*r, f = isB(n) ? 0 : C*k(n);
+  var s = '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="#1A222C" stroke-width="'+sw+'"/>';
+  if(isB(n)){
+    s += '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="rgba(255,255,255,.30)" '+
+      'stroke-width="'+sw+'" stroke-dasharray="2 4" transform="rotate(-90 '+cx+' '+cy+')"/>';
+  }else{
+    s += '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+glowOf(key,n)+'" '+
+      'stroke-width="'+sw+'" stroke-dasharray="'+f.toFixed(1)+' '+(C-f).toFixed(1)+'" '+
+      'transform="rotate(-90 '+cx+' '+cy+')" stroke-linecap="round"/>';
+  }
+  return s;
+}
+
+/* ---------- 01 NEXUS 神经节点 ---------- */
+function vNexus(){
+  var cx = 140, cy = 62;
+  var N = [
+    {n:'头部', x:54,  y:26},
+    {n:'背鳍', x:152, y:14},
+    {n:'尾巴', x:242, y:34},
+    {n:'腹部', x:198, y:98},
+    {n:'前肢', x:64,  y:98}
+  ];
+  var links = N.map(function(o){
+    var t = k(o.n);
+    return '<line x1="'+cx+'" y1="'+cy+'" x2="'+o.x+'" y2="'+o.y+'" '+
+      'stroke="'+glowOf('nexus', o.n)+'" stroke-width="'+(isB(o.n)?0.8:(0.8+2.2*t)).toFixed(1)+'" '+
+      'opacity="'+(isB(o.n)?0.35:0.75)+'"/>';
+  }).join('');
+  var nodes = N.map(function(o){
+    return ringNode('nexus', o.n, o.x, o.y, 15, 3.4) +
+      '<text x="'+o.x+'" y="'+o.y+'" fill="'+(isB(o.n)?'#5C6673':'#FFFFFF')+'" font-size="9.5" '+
+      'text-anchor="middle" dominant-baseline="central">'+(isB(o.n)?'—':pi(o.n))+'</text>'+
+      '<text x="'+o.x+'" y="'+(o.y+25)+'" fill="'+(isB(o.n)?'#5C6673':'rgba(255,255,255,.60)')+'" '+
+      'font-size="8.5" text-anchor="middle">'+o.n+'</text>';
+  }).join('');
+  return '<svg width="100%" viewBox="0 0 280 136" style="display:block">'+
+    links +
+    '<circle cx="'+cx+'" cy="'+cy+'" r="19" fill="#0A0E16"/>'+
+    '<circle cx="'+cx+'" cy="'+cy+'" r="17" fill="none" stroke="#1A222C" stroke-width="3"/>'+
+    '<circle cx="'+cx+'" cy="'+cy+'" r="17" fill="none" stroke="#4ADEC0" stroke-width="3" '+
+      'stroke-dasharray="'+(2*Math.PI*17*0.197).toFixed(1)+' '+(2*Math.PI*17).toFixed(1)+'" '+
+      'transform="rotate(-90 '+cx+' '+cy+')" stroke-linecap="round"/>'+
+    '<text x="'+cx+'" y="'+cy+'" fill="#FFFFFF" font-size="8.5" text-anchor="middle" '+
+      'dominant-baseline="central">19.7</text>'+
+    nodes + '</svg>';
+}
+
+/* ---------- 02 CELLS 细胞组织 ---------- */
+function vCells(){
+  var B = {
+    '头部': 'M8,8 L84,4 L92,44 L78,66 L12,58 Z',
+    '前肢': 'M12,58 L78,66 L72,104 L16,106 Z',
+    '腹部': 'M84,4 L186,8 L192,52 L188,98 L72,104 L78,66 L92,44 Z',
+    '背鳍': 'M186,8 L272,14 L270,52 L192,52 Z',
+    '尾巴': 'M192,52 L270,52 L268,100 L188,98 Z'
+  };
+  var seeds = {'头部':[46,32], '前肢':[44,84], '腹部':[132,54], '背鳍':[228,30], '尾巴':[230,76]};
+  var order = ['头部','前肢','腹部','背鳍','尾巴'];
+  var body = order.map(function(n){
+    var p = '<path d="'+B[n]+'" fill="'+fillOf('cells',n)+'" stroke="'+strokeOf('cells',n)+
+      '" stroke-width="1.2" stroke-linejoin="round"/>';
+    if(!isB(n)){
+      var sd = seeds[n], r = 3 + 9*k(n);
+      p += '<circle cx="'+sd[0]+'" cy="'+sd[1]+'" r="'+r.toFixed(1)+'" fill="'+glowOf('cells',n)+'" opacity=".38"/>';
+      p += '<circle cx="'+sd[0]+'" cy="'+sd[1]+'" r="1.6" fill="#FFFFFF" opacity=".55"/>';
+    }else{
+      p += '<path d="M32,78 L48,86 L38,94 M52,80 L46,92" stroke="rgba(255,255,255,.45)" '+
+        'stroke-width="1" fill="none"/>';
+    }
+    return p;
+  }).join('');
+  var labels = order.map(function(n){
+    var sd = seeds[n];
+    return '<text x="'+sd[0]+'" y="'+(sd[1]+ (isB(n)?18:20))+'" fill="'+(isB(n)?'#5C6673':'rgba(255,255,255,.62)')+
+      '" font-size="8.5" text-anchor="middle">'+n+'</text>';
+  }).join('');
+  return '<svg width="100%" viewBox="0 0 280 112" style="display:block">'+body+labels+'</svg>';
+}
+
+/* ---------- 03 PETALS 曼陀罗 ---------- */
+function vPetals(){
+  var cx = 140, cy = 62;
+  var order = ['头部','背鳍','尾巴','腹部','前肢'];
+  var petals = order.map(function(n, i){
+    var a = i * 72;
+    var isBroken = isB(n);
+    var s = '<ellipse cx="140" cy="26" rx="13" ry="31" transform="rotate('+a+' 140 62)" '+
+      'fill="'+fillOf('petals',n)+'" stroke="'+strokeOf('petals',n)+'" stroke-width="1.1"/>';
+    if(!isBroken){
+      s += '<ellipse cx="140" cy="26" rx="5" ry="20" transform="rotate('+a+' 140 62)" '+
+        'fill="'+glowOf('petals',n)+'" opacity=".30"/>';
+    }
+    var rad = (a - 90) * Math.PI/180;
+    var lx = 140 + Math.cos(rad)*58, ly = 62 + Math.sin(rad)*58;
+    s += '<text x="'+lx.toFixed(1)+'" y="'+ly.toFixed(1)+'" fill="'+(isBroken?'#5C6673':'rgba(255,255,255,.72)')+
+      '" font-size="8.5" text-anchor="middle" dominant-baseline="central">'+
+      (isBroken?'—':pi(n)+'%')+'</text>';
+    return s;
+  }).join('');
+  return '<svg width="100%" viewBox="0 0 280 124" style="display:block">'+
+    petals +
+    '<circle cx="'+cx+'" cy="'+cy+'" r="11" fill="none" stroke="'+glowOf('petals','腹部')+'" stroke-width="1.6"/>'+
+    '<circle cx="'+cx+'" cy="'+cy+'" r="5" fill="#E8B44A" opacity=".55"/>'+
+    '<text x="'+cx+'" y="'+(cy+20)+'" fill="rgba(255,255,255,.55)" font-size="8" '+
+    'text-anchor="middle">19.7%</text>'+
+  '</svg>';
+}
+
+/* ---------- 04 SPECTRUM 能量柱 ---------- */
+function vSpectrum(){
+  var order = ['头部','前肢','腹部','尾巴','背鳍'];
+  var W = 30, GAP = 12, X0 = (280 - (W*5 + GAP*4))/2, H = 88, BASE = 100;
+  var cols = order.map(function(n, i){
+    var x = X0 + i*(W+GAP), isBroken = isB(n);
+    var f = isBroken ? 0.03 : k(n);
+    var h = H * f;
+    var s = '<rect x="'+x+'" y="'+(BASE-H)+'" width="'+W+'" height="'+H+'" fill="#141B24" rx="2"/>';
+    if(h > 0.5){
+      s += '<rect x="'+x+'" y="'+(BASE-h)+'" width="'+W+'" height="'+h.toFixed(1)+'" fill="'+fillOf('spec',n)+'" rx="2"/>';
+      s += '<rect x="'+(x+3)+'" y="'+(BASE-h+3)+'" width="'+(W-6)+'" height="'+
+        Math.max(0, h*0.34).toFixed(1)+'" fill="rgba(255,255,255,.07)" rx="1.5"/>';
+      s += '<rect x="'+x+'" y="'+(BASE-h)+'" width="'+W+'" height="2" fill="'+glowOf('spec',n)+'"/>';
+      s += '<ellipse cx="'+(x+W/2)+'" cy="'+(BASE-h)+'" rx="'+(W/2+5)+'" ry="9" fill="'+glowOf('spec',n)+'" opacity=".28"/>';
+      s += '<ellipse cx="'+(x+W/2)+'" cy="'+BASE+'" rx="'+(W/2+2)+'" ry="3" fill="'+glowOf('spec',n)+'" opacity=".16"/>';
+    }
+    s += '<text x="'+(x+W/2)+'" y="'+(BASE+11)+'" fill="'+(isBroken?'#5C6673':'rgba(255,255,255,.68)')+
+      '" font-size="8.5" text-anchor="middle">'+n+'</text>';
+    s += '<text x="'+(x+W/2)+'" y="'+(BASE+22)+'" fill="'+(isBroken?'#4E5766':'rgba(255,255,255,.42)')+
+      '" font-size="8" text-anchor="middle">'+(isBroken?'已断':pi(n)+'%')+'</text>';
+    return s;
+  }).join('');
+  return '<svg width="100%" viewBox="0 0 280 128" style="display:block">'+
+    '<line x1="0" y1="100.5" x2="280" y2="100.5" stroke="rgba(255,255,255,.10)" stroke-width="1"/>'+
+    cols + '</svg>';
+}
+
+/* ---------- 05 ORBIT 轨道行星 ---------- */
+function vOrbit(){
+  var cx = 140, cy = 62;
+  var N = [
+    {n:'头部', a:-140, r:74, s:8},
+    {n:'背鳍', a:-58,  r:62, s:6},
+    {n:'尾巴', a:24,   r:86, s:7},
+    {n:'腹部', a:118,  r:56, s:9},
+    {n:'前肢', a:196,  r:70, s:5}
+  ];
+  var rings = N.map(function(o){
+    var rx = o.r, ry = o.r*0.42;
+    return '<ellipse cx="'+cx+'" cy="'+cy+'" rx="'+rx+'" ry="'+ry.toFixed(1)+'" fill="none" '+
+      'stroke="rgba(255,255,255,.075)" stroke-width=".8"/>';
+  }).join('');
+  var planets = N.map(function(o){
+    var rad = o.a * Math.PI/180;
+    var px = cx + Math.cos(rad)*o.r, py = cy + Math.sin(rad)*o.r*0.42;
+    var isBroken = isB(o.n);
+    var s = '';
+    if(!isBroken){
+      s += '<circle cx="'+px.toFixed(1)+'" cy="'+py.toFixed(1)+'" r="'+(o.s+5)+'" fill="'+glowOf('orbit',o.n)+'" opacity=".18"/>';
+    }
+    s += '<circle cx="'+px.toFixed(1)+'" cy="'+py.toFixed(1)+'" r="'+o.s+'" fill="'+
+      (isBroken?'rgba(255,255,255,.06)':fillOf('orbit',o.n))+'" stroke="'+strokeOf('orbit',o.n)+
+      '" stroke-width="1.1"'+(isBroken?' stroke-dasharray="2 3"':'')+'/>';
+    s += '<text x="'+px.toFixed(1)+'" y="'+(py+o.s+11).toFixed(1)+'" fill="'+
+      (isBroken?'#5C6673':'rgba(255,255,255,.66)')+'" font-size="8.5" text-anchor="middle">'+
+      (isBroken?'—':o.n+' '+pi(o.n)+'%')+'</text>';
+    return s;
+  }).join('');
+  return '<svg width="100%" viewBox="0 0 280 132" style="display:block">'+
+    rings +
+    '<circle cx="'+cx+'" cy="'+cy+'" r="13" fill="none" stroke="#9B8CFF" stroke-width="1.6" opacity=".8"/>'+
+    '<circle cx="'+cx+'" cy="'+cy+'" r="5" fill="#9B8CFF" opacity=".5"/>'+
+    planets + '</svg>';
+}
+
+/* ---------- 06 CONSTELLATION 星图 ---------- */
+function vStar(){
+  var N = [
+    {n:'头部', x:56,  y:28, r:9},
+    {n:'背鳍', x:148, y:16, r:7},
+    {n:'尾巴', x:240, y:44, r:6},
+    {n:'腹部', x:176, y:96, r:10},
+    {n:'前肢', x:70,  y:98, r:5}
+  ];
+  var EDGES = [[0,1],[1,2],[2,3],[3,4],[4,0],[0,3]];
+  var links = EDGES.map(function(e){
+    var a = N[e[0]], b = N[e[1]];
+    var t = (k(a.n) + k(b.n)) / 2;
+    return '<line x1="'+a.x+'" y1="'+a.y+'" x2="'+b.x+'" y2="'+b.y+'" '+
+      'stroke="rgba(220,230,255,'+(0.10 + 0.30*t).toFixed(2)+')" stroke-width=".9"/>';
+  }).join('');
+  var dust = '';
+  for(var i = 0; i < 34; i++){
+    var dx = (i*97 % 271) + 5, dy = (i*53 % 111) + 5;
+    dust += '<circle cx="'+dx+'" cy="'+dy+'" r="0.7" fill="rgba(255,255,255,'+(0.06 + (i%5)*0.022).toFixed(2)+')"/>';
+  }
+  var stars = N.map(function(o){
+    var isBroken = isB(o.n);
+    var s = '';
+    if(!isBroken){
+      s += '<circle cx="'+o.x+'" cy="'+o.y+'" r="'+(o.r*2.1)+'" fill="'+glowOf('star',o.n)+'" opacity=".14"/>';
+      s += '<circle cx="'+o.x+'" cy="'+o.y+'" r="'+(o.r*1.5)+'" fill="'+glowOf('star',o.n)+'" opacity=".20"/>';
+    }
+    s += '<circle cx="'+o.x+'" cy="'+o.y+'" r="'+o.r+'" fill="'+
+      (isBroken?'rgba(255,255,255,.07)':'#EAF0FF')+'" opacity="'+(isBroken?1:(0.45+0.55*k(o.n)).toFixed(2))+'"/>';
+    if(isBroken){
+      s += '<circle cx="'+o.x+'" cy="'+o.y+'" r="'+(o.r+3)+'" fill="none" '+
+        'stroke="rgba(255,255,255,.20)" stroke-width=".9" stroke-dasharray="2 3"/>';
+    }
+    s += '<text x="'+o.x+'" y="'+(o.y+o.r+11)+'" fill="'+(isBroken?'#5C6673':'rgba(226,236,255,.70)')+
+      '" font-size="8.5" text-anchor="middle">'+o.n+'</text>';
+    return s;
+  }).join('');
+  return '<svg width="100%" viewBox="0 0 280 122" style="display:block">'+
+    dust + links + stars + '</svg>';
+}
+
+var VERSIONS = [
+  {id:'01', key:'nexus',  name:'NEXUS · 神经节点',   fn:vNexus,
+   desc:'中心节点是怪物本体，五个部位节点按解剖方位环绕，突触连线粗细 = 血量。像神经元网络。',
+   meta:'节点 <b>圆环弧长</b> = 血量 · 连线宽 = 血量 · 纯 XAML 可做'},
+  {id:'02', key:'cells',  name:'CELLS · 细胞组织',   fn:vCells,
+   desc:'五块不规则有机区拼合成一个整体，像显微镜下的组织切片。区块内亮度 = 血量，核心亮点 = 血量。',
+   meta:'<b>手写 5 条 Path</b> 拼合 · 纯 XAML 可做 · 最有生物感'},
+  {id:'03', key:'petals', name:'PETALS · 曼陀罗',    fn:vPetals,
+   desc:'五片花瓣辐射对称，花瓣亮度 = 血量，中心是总体血量。完全脱离解剖结构，纯几何之美。',
+   meta:'<b>椭圆 + rotate</b> · 纯 XAML 可做 · 对称性最强'},
+  {id:'04', key:'spec',   name:'SPECTRUM · 能量柱',  fn:vSpectrum,
+   desc:'五根发光柱从基线升起，柱高 = 血量，柱顶有光晕。像均衡器 / 等离子容器。',
+   meta:'矩形 + 椭圆光晕 · 纯 XAML 可做 · 纵向对比最直观'},
+  {id:'05', key:'orbit',  name:'ORBIT · 轨道行星',   fn:vOrbit,
+   desc:'中心核心 + 五条透视椭圆轨道，每个部位是轨道上的一颗行星，星球大小 = 血量。',
+   meta:'椭圆轨道 + 三角函数定位 · 建议 ViewModel 算好坐标'},
+  {id:'06', key:'star',   name:'CONSTELLATION · 星图', fn:vStar,
+   desc:'五个星点用连线结成星座，星点亮度与大小 = 血量，背景有星尘。最轻盈的一版。',
+   meta:'圆点 + 连线 + 星尘 · 纯 XAML 可做 · 最不抢视线'}
+];
+
+function legend(){
+  return '<div class="legend">' + PARTS.map(function(p){
+    if(p.broken) return '<span class="gone">'+p.name+' 已断</span>';
+    return '<span>'+p.name+' '+pi(p.name)+'%</span>';
+  }).join('<span class="sep">·</span>') + '</div>';
+}
+function hud(v, uid){
+  return '<div class="mname">嗟怨震天怨虎龙</div>'+
+    '<div class="hp-row"><div class="hp-track"><div class="hp-fill" style="width:19.7%"></div></div>'+
+      '<div class="hp-text">4820 / 24500</div></div>'+
+    '<div class="srow">' + SCHIPS.map(function(c){
+      return '<span class="schip"><em style="background:'+c.c+'"></em><span>'+c.l+'</span><b>'+c.v+'</b></span>';
+    }).join('') + '</div>'+
+    '<div class="ptitle">部位 · 填充亮度 = 剩余血量</div>'+
+    v.fn() + legend() +
+    '<div class="arow">' + AILS.map(function(a){
+      return '<span class="achip"><em style="background:'+a.c+'"></em><span>'+a.l+'</span><b>'+a.v+'</b></span>';
+    }).join('') + '</div>';
+}
+
+function build(){
+  var g = document.getElementById('gallery');
+  if(!g) return;
+  g.innerHTML = VERSIONS.map(function(v, i){
+    return '<div class="cell">'+
+      '<div class="idx">'+v.id+'</div>'+
+      '<div class="lname">'+v.name+'</div>'+
+      '<div class="ldesc">'+v.desc+'</div>'+
+      '<div class="ruler"><i></i><span>300px</span></div>'+
+      '<div class="hud" id="hud-'+i+'">'+hud(v, i)+'</div>'+
+      '<div class="lmeta">'+v.meta+'</div>'+
+    '</div>';
+  }).join('');
+}
+
+function verdict(){
+  var v = document.getElementById('verdict');
+  if(!v) return;
+  var rows = '';
+  VERSIONS.forEach(function(ver, i){
+    var el = document.getElementById('hud-'+i);
+    if(!el) return;
+    rows += '<tr><td>'+ver.id+' '+ver.name+'</td>'+
+      '<td>'+el.getBoundingClientRect().height.toFixed(0)+'px</td>'+
+      '<td>'+(el.scrollWidth - el.clientWidth)+'px</td>'+
+      '<td>'+Math.round(el.getBoundingClientRect().width)+'px</td></tr>';
+  });
+  v.innerHTML = '<h3>实测（无头 Chrome，1180 视口）</h3>'+
+    '<table><tr><th>版本</th><th>卡片总高</th><th>横向溢出</th><th>宽度</th></tr>'+rows+'</table>'+
+    '<p style="margin:14px 0 0"><b>为什么这六版能通吃所有怪物</b>：它们只消费两个数据 —— '+
+    '部位的<b>方位</b>（哪个部位在前/后/上/下）和<b>血量比例</b>。'+
+    '换成任何一只怪，只是节点数量与百分比变，<b>布局代码一行不改、零美术资产</b>。</p>'+
+    '<p style="margin:10px 0 0"><b>与现行版的关系</b>：同样不是替换，是新增一层。'+
+    '现有文字行可以保留在下方，也可以折叠掉只留可视化区 + 一行图例。</p>';
+}
+
+window.__DIAG__ = function(){
+  var ids = VERSIONS.map(function(v, i){ return 'hud-'+i; });
+  var bad = [], cards = {};
+  ids.forEach(function(id){
+    var el = document.getElementById(id);
+    if(!el){ bad.push(id+':missing'); return; }
+    var over = el.scrollWidth - el.clientWidth;
+    var w = el.getBoundingClientRect().width;
+    if(over > 1) bad.push(id+':overflow'+over);
+    if(Math.round(w) !== 300) bad.push(id+':width'+w);
+    cards[id] = 'w'+Math.round(w)+' h'+Math.round(el.getBoundingClientRect().height)+' over'+over;
+  });
+  var svgCount = document.querySelectorAll('.hud svg').length;
+  var docOver = document.documentElement.scrollWidth - document.documentElement.clientWidth;
+  var errs = (window.__ERRS__ || []).length;
+  return { ok: bad.length === 0 && errs === 0, bad: bad, cards: cards,
+    svgCount: svgCount, docOverflowX: docOver, errors: window.__ERRS__ };
+};
+
+build();
+verdict();
+try {
+  var dg = document.getElementById('__diag__');
+  if(dg) dg.textContent = JSON.stringify(window.__DIAG__());
+} catch (e) {
+  var dg2 = document.getElementById('__diag__');
+  if(dg2) dg2.textContent = 'DIAG_FAIL: ' + e.message;
+}
+</script>
+</body>
+</html>

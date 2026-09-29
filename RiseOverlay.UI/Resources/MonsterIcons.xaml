@@ -1,0 +1,625 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+
+    <!--
+        由 Scripts/gen_monster_icons.py 生成，请勿手改结构。
+
+        触发键：MonsterHudViewModel.Name / QuestBriefingTargetViewModel.Name
+                == RiseOverlay.Data 的 MonsterStaticDto.Title（逐字相等，112 条零重名）
+        图标  ：Resources/Monsters/<emId>.png，原画裁 alpha 边界后归一化到 64px
+
+        ⚠ 纯展示，不参与任何战斗数值或映射逻辑。
+           Name 命中不到时 Image 整体 Collapsed，宽度回退到加图标前的水平。
+    -->
+
+    <!-- HUD 里图标的渲染边长；想放大就改这一个数 -->
+    <sys:Double x:Key="Hud.MonsterIconSize">20</sys:Double>
+
+    <!-- ===== 位图源 ===== -->
+    <BitmapImage x:Key="Mon.em001_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em001_00.png" />
+    <BitmapImage x:Key="Mon.em001_02" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em001_02.png" />
+    <BitmapImage x:Key="Mon.em001_07" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em001_07.png" />
+    <BitmapImage x:Key="Mon.em002_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em002_00.png" />
+    <BitmapImage x:Key="Mon.em002_02" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em002_02.png" />
+    <BitmapImage x:Key="Mon.em002_07" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em002_07.png" />
+    <BitmapImage x:Key="Mon.em003_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em003_00.png" />
+    <BitmapImage x:Key="Mon.em004_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em004_00.png" />
+    <BitmapImage x:Key="Mon.em007_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em007_00.png" />
+    <BitmapImage x:Key="Mon.em007_07" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em007_07.png" />
+    <BitmapImage x:Key="Mon.em019_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em019_00.png" />
+    <BitmapImage x:Key="Mon.em020_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em020_00.png" />
+    <BitmapImage x:Key="Mon.em023_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em023_00.png" />
+    <BitmapImage x:Key="Mon.em023_05" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em023_05.png" />
+    <BitmapImage x:Key="Mon.em024_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em024_00.png" />
+    <BitmapImage x:Key="Mon.em024_08" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em024_08.png" />
+    <BitmapImage x:Key="Mon.em025_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em025_00.png" />
+    <BitmapImage x:Key="Mon.em025_08" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em025_08.png" />
+    <BitmapImage x:Key="Mon.em027_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em027_00.png" />
+    <BitmapImage x:Key="Mon.em027_08" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em027_08.png" />
+    <BitmapImage x:Key="Mon.em032_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em032_00.png" />
+    <BitmapImage x:Key="Mon.em037_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em037_00.png" />
+    <BitmapImage x:Key="Mon.em037_02" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em037_02.png" />
+    <BitmapImage x:Key="Mon.em042_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em042_00.png" />
+    <BitmapImage x:Key="Mon.em044_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em044_00.png" />
+    <BitmapImage x:Key="Mon.em047_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em047_00.png" />
+    <BitmapImage x:Key="Mon.em054_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em054_00.png" />
+    <BitmapImage x:Key="Mon.em057_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em057_00.png" />
+    <BitmapImage x:Key="Mon.em057_07" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em057_07.png" />
+    <BitmapImage x:Key="Mon.em058_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em058_00.png" />
+    <BitmapImage x:Key="Mon.em059_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em059_00.png" />
+    <BitmapImage x:Key="Mon.em060_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em060_00.png" />
+    <BitmapImage x:Key="Mon.em060_07" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em060_07.png" />
+    <BitmapImage x:Key="Mon.em061_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em061_00.png" />
+    <BitmapImage x:Key="Mon.em062_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em062_00.png" />
+    <BitmapImage x:Key="Mon.em071_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em071_00.png" />
+    <BitmapImage x:Key="Mon.em071_05" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em071_05.png" />
+    <BitmapImage x:Key="Mon.em072_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em072_00.png" />
+    <BitmapImage x:Key="Mon.em072_08" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em072_08.png" />
+    <BitmapImage x:Key="Mon.em077_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em077_00.png" />
+    <BitmapImage x:Key="Mon.em081_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em081_00.png" />
+    <BitmapImage x:Key="Mon.em082_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em082_00.png" />
+    <BitmapImage x:Key="Mon.em082_02" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em082_02.png" />
+    <BitmapImage x:Key="Mon.em082_07" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em082_07.png" />
+    <BitmapImage x:Key="Mon.em086_05" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em086_05.png" />
+    <BitmapImage x:Key="Mon.em086_08" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em086_08.png" />
+    <BitmapImage x:Key="Mon.em089_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em089_00.png" />
+    <BitmapImage x:Key="Mon.em089_05" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em089_05.png" />
+    <BitmapImage x:Key="Mon.em090_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em090_00.png" />
+    <BitmapImage x:Key="Mon.em090_01" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em090_01.png" />
+    <BitmapImage x:Key="Mon.em091_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em091_00.png" />
+    <BitmapImage x:Key="Mon.em092_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em092_00.png" />
+    <BitmapImage x:Key="Mon.em093_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em093_00.png" />
+    <BitmapImage x:Key="Mon.em093_01" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em093_01.png" />
+    <BitmapImage x:Key="Mon.em094_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em094_00.png" />
+    <BitmapImage x:Key="Mon.em094_01" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em094_01.png" />
+    <BitmapImage x:Key="Mon.em095_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em095_00.png" />
+    <BitmapImage x:Key="Mon.em095_01" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em095_01.png" />
+    <BitmapImage x:Key="Mon.em096_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em096_00.png" />
+    <BitmapImage x:Key="Mon.em097_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em097_00.png" />
+    <BitmapImage x:Key="Mon.em098_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em098_00.png" />
+    <BitmapImage x:Key="Mon.em099_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em099_00.png" />
+    <BitmapImage x:Key="Mon.em099_05" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em099_05.png" />
+    <BitmapImage x:Key="Mon.em100_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em100_00.png" />
+    <BitmapImage x:Key="Mon.em102_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em102_00.png" />
+    <BitmapImage x:Key="Mon.em107_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em107_00.png" />
+    <BitmapImage x:Key="Mon.em108_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em108_00.png" />
+    <BitmapImage x:Key="Mon.em109_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em109_00.png" />
+    <BitmapImage x:Key="Mon.em118_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em118_00.png" />
+    <BitmapImage x:Key="Mon.em118_05" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em118_05.png" />
+    <BitmapImage x:Key="Mon.em124_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em124_00.png" />
+    <BitmapImage x:Key="Mon.em132_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em132_00.png" />
+    <BitmapImage x:Key="Mon.em132_05" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em132_05.png" />
+    <BitmapImage x:Key="Mon.em133_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em133_00.png" />
+    <BitmapImage x:Key="Mon.em134_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em134_00.png" />
+    <BitmapImage x:Key="Mon.em135_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em135_00.png" />
+    <BitmapImage x:Key="Mon.em136_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em136_00.png" />
+    <BitmapImage x:Key="Mon.em136_01" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/em136_01.png" />
+    <BitmapImage x:Key="Mon.ems003_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems003_00.png" />
+    <BitmapImage x:Key="Mon.ems005_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems005_00.png" />
+    <BitmapImage x:Key="Mon.ems006_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems006_00.png" />
+    <BitmapImage x:Key="Mon.ems007_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems007_00.png" />
+    <BitmapImage x:Key="Mon.ems008_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems008_00.png" />
+    <BitmapImage x:Key="Mon.ems009_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems009_00.png" />
+    <BitmapImage x:Key="Mon.ems013_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems013_00.png" />
+    <BitmapImage x:Key="Mon.ems014_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems014_00.png" />
+    <BitmapImage x:Key="Mon.ems016_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems016_00.png" />
+    <BitmapImage x:Key="Mon.ems019_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems019_00.png" />
+    <BitmapImage x:Key="Mon.ems020_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems020_00.png" />
+    <BitmapImage x:Key="Mon.ems021_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems021_00.png" />
+    <BitmapImage x:Key="Mon.ems025_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems025_00.png" />
+    <BitmapImage x:Key="Mon.ems026_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems026_00.png" />
+    <BitmapImage x:Key="Mon.ems027_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems027_00.png" />
+    <BitmapImage x:Key="Mon.ems029_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems029_00.png" />
+    <BitmapImage x:Key="Mon.ems034_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems034_00.png" />
+    <BitmapImage x:Key="Mon.ems035_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems035_00.png" />
+    <BitmapImage x:Key="Mon.ems036_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems036_00.png" />
+    <BitmapImage x:Key="Mon.ems038_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems038_00.png" />
+    <BitmapImage x:Key="Mon.ems039_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems039_00.png" />
+    <BitmapImage x:Key="Mon.ems040_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems040_00.png" />
+    <BitmapImage x:Key="Mon.ems041_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems041_00.png" />
+    <BitmapImage x:Key="Mon.ems042_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems042_00.png" />
+    <BitmapImage x:Key="Mon.ems043_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems043_00.png" />
+    <BitmapImage x:Key="Mon.ems044_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems044_00.png" />
+    <BitmapImage x:Key="Mon.ems049_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems049_00.png" />
+    <BitmapImage x:Key="Mon.ems051_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems051_00.png" />
+    <BitmapImage x:Key="Mon.ems090_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems090_00.png" />
+    <BitmapImage x:Key="Mon.ems091_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems091_00.png" />
+    <BitmapImage x:Key="Mon.ems092_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems092_00.png" />
+    <BitmapImage x:Key="Mon.ems092_01" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems092_01.png" />
+    <BitmapImage x:Key="Mon.ems093_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems093_00.png" />
+    <BitmapImage x:Key="Mon.ems094_00" UriSource="pack://application:,,,/RiseOverlay.UI;component/Resources/Monsters/ems094_00.png" />
+
+    <!-- ===== 名字 → 图标 ===== -->
+    <Style x:Key="MonsterIconStyle" TargetType="Image">
+        <Setter Property="Width" Value="{StaticResource Hud.MonsterIconSize}" />
+        <Setter Property="Height" Value="{StaticResource Hud.MonsterIconSize}" />
+        <Setter Property="Stretch" Value="Uniform" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="0,0,5,0" />
+        <Setter Property="RenderOptions.BitmapScalingMode" Value="HighQuality" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="Visibility" Value="Collapsed" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Name}" Value="雌火龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em001_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="金火龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em001_02}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="霸主・雌火龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em001_07}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="火龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em002_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="银火龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em002_02}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="霸主・火龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em002_07}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="奇怪龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em003_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="岩龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em004_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="角龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em007_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="霸主・角龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em007_07}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="大名盾蟹">
+                <Setter Property="Source" Value="{StaticResource Mon.em019_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="将军镰蟹">
+                <Setter Property="Source" Value="{StaticResource Mon.em020_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="金狮子">
+                <Setter Property="Source" Value="{StaticResource Mon.em023_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="激昂金狮子">
+                <Setter Property="Source" Value="{StaticResource Mon.em023_05}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="钢龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em024_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="怪异克服钢龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em024_08}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="霞龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em025_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="怪异克服霞龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em025_08}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="炎王龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em027_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="怪异克服炎王龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em027_08}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="轰龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em032_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="迅龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em037_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="月迅龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em037_02}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="冰牙龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em042_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="土砂龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em044_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="水兽">
+                <Setter Property="Source" Value="{StaticResource Mon.em047_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="眠狗龙王">
+                <Setter Property="Source" Value="{StaticResource Mon.em054_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="雷狼龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em057_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="霸主・雷狼龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em057_07}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="岚龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em058_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="毒狗龙王">
+                <Setter Property="Source" Value="{StaticResource Mon.em059_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="青熊兽">
+                <Setter Property="Source" Value="{StaticResource Mon.em060_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="霸主・青熊兽">
+                <Setter Property="Source" Value="{StaticResource Mon.em060_07}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="白兔兽">
+                <Setter Property="Source" Value="{StaticResource Mon.em061_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="赤甲兽">
+                <Setter Property="Source" Value="{StaticResource Mon.em062_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="黑蚀龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em071_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="混沌黑蚀龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em071_05}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="天廻龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em072_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="怪异克服天廻龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em072_08}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="千刃龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em077_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="电龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em081_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="泡狐龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em082_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="焰狐龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em082_02}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="霸主・泡狐龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em082_07}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="神秘红光天彗龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em086_05}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="怪异克服天彗龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em086_08}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="怨虎龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em089_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="嗟怨震天怨虎龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em089_05}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="天狗兽">
+                <Setter Property="Source" Value="{StaticResource Mon.em090_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="绯天狗兽">
+                <Setter Property="Source" Value="{StaticResource Mon.em090_01}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="伞鸟">
+                <Setter Property="Source" Value="{StaticResource Mon.em091_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="河童蛙">
+                <Setter Property="Source" Value="{StaticResource Mon.em092_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="人鱼龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em093_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="冰人鱼龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em093_01}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="妃蜘蛛">
+                <Setter Property="Source" Value="{StaticResource Mon.em094_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="炽妃蜘蛛">
+                <Setter Property="Source" Value="{StaticResource Mon.em094_01}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="泥翁龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em095_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="熔翁龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em095_01}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="风神龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em096_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="雪鬼兽">
+                <Setter Property="Source" Value="{StaticResource Mon.em097_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="镰鼬龙王">
+                <Setter Property="Source" Value="{StaticResource Mon.em098_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="雷神龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em099_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="百龙渊源雷神龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em099_05}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="蛮颚龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em100_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="毒妖鸟">
+                <Setter Property="Source" Value="{StaticResource Mon.em102_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="搔鸟">
+                <Setter Property="Source" Value="{StaticResource Mon.em107_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="泥鱼龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em108_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="飞雷龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em109_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="爆鳞龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em118_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="红莲爆鳞龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em118_05}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="冰呪龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em124_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="爵银龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em132_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="原初形态爵银龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em132_05}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="冰狼龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em133_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="刚缠兽">
+                <Setter Property="Source" Value="{StaticResource Mon.em134_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="冥渊龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em135_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="棘龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em136_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="棘茶龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em136_01}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="精灵鹿">
+                <Setter Property="Source" Value="{StaticResource Mon.ems003_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="巨甲虫">
+                <Setter Property="Source" Value="{StaticResource Mon.ems005_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="巨蜂">
+                <Setter Property="Source" Value="{StaticResource Mon.ems006_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="艾露猫">
+                <Setter Property="Source" Value="{StaticResource Mon.ems007_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="梅拉露">
+                <Setter Property="Source" Value="{StaticResource Mon.ems008_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="蓝速龙">
+                <Setter Property="Source" Value="{StaticResource Mon.ems009_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="野猪">
+                <Setter Property="Source" Value="{StaticResource Mon.ems013_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="波波">
+                <Setter Property="Source" Value="{StaticResource Mon.ems014_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="雪鹿">
+                <Setter Property="Source" Value="{StaticResource Mon.ems016_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="翼蛇龙">
+                <Setter Property="Source" Value="{StaticResource Mon.ems019_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="盾蟹">
+                <Setter Property="Source" Value="{StaticResource Mon.ems020_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="镰蟹">
+                <Setter Property="Source" Value="{StaticResource Mon.ems021_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="硬甲龙">
+                <Setter Property="Source" Value="{StaticResource Mon.ems025_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="飞甲虫">
+                <Setter Property="Source" Value="{StaticResource Mon.ems026_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="甲虫">
+                <Setter Property="Source" Value="{StaticResource Mon.ems027_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="咬鱼">
+                <Setter Property="Source" Value="{StaticResource Mon.ems029_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="狗龙">
+                <Setter Property="Source" Value="{StaticResource Mon.ems034_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="雌狗龙">
+                <Setter Property="Source" Value="{StaticResource Mon.ems035_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="眠狗龙">
+                <Setter Property="Source" Value="{StaticResource Mon.ems036_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="砂鱼">
+                <Setter Property="Source" Value="{StaticResource Mon.ems038_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="水生兽">
+                <Setter Property="Source" Value="{StaticResource Mon.ems039_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="熔岩兽">
+                <Setter Property="Source" Value="{StaticResource Mon.ems040_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="垂皮龙">
+                <Setter Property="Source" Value="{StaticResource Mon.ems041_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="丸鸟">
+                <Setter Property="Source" Value="{StaticResource Mon.ems042_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="毒狗龙">
+                <Setter Property="Source" Value="{StaticResource Mon.ems043_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="变形幼冰鲨">
+                <Setter Property="Source" Value="{StaticResource Mon.ems044_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="贼龙">
+                <Setter Property="Source" Value="{StaticResource Mon.ems049_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="冠突龙">
+                <Setter Property="Source" Value="{StaticResource Mon.ems051_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="狸兽">
+                <Setter Property="Source" Value="{StaticResource Mon.ems090_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="镰鼬龙">
+                <Setter Property="Source" Value="{StaticResource Mon.ems091_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="臣蜘蛛">
+                <Setter Property="Source" Value="{StaticResource Mon.ems092_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="卫蜘蛛">
+                <Setter Property="Source" Value="{StaticResource Mon.ems092_01}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="丽羊兽">
+                <Setter Property="Source" Value="{StaticResource Mon.ems093_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Name}" Value="狡狗龙">
+                <Setter Property="Source" Value="{StaticResource Mon.ems094_00}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <!-- 别名：HunterPie 侧 U+00B7 写法 -->
+            <DataTrigger Binding="{Binding Name}" Value="霸主·雌火龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em001_07}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <!-- 别名：HunterPie 侧 U+00B7 写法 -->
+            <DataTrigger Binding="{Binding Name}" Value="霸主·火龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em002_07}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <!-- 别名：HunterPie 侧 U+00B7 写法 -->
+            <DataTrigger Binding="{Binding Name}" Value="霸主·角龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em007_07}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <!-- 别名：HunterPie 侧 U+00B7 写法 -->
+            <DataTrigger Binding="{Binding Name}" Value="霸主·雷狼龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em057_07}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <!-- 别名：HunterPie 侧 U+00B7 写法 -->
+            <DataTrigger Binding="{Binding Name}" Value="霸主·青熊兽">
+                <Setter Property="Source" Value="{StaticResource Mon.em060_07}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <!-- 别名：HunterPie 侧 U+00B7 写法 -->
+            <DataTrigger Binding="{Binding Name}" Value="霸主·泡狐龙">
+                <Setter Property="Source" Value="{StaticResource Mon.em082_07}" />
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+</ResourceDictionary>

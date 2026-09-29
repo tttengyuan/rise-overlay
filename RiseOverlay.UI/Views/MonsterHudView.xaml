@@ -11,6 +11,10 @@
              IsTabStop="False">
     <UserControl.Resources>
         <ResourceDictionary>
+        <!-- 怪物图标：纯声明式 name→png 映射，未命中时 Image 收起、不占宽 -->
+        <ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary Source="pack://application:,,,/RiseOverlay.UI;component/Resources/MonsterIcons.xaml" />
+        </ResourceDictionary.MergedDictionaries>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
         <converters:FractionToLeftMarginConverter x:Key="FractionToLeftMargin" />
 
@@ -426,15 +430,23 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0"
-                           Text="{Binding Name}"
-                           Foreground="{DynamicResource Brushes.Foreground}"
-                           FontSize="{DynamicResource Fonts.Size.Title}"
-                           FontWeight="SemiBold"
-                           TextTrimming="CharacterEllipsis"
-                           TextWrapping="NoWrap"
-                           VerticalAlignment="Center"
-                           Margin="0,0,6,0" />
+                <!-- 怪物图标 + 名字。图标列 Auto：未命中图标时整体 Collapsed，宽度回退到加图标前的水平 -->
+                <Grid Grid.Column="0" VerticalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" MinWidth="0" />
+                    </Grid.ColumnDefinitions>
+                    <Image Grid.Column="0" Style="{StaticResource MonsterIconStyle}" />
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding Name}"
+                               Foreground="{DynamicResource Brushes.Foreground}"
+                               FontSize="{DynamicResource Fonts.Size.Title}"
+                               FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis"
+                               TextWrapping="NoWrap"
+                               VerticalAlignment="Center"
+                               Margin="0,0,6,0" />
+                </Grid>
                 <ItemsControl Grid.Column="1"
                               ItemsSource="{Binding Recommended}"
                               VerticalAlignment="Center"

@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Rise Overlay · 怪物素材可行性 · 78 只</title>
+<style>
+  :root{
+    --page-bg:#070A0F; --page-card:#111721; --page-line:#1D2633;
+    --ink:#E6EDF5; --ink-2:#9AA3B2; --ink-3:#66707E;
+    --panel-bg:rgba(8,12,18,.96); --panel-border:#242B36;
+    --fg:#FFFFFF; --fg-muted:#9AA3B2; --track:#161D26;
+    --hp:#D94B43;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--page-bg);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:44px 28px 80px}
+  h1{font-size:22px;font-weight:500;margin:0 0 10px}
+  h2{font-size:15px;font-weight:500;margin:44px 0 6px;padding-bottom:8px;
+    border-bottom:.5px solid var(--page-line)}
+  .sub{font-size:13px;color:var(--ink-2);line-height:1.8;margin:0 0 10px;max-width:980px}
+  .sub b{color:var(--ink);font-weight:500}
+  .kicker{font-size:12px;color:var(--ink-3);line-height:1.85;margin:0 0 24px;max-width:980px;
+    border-left:2px solid #2A3340;padding-left:14px}
+  .kicker code,.sub code{color:#8FA6BF;font-size:11.5px}
+  .kicker b{color:var(--ink-2);font-weight:500}
+
+  /* ---------- HUD 卡片 ---------- */
+  .gallery{display:flex;flex-wrap:wrap;gap:34px 30px;align-items:flex-start}
+  .cell{width:300px}
+  .idx{font-size:11px;color:var(--ink-3);letter-spacing:1px;margin-bottom:3px}
+  .lname{font-size:13px;font-weight:500;margin-bottom:2px}
+  .ldesc{font-size:11.5px;color:var(--ink-2);line-height:1.6;margin-bottom:9px;min-height:52px}
+  .lmeta{font-size:10.5px;color:var(--ink-3);line-height:1.65;margin-top:7px}
+  .lmeta b{color:var(--ink-2);font-weight:500}
+
+  .hud{width:300px;border-radius:6px;padding:6px 8px;font-size:11px;color:var(--fg);
+    overflow:hidden;border:1px solid var(--panel-border);background:var(--panel-bg);
+    position:relative}
+  .mhead{display:flex;align-items:center;gap:6px;margin-bottom:3px}
+  .portrait{width:26px;height:26px;flex:0 0 26px;border-radius:4px;
+    background:rgba(255,255,255,.045);object-fit:contain;display:block}
+  .mname{font-size:12px;font-weight:500;flex:1;min-width:0;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap}
+  .hp-row{display:flex;align-items:center;gap:6px}
+  .hp-track{flex:1;height:8px;background:var(--track);border-radius:1px;overflow:hidden}
+  .hp-fill{height:100%;border-radius:1px;background:linear-gradient(90deg,#8E2F2B,#D94B43)}
+  .hp-text{font-size:9px;color:var(--fg-muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .srow{display:flex;flex-wrap:wrap;gap:3px;margin:6px 0 7px}
+  .schip{display:flex;align-items:center;gap:3px;padding:1px 4px;border-radius:2px;background:rgba(255,255,255,.045)}
+  .schip em{width:2px;height:9px;border-radius:1px;display:block;font-style:normal}
+  .schip span{font-size:9px;color:var(--fg-muted)}
+  .schip b{font-size:9px;font-weight:500;color:var(--fg)}
+  .arow{display:flex;flex-wrap:wrap;gap:3px;margin-top:5px}
+  .achip{display:flex;align-items:center;gap:3px;padding:1px 4px;border-radius:2px;background:rgba(255,255,255,.045)}
+  .achip em{width:2px;height:9px;border-radius:1px;display:block;font-style:normal}
+  .achip span{font-size:9px;color:var(--fg-muted)}
+  .achip b{font-size:9px;font-weight:500;color:var(--fg)}
+  .legend{margin-top:3px;font-size:9px;color:var(--fg-muted);line-height:1.6;
+    font-variant-numeric:tabular-nums;position:relative;z-index:2}
+  .legend .sep{color:#3A434F;margin:0 3px}
+  .legend .gone{color:#5C6673;text-decoration:line-through}
+
+  /* 剪影：用 alpha 当遮罩，整体染一个色 —— WPF 里就是 OpacityMask + Rectangle */
+  .sil{background:var(--sil-c,#C0453D);
+    -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
+    -webkit-mask-position:center;mask-position:center;
+    -webkit-mask-size:contain;mask-size:contain}
+  .sil-panel{height:84px;width:100%;position:relative;margin:1px 0 2px;
+    border-radius:3px;background:rgba(255,255,255,.022);overflow:hidden}
+  .sil-panel .sil{position:absolute;inset:5px 8px}
+  .silimg{position:absolute;inset:5px 8px;object-fit:contain;width:calc(100% - 16px);
+    height:calc(100% - 10px)}
+  .split{position:absolute;inset:5px 8px}
+  .split-wrap:not(.ready) .split{opacity:0}
+  .split-wrap.ready .split{transition:opacity .25s}
+  .keyrow{display:flex;flex-wrap:wrap;gap:2px 7px;margin-top:4px;font-size:9px;
+    color:var(--fg-muted);position:relative;z-index:2}
+  .keyrow i{display:inline-block;width:6px;height:6px;border-radius:1px;margin-right:3px;
+    vertical-align:middle;font-style:normal}
+  .sil-tag{position:absolute;left:7px;bottom:4px;font-size:9px;color:var(--fg-muted);
+    z-index:2;letter-spacing:.5px}
+  .sil-hp{position:absolute;right:7px;bottom:4px;font-size:9px;color:var(--fg-muted);
+    font-variant-numeric:tabular-nums;z-index:2}
+
+  .watermark{position:absolute;left:8px;right:8px;top:48px;height:104px;
+    opacity:.17;z-index:0;pointer-events:none}
+  .watermark .sil{width:100%;height:100%}
+
+  .ruler{position:relative;height:16px;width:300px;margin-bottom:6px}
+  .ruler::before,.ruler::after{content:"";position:absolute;top:6px;width:1px;height:8px;background:var(--ink-3)}
+  .ruler::before{left:0}.ruler::after{right:0}
+  .ruler i{position:absolute;left:0;right:0;top:9px;height:1px;background:var(--page-line)}
+  .ruler span{position:absolute;left:50%;transform:translateX(-50%);top:-4px;font-size:10px;
+    color:var(--ink-3);background:var(--page-bg);padding:0 6px}
+
+  /* ---------- 盘点表 ---------- */
+  table.audit{border-collapse:collapse;font-size:12px;margin-top:12px;width:100%}
+  table.audit th,table.audit td{text-align:left;padding:7px 12px 7px 0;
+    border-bottom:.5px solid var(--page-line);font-weight:400;color:var(--ink-2);vertical-align:top}
+  table.audit th{color:var(--ink-3);font-size:11px;font-weight:500}
+  table.audit td b{color:var(--ink);font-weight:500}
+  .ok{color:#4ADEC0}.no{color:#D94B43}.warn{color:#EAB308}
+
+  /* ---------- 78 只怪网格 ---------- */
+  .grid{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+  .gi{width:52px;text-align:center}
+  .gi img{width:44px;height:44px;object-fit:contain;display:block;margin:0 auto;
+    background:rgba(255,255,255,.035);border-radius:5px}
+  .gi span{display:block;font-size:8.5px;color:var(--ink-3);margin-top:2px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  .note{background:var(--page-card);border:.5px solid var(--page-line);border-radius:8px;
+    padding:15px 18px;font-size:12.5px;line-height:1.85;color:var(--ink-2);margin-top:16px}
+  .note b{color:var(--ink);font-weight:500}
+  .note code{color:#8FA6BF;font-size:11.5px}
+  .note ul{margin:8px 0 0;padding-left:20px}
+  .note li{margin-bottom:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>怪物素材可行性 · 78 只</h1>
+  <p class="sub">老大给的两个来源都扒了。<b>结论：本地那份是金矿，模型站那份是真 3D 但用不起。</b>
+  但有个卡点必须先说清楚，否则做出来是错的。</p>
+
+  <h2>一、素材盘点（F:\mhrise-app\assets\icons）</h2>
+  <table class="audit">
+    <tr><th>类型</th><th>数量</th><th>尺寸</th><th>是什么</th><th>能不能直接用</th></tr>
+    <tr><td><b>_icon.png</b></td><td>78</td><td>256×256 RGBA</td>
+      <td>怪物头像，透明底</td><td class="ok">能。零映射问题</td></tr>
+    <tr><td><b>_parts_group.png</b></td><td>78</td><td>~600–800 × 200–790</td>
+      <td><b>游戏原生部位剪影</b>，已按部位切成 7–8 个纯色块</td>
+      <td class="warn">形状能用，<b>按部位上色缺映射</b></td></tr>
+    <tr><td><b>_meat.png</b></td><td>78</td><td>同上</td>
+      <td>同一剪影、不同配色（肉質图）</td><td class="warn">同上</td></tr>
+    <tr><td>变体覆盖</td><td>—</td>
+      <td colspan="3"><code>_00</code> 原种 · <code>_01</code> 亚种 · <code>_02</code> 稀少种 ·
+      <code>_05</code> 特殊个体 · <code>_07</code> 霸主 · <code>_08</code> 傀异克服</td></tr>
+  </table>
+  <p class="kicker" style="margin-top:16px">
+    <b>嗟怨震天怨虎龙 = <code>em089_05</code></b> —— 正好是 HUD 样例里那只，全套素材都在。<br>
+    色块用的是标准 8 色高对比调色板：<code>#E6194B</code> 红 · <code>#F58231</code> 橙 ·
+    <code>#FFE119</code> 黄 · <code>#3CB44B</code> 绿 · <code>#42D4F4</code> 青 ·
+    <code>#4363D8</code> 蓝 · <code>#911EB4</code> 紫 · <code>#FFFFFF</code> 白。
+  </p>
+
+  <h2>二、模型站那份：是真 3D，但用不起</h2>
+  <p class="sub">你给的链接是 <b>The Models Resource</b>，不是图库 —— 里面是
+  <code>amatsu.obj</code> / <code>.fbx</code> / <code>.dae</code> + 全套贴图 + 骨骼动画，
+  单只 <b>98.64 MB / 41 个文件</b>，命名同样是 <code>em058</code> 那套 ID。</p>
+  <table class="audit">
+    <tr><th>路线</th><th>可行性</th><th>原因</th></tr>
+    <tr><td>运行时加载 3D</td><td class="no">不可行</td>
+      <td>单只 ~100MB，78 只 ≈ 8GB；项目零 3D 代码、默认 <code>SoftwareOnly</code> 软渲染，
+      真 <code>Viewport3D</code> 会卡成幻灯片</td></tr>
+    <tr><td><b>离线烘焙成 2D</b></td><td class="ok">可行</td>
+      <td>用模型离线渲出剪影/部位图层，只把<b>几百 KB 的 PNG</b> 打进包。本质等于
+      <code>_parts_group.png</code> 的来源</td></tr>
+  </table>
+
+  <h2>三、HUD 用法（真实素材，非示意）</h2>
+  <p class="sub">下面七版全部加载<b>真实 PNG</b>。剪影的染色用的是 CSS <code>mask-image</code>
+  —— 拿 PNG 的 alpha 当遮罩、整体填一个色，<b>在 WPF 里就是 <code>Rectangle.OpacityMask</code>，
+  一行 XAML，运行时可以随便改颜色</b>。<br>
+  <b>A7 是重点</b>：它在浏览器里用 canvas 把 PNG <b>按色块实时拆成 7 个独立图层</b>，
+  每层按对应部位的血量单独染色 —— 这就是「部位血条长在怪物身上」。</p>
+
+  <div class="gallery" id="gallery"></div>
+
+  <h2>四、78 只怪覆盖度</h2>
+  <p class="sub">全部 78 只，含亚种 / 稀少种 / 特殊个体 / 霸主 / 傀异克服。</p>
+  <div class="grid" id="mgrid"></div>
+
+  <h2>五、卡点</h2>
+  <div class="note">
+    <p style="margin:0 0 6px"><b class="warn">卡点 1 · 色块 ↔ 部位名，数据里没有（但比想象的小）</b></p>
+    <p style="margin:0">
+      我把 78 只怪的色块质心全跑了一遍：<b>色号 0（红）在 78/78 只里都出现，质心永远偏右
+      （mean 0.748）</b> —— 所有剪影头朝右、红色 = 头部。<br>
+      但色号 1–7 与部位名的对应<b>不是固定顺序</b>。我拿嗟怨怨虎龙逐色拆层人工确认过
+      （红=头部、紫=尾巴、橙=背部鬃毛、青=后脚、绿=躯干、黄/蓝=左右臂），
+      <b>A7 那一版就是按这张表做出来的</b>。<br>
+      剩下 77 只的映射需要同样的人工确认 —— 但好消息是<b>语义这一侧已经现成了</b>：
+      <code>HunterPie.Core/Game/Data/Definitions/MonsterPartDefinition.cs</code> 里每个部位
+      <b>已经带 <code>PartGroupType Group</code></b>（Head / Horn / Neck / Body / Wings /
+      Arms / Legs / Tail / Special / Misc）。<br>
+      所以映射不是「271 个部位名 → 7 个色块」，而是
+      <b>「78 只 × 7 个色块 → 10 个 PartGroupType」</b> —— 一张小表就能收口。
+    </p>
+
+    <p style="margin:14px 0 6px"><b class="no">卡点 1b · 样例数据是假的</b></p>
+    <p style="margin:0">
+      <code>MonsterHudViewModel.CreateSampleScornedMagnamalo()</code> 用的部位是
+      <b>头部 / 前肢 / 腹部 / 尾巴 / 背鳍</b>，但嗟怨震天怨虎龙的<b>真实部位表</b>是
+      <b>头部 / 躯干 / 右臂 / 左臂 / 背部 / 尾巴 / 后脚</b>（7 个）。<br>
+      另外 <code>PartNameSanitizer.cs</code> 有 <b>271 条</b>词条，且是<b>状态相关</b>的
+      （<code>Head (Ice)</code> / <code>Head (Mud)</code> / <code>Golden Left Arm</code> …）。
+      之前几版设计稿都是拿那份假数据验证的，<b>这点要修正</b>。
+    </p>
+
+    <p style="margin:14px 0 6px"><b class="warn">卡点 2 · 版权</b></p>
+    <p style="margin:0">
+      这些是 Capcom 的游戏素材。我查了 <code>F:\rise-overlay</code> —— 仓库现在
+      <b>一张游戏图都没有</b>（唯一的 <code>qurio_mask.png</code> 是 256×256 噪点遮罩，不是怪物形状）。
+      要打进公开发布的 GitHub Release，这是个需要你拍板的决定。<br>
+      所以这份预览<b>没有把任何图片复制进仓库</b>，全部用
+      <code>file:///F:/mhrise-app/...</code> 外链引用。<br>
+      三个选项：<b>①</b> 不打包，用户自备；<b>②</b> 只做本地/自用；
+      <b>③</b> 打包并接受风险。
+    </p>
+  </div>
+</div>
+
+<script>
+/* 素材根目录（不复制进仓库，避免把 Capcom 素材提交上去） */
+var ASSET = 'file:///F:/mhrise-app/assets/icons/';
+var MON = [{"id":"em001_00","t":"雌火龙"},{"id":"em001_02","t":"金火龙"},{"id":"em001_07","t":"霸主・雌火龙"},{"id":"em002_00","t":"火龙"},{"id":"em002_02","t":"银火龙"},{"id":"em002_07","t":"霸主・火龙"},{"id":"em003_00","t":"奇怪龙"},{"id":"em004_00","t":"岩龙"},{"id":"em007_00","t":"角龙"},{"id":"em007_07","t":"霸主・角龙"},{"id":"em019_00","t":"大名盾蟹"},{"id":"em020_00","t":"将军镰蟹"},{"id":"em023_00","t":"金狮子"},{"id":"em023_05","t":"激昂金狮子"},{"id":"em024_00","t":"钢龙"},{"id":"em024_08","t":"怪异克服钢龙"},{"id":"em025_00","t":"霞龙"},{"id":"em025_08","t":"怪异克服霞龙"},{"id":"em027_00","t":"炎王龙"},{"id":"em027_08","t":"怪异克服炎王龙"},{"id":"em032_00","t":"轰龙"},{"id":"em037_00","t":"迅龙"},{"id":"em037_02","t":"月迅龙"},{"id":"em042_00","t":"冰牙龙"},{"id":"em044_00","t":"土砂龙"},{"id":"em047_00","t":"水兽"},{"id":"em054_00","t":"眠狗龙王"},{"id":"em057_00","t":"雷狼龙"},{"id":"em057_07","t":"霸主・雷狼龙"},{"id":"em058_00","t":"岚龙"},{"id":"em059_00","t":"毒狗龙王"},{"id":"em060_00","t":"青熊兽"},{"id":"em060_07","t":"霸主・青熊兽"},{"id":"em061_00","t":"白兔兽"},{"id":"em062_00","t":"赤甲兽"},{"id":"em071_00","t":"黑蚀龙"},{"id":"em071_05","t":"混沌黑蚀龙"},{"id":"em072_00","t":"天廻龙"},{"id":"em072_08","t":"怪异克服天廻龙"},{"id":"em077_00","t":"千刃龙"},{"id":"em081_00","t":"电龙"},{"id":"em082_00","t":"泡狐龙"},{"id":"em082_02","t":"焰狐龙"},{"id":"em082_07","t":"霸主・泡狐龙"},{"id":"em086_05","t":"神秘红光天彗龙"},{"id":"em086_08","t":"怪异克服天彗龙"},{"id":"em089_00","t":"怨虎龙"},{"id":"em089_05","t":"嗟怨震天怨虎龙"},{"id":"em090_00","t":"天狗兽"},{"id":"em090_01","t":"绯天狗兽"},{"id":"em091_00","t":"伞鸟"},{"id":"em092_00","t":"河童蛙"},{"id":"em093_00","t":"人鱼龙"},{"id":"em093_01","t":"冰人鱼龙"},{"id":"em094_00","t":"妃蜘蛛"},{"id":"em094_01","t":"炽妃蜘蛛"},{"id":"em095_00","t":"泥翁龙"},{"id":"em095_01","t":"熔翁龙"},{"id":"em096_00","t":"风神龙"},{"id":"em097_00","t":"雪鬼兽"},{"id":"em098_00","t":"镰鼬龙王"},{"id":"em099_00","t":"雷神龙"},{"id":"em099_05","t":"百龙渊源雷神龙"},{"id":"em100_00","t":"蛮颚龙"},{"id":"em102_00","t":"毒妖鸟"},{"id":"em107_00","t":"搔鸟"},{"id":"em108_00","t":"泥鱼龙"},{"id":"em109_00","t":"飞雷龙"},{"id":"em118_00","t":"爆鳞龙"},{"id":"em118_05","t":"红莲爆鳞龙"},{"id":"em124_00","t":"冰呪龙"},{"id":"em132_00","t":"爵银龙"},{"id":"em132_05","t":"原初形态爵银龙"},{"id":"em133_00","t":"冰狼龙"},{"id":"em134_00","t":"刚缠兽"},{"id":"em135_00","t":"冥渊龙"},{"id":"em136_00","t":"棘龙"},{"id":"em136_01","t":"棘茶龙"}];
+
+var SCHIPS = [
+  {l:'愤怒', v:'0:14', c:'#FF8C42'}, {l:'晕眩', v:'88%', c:'#EAB308'},
+  {l:'耐力', v:'62%', c:'#4A9B9B'}, {l:'御龙', v:'62%', c:'#C9AA62'}
+];
+var AILS = [
+  {l:'毒', v:'42%', c:'#E11D48'}, {l:'麻', v:'生效', c:'#EAB308'},
+  {l:'眠', v:'15%', c:'#4F87A6'}, {l:'爆', v:'67%', c:'#FF8C42'},
+  {l:'减气', v:'8%', c:'#4A9B9B'}
+];
+var PARTS = [
+  {name:'头部', v:'52%', gone:false},
+  {name:'前肢', v:'已断', gone:true},
+  {name:'腹部', v:'73%', gone:false},
+  {name:'尾巴', v:'35%', gone:false},
+  {name:'背鳍', v:'64%', gone:false}
+];
+
+/* ---- A7 用：嗟怨震天怨虎龙的「色号 → 部位」映射（人工逐色拆层确认） ----
+   游戏内部位表：头部 / 躯干 / 右臂 / 左臂 / 背部 / 尾巴 / 后脚
+   色号：0 红 1 橙 2 黄 3 绿 4 青 5 蓝 6 紫 7 白
+   已确认：红=头部（最右）、紫=尾巴（最左）、橙=背部鬃毛、青=后脚、绿=躯干 */
+var MAG_MAP = [
+  {i:0, part:'头部'}, {i:1, part:'背部'}, {i:2, part:'右臂'}, {i:3, part:'躯干'},
+  {i:4, part:'后脚'}, {i:5, part:'左臂'}, {i:6, part:'尾巴'}
+];
+var MAG_HP = {'头部':52,'躯干':78,'右臂':64,'左臂':0,'背部':41,'尾巴':35,'后脚':88};
+var PALRGB = [[230,25,75],[245,130,49],[255,225,25],[60,180,75],[66,212,244],
+              [67,99,216],[145,30,180],[255,255,255]];
+
+/* 运行时把 parts_group.png 按色块拆成 7 张单色遮罩 —— 纯前端 canvas，
+   等价于 WPF 里预切好的 7 张 mask PNG + Rectangle.OpacityMask */
+function buildSplit(){
+  var img = new Image();
+  img.onload = function(){
+    var c = document.createElement('canvas');
+    c.width = img.naturalWidth; c.height = img.naturalHeight;
+    var cx = c.getContext('2d');
+    cx.drawImage(img, 0, 0);
+    var data = cx.getImageData(0, 0, c.width, c.height).data;
+    MAG_MAP.forEach(function(m){
+      var col = PALRGB[m.i];
+      var lc = document.createElement('canvas');
+      lc.width = c.width; lc.height = c.height;
+      var lx = lc.getContext('2d');
+      var ld = lx.createImageData(c.width, c.height);
+      for(var p = 0; p < data.length; p += 4){
+        if(data[p+3] > 128 && data[p] === col[0] && data[p+1] === col[1] && data[p+2] === col[2]){
+          ld.data[p] = 255; ld.data[p+1] = 255; ld.data[p+2] = 255; ld.data[p+3] = 255;
+        }
+      }
+      lx.putImageData(ld, 0, 0);
+      var url = lc.toDataURL();
+      document.querySelectorAll('[data-mask="'+m.part+'"]').forEach(function(el){
+        el.style.webkitMaskImage = 'url('+url+')';
+        el.style.maskImage = 'url('+url+')';
+      });
+    });
+    document.querySelectorAll('.split-wrap').forEach(function(el){ el.classList.add('ready'); });
+    window.__SPLIT_OK__ = true;
+    if(window.__writeDiag__) window.__writeDiag__();
+  };
+  img.onerror = function(){ window.__SPLIT_ERR__ = true; };
+  img.src = ASSET + 'em089_05_parts_group.png';
+}
+
+function keyRow(){
+  return '<div class="keyrow">' + MAG_MAP.map(function(m){
+    var hp = MAG_HP[m.part];
+    var c = hp<=0 ? 'rgba(255,255,255,.25)' : silColor(hp/100);
+    return '<span><i style="background:'+c+'"></i>'+m.part+' '+(hp<=0?'已断':hp+'%')+'</span>';
+  }).join('') + '</div>';
+}
+
+/* 血量 → 剪影颜色（越低越暗越去饱和） */
+function silColor(ratio){
+  var L = 22 + 30*ratio, S = 20 + 42*ratio;
+  return 'hsl(4,'+S.toFixed(0)+'%,'+L.toFixed(0)+'%)';
+}
+
+function chips(){
+  return '<div class="srow">' + SCHIPS.map(function(c){
+    return '<span class="schip"><em style="background:'+c.c+'"></em><span>'+c.l+'</span><b>'+c.v+'</b></span>';
+  }).join('') + '</div>';
+}
+function ailments(){
+  return '<div class="arow">' + AILS.map(function(a){
+    return '<span class="achip"><em style="background:'+a.c+'"></em><span>'+a.l+'</span><b>'+a.v+'</b></span>';
+  }).join('') + '</div>';
+}
+function legend(){
+  return '<div class="legend">' + PARTS.map(function(p){
+    return p.gone ? '<span class="gone">'+p.name+' 已断</span>'
+                  : '<span>'+p.name+' '+p.v+'</span>';
+  }).join('<span class="sep">·</span>') + '</div>';
+}
+function hpRow(pct){
+  return '<div class="hp-row"><div class="hp-track"><div class="hp-fill" style="width:'+pct+'%"></div></div>'+
+    '<div class="hp-text">4820 / 24500</div></div>';
+}
+
+var V = [
+  {id:'A1', name:'头像徽章', pct:19.7,
+   desc:'怪物头像顶到标题行，替换掉原来那行光秃秃的文字。占位 26px，高度零增长。',
+   meta:'<b>改动最小</b> · 一张 26×26 的 Image · 零映射',
+   body:function(){ return ''; },
+   head:function(pct){
+     return '<div class="mhead"><img class="portrait" src="'+ASSET+'em089_05_icon.png" alt="">'+
+       '<div class="mname">嗟怨震天怨虎龙</div></div>';
+   }},
+
+  {id:'A2', name:'剪影水印', pct:19.7,
+   desc:'整只怪的剪影以 10% 透明度压在部位列表背后，当身份底纹用。高度零增长。',
+   meta:'<b>零高度增长</b> · OpacityMask 全铺 · 零映射',
+   head:function(){ return '<div class="mname">嗟怨震天怨虎龙</div>'; },
+   body:function(){ return ''; },
+   water:true},
+
+  {id:'A3', name:'剪影面板 · 按总血量染色', pct:19.7,
+   desc:'独立面板显示整只怪剪影，颜色随总血量变化 —— 满血明亮、残血暗淡。',
+   meta:'<b>+84px 高</b> · 单色遮罩染色 · 零映射',
+   head:function(){ return '<div class="mname">嗟怨震天怨虎龙</div>'; },
+   body:function(pct){
+     return '<div class="sil-panel">'+
+       '<div class="sil" style="--sil-c:'+silColor(pct/100)+';-webkit-mask-image:url('+ASSET+'em089_05_parts_group.png);mask-image:url('+ASSET+'em089_05_parts_group.png)"></div>'+
+       '<div class="sil-tag">嗟怨震天怨虎龙</div>'+
+       '<div class="sil-hp">HP 19.7%</div></div>';
+   }},
+
+  {id:'A4', name:'头像 + 剪影面板', pct:19.7,
+   desc:'头像放标题行，剪影放面板 —— 两个都用上。',
+   meta:'<b>+84px 高</b> · 零映射 · 推荐组合',
+   head:function(){
+     return '<div class="mhead"><img class="portrait" src="'+ASSET+'em089_05_icon.png" alt="">'+
+       '<div class="mname">嗟怨震天怨虎龙</div></div>';
+   },
+   body:function(pct){
+     return '<div class="sil-panel">'+
+       '<div class="sil" style="--sil-c:'+silColor(pct/100)+';-webkit-mask-image:url('+ASSET+'em089_05_parts_group.png);mask-image:url('+ASSET+'em089_05_parts_group.png)"></div>'+
+       '<div class="sil-hp">HP 19.7%</div></div>';
+   }},
+
+  {id:'A5', name:'剪影面板 · 游戏原色', pct:19.7,
+   desc:'直接显示游戏原色的部位色块。好看、辨识度高，但颜色与主题无关，也不表达血量。',
+   meta:'<b>+84px 高</b> · 零映射 · 但只是装饰',
+   head:function(){ return '<div class="mname">嗟怨震天怨虎龙</div>'; },
+   body:function(){
+     return '<div class="sil-panel">'+
+       '<img class="silimg" src="'+ASSET+'em089_05_parts_group.png" alt="">'+
+       '<div class="sil-hp">HP 19.7%</div></div>';
+   }},
+
+  {id:'A7', name:'剪影面板 · 部位血量直接染色', pct:19.7,
+   desc:'把剪影按色块拆成 7 个独立图层，每层按「对应部位」的血量染色 —— 残血的部位自己就暗下去，断掉的部位变灰。这才是你要的效果。',
+   meta:'<b>+84px 高</b> · 需映射表 · <span class="warn">映射仅嗟怨怨虎龙已人工确认</span>',
+   head:function(){
+     return '<div class="mhead"><img class="portrait" src="'+ASSET+'em089_05_icon.png" alt="">'+
+       '<div class="mname">嗟怨震天怨虎龙</div></div>';
+   },
+   body:function(){
+     return '<div class="sil-panel split-wrap">'+
+       MAG_MAP.map(function(m){
+         var hp = MAG_HP[m.part];
+         var c = hp<=0 ? 'rgba(255,255,255,.08)' : silColor(hp/100);
+         return '<div class="split sil" data-mask="'+m.part+'" style="--sil-c:'+c+'"></div>';
+       }).join('')+
+       '<div class="sil-tag">部位血量直接长在怪物身上</div></div>';
+   },
+   extraLegend:true},
+
+  {id:'A6', name:'满血对比（A4 同款）', pct:100,
+   desc:'同一版在满血状态下的样子 —— 剪影明亮饱和。用来对比 A4 的残血态。',
+   meta:'<b>满血 100%</b> · 同一套代码，只换一个 ratio',
+   head:function(){
+     return '<div class="mhead"><img class="portrait" src="'+ASSET+'em089_05_icon.png" alt="">'+
+       '<div class="mname">嗟怨震天怨虎龙</div></div>';
+   },
+   body:function(pct){
+     return '<div class="sil-panel">'+
+       '<div class="sil" style="--sil-c:'+silColor(pct/100)+';-webkit-mask-image:url('+ASSET+'em089_05_parts_group.png);mask-image:url('+ASSET+'em089_05_parts_group.png)"></div>'+
+       '<div class="sil-hp">HP 100%</div></div>';
+   }}
+];
+
+function hud(v){
+  var pct = v.pct;
+  return v.head(pct) + hpRow(pct) + chips() +
+    (v.water ? '<div class="watermark"><div class="sil" style="-webkit-mask-image:url('+ASSET+'em089_05_parts_group.png);mask-image:url('+ASSET+'em089_05_parts_group.png)"></div></div>' : '') +
+    v.body(pct) + (v.extraLegend ? keyRow() : legend()) + ailments();
+}
+
+function build(){
+  var g = document.getElementById('gallery');
+  if(!g) return;
+  g.innerHTML = V.map(function(v,i){
+    return '<div class="cell">'+
+      '<div class="idx">'+v.id+'</div>'+
+      '<div class="lname">'+v.name+'</div>'+
+      '<div class="ldesc">'+v.desc+'</div>'+
+      '<div class="ruler"><i></i><span>300px</span></div>'+
+      '<div class="hud" id="hud-'+i+'">'+hud(v)+'</div>'+
+      '<div class="lmeta">'+v.meta+'</div>'+
+    '</div>';
+  }).join('');
+
+  var mg = document.getElementById('mgrid');
+  if(mg) mg.innerHTML = MON.map(function(m){
+    return '<div class="gi" title="'+m.t+' ('+m.id+')">'+
+      '<img loading="lazy" src="'+ASSET+m.id+'_icon.png" alt="'+m.t+'">'+
+      '<span>'+m.t+'</span></div>';
+  }).join('');
+}
+
+window.__DIAG__ = function(){
+  var bad = [], cards = {};
+  V.forEach(function(v,i){
+    var el = document.getElementById('hud-'+i);
+    if(!el){ bad.push('hud-'+i+':missing'); return; }
+    var over = el.scrollWidth - el.clientWidth;
+    var w = el.getBoundingClientRect().width;
+    if(over > 1) bad.push('hud-'+i+':overflow'+over);
+    if(Math.round(w) !== 300) bad.push('hud-'+i+':width'+w);
+    cards['hud-'+i] = 'w'+Math.round(w)+' h'+Math.round(el.getBoundingClientRect().height)+' over'+over;
+  });
+  /* 图片加载体检：有没有加载失败的素材 */
+  var imgs = document.querySelectorAll('img');
+  var failed = [], okImg = 0;
+  imgs.forEach(function(im){
+    if(im.complete && im.naturalWidth > 0) okImg++;
+    else if(im.complete) failed.push(im.getAttribute('src').split('/').pop());
+  });
+  if(failed.length) bad.push('imgFail:'+failed.length+'('+failed.slice(0,4).join(',')+')');
+  var docOver = document.documentElement.scrollWidth - document.documentElement.clientWidth;
+  return { ok: bad.length===0, bad:bad, cards:cards,
+    imgTotal:imgs.length, imgOk:okImg, imgFailed:failed.length,
+    grid:document.querySelectorAll('.gi').length,
+    splitOk:!!window.__SPLIT_OK__, splitErr:!!window.__SPLIT_ERR__,
+    splitMasks:document.querySelectorAll('.split').length,
+    docOverflowX:docOver };
+};
+
+function writeDiag(){
+  var d = document.getElementById('__diag__');
+  if(!d){ d = document.createElement('pre'); d.id = '__diag__'; d.style.display = 'none';
+    document.body.appendChild(d); }
+  try { d.textContent = JSON.stringify(window.__DIAG__()); }
+  catch(e){ d.textContent = 'DIAG_FAIL: ' + e.message; }
+}
+window.__writeDiag__ = writeDiag;
+
+build();
+buildSplit();
+writeDiag();
+setTimeout(writeDiag, 1500);
+</script>
+</body>
+</html>

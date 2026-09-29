@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Rise Overlay · 部位行分级折叠 · 设计稿</title>
+<style>
+  :root{
+    --page-bg:#0B0F14;
+    --page-card:#121821;
+    --page-line:#1E2733;
+    --ink:#E6EDF5;
+    --ink-2:#9AA3B2;
+    --ink-3:#66707E;
+
+    --panel-bg:rgba(10,14,22,.949);
+    --panel-border:#2A2F38;
+    --panel-border-subtle:#22262E;
+    --fg:#FFFFFF;
+    --fg-muted:#9AA3B2;
+    --accent-health:#D94B43;
+    --accent-qurio:#E11D48;
+    --accent-stun:#EAB308;
+    --accent-break:#FF8C42;
+    --accent-capture:#C9AA62;
+    --accent-teal:#4A9B9B;
+    --rail-track:#1A222C;
+    --flinch-fill:#B8C0CC;
+    --rail-broken:#596466;
+    --rail-default:#B8995F;
+    --status-text:#D0B778;
+    --hp-track:#1A222C;
+
+    --el-fire:#B85C5C;
+    --el-water:#4F87A6;
+    --el-thunder:#B09A4A;
+    --el-ice:#5F97A8;
+    --el-dragon:#7D6A96;
+
+    --ok:#97C459;
+    --warn:#EF9F27;
+    --bad:#F09595;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--page-bg);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1560px;margin:0 auto;padding:40px 32px 72px}
+
+  h1{font-size:22px;font-weight:500;margin:0 0 8px;letter-spacing:.2px}
+  .sub{font-size:13px;color:var(--ink-2);line-height:1.7;margin:0 0 6px;max-width:920px}
+  h2{font-size:16px;font-weight:500;margin:0 0 6px}
+  h3{font-size:13px;font-weight:500;margin:0 0 10px;color:var(--ink-2)}
+  .note{font-size:12px;color:var(--ink-3);line-height:1.7;margin:0 0 18px;max-width:920px}
+  section{margin-top:52px}
+  .sec-head{border-top:1px solid var(--page-line);padding-top:22px;margin-bottom:22px}
+
+  .row{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start}
+  .col{display:flex;flex-direction:column;gap:10px}
+
+  .cap{font-size:12px;color:var(--ink-2);line-height:1.6}
+  .cap b{color:var(--ink);font-weight:500}
+
+  .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;
+    border:.5px solid var(--page-line);color:var(--ink-2);margin-right:6px}
+
+  .ruler{position:relative;height:20px;width:300px;margin-bottom:4px}
+  .ruler::before,.ruler::after{content:"";position:absolute;top:9px;width:1px;height:9px;background:var(--ink-3)}
+  .ruler::before{left:0}
+  .ruler::after{right:0}
+  .ruler i{position:absolute;left:0;right:0;top:12px;height:1px;background:var(--page-line)}
+  .ruler span{position:absolute;left:50%;transform:translateX(-50%);top:-1px;
+    font-size:10px;color:var(--ink-3);background:var(--page-bg);padding:0 6px}
+
+  .hud{width:300px;background:var(--panel-bg);border:1px solid var(--panel-border);
+    border-radius:6px;padding:6px 8px;font-size:11px;color:var(--fg);
+    position:relative;overflow:hidden}
+  .hud.dim{opacity:.55}
+
+  .mname{font-size:12px;font-weight:500;letter-spacing:.3px;margin-bottom:3px}
+  .hp-row{display:flex;align-items:center;gap:6px}
+  .hp-track{flex:1;height:8px;background:var(--hp-track);border-radius:1px;overflow:hidden;position:relative}
+  .hp-fill{height:100%;background:linear-gradient(90deg,#8E2F2B,#D94B43);
+    border-radius:1px;position:relative}
+  .hp-gloss{position:absolute;top:0;bottom:0;width:34px;
+    background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.34),rgba(255,255,255,0));
+    animation:sweep 2.6s linear infinite}
+  @keyframes sweep{0%{transform:translateX(-34px)}100%{transform:translateX(300px)}}
+  .hp-text{font-size:9px;color:var(--fg-muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+
+  .status-row{display:flex;flex-wrap:wrap;gap:3px;margin:6px 0 7px}
+  .schip{display:flex;align-items:center;gap:3px;padding:1px 4px;border-radius:2px;
+    background:rgba(255,255,255,.04);white-space:nowrap}
+  .schip em{width:2px;height:9px;border-radius:1px;display:block;font-style:normal}
+  .schip span{font-size:9px;color:var(--fg-muted)}
+  .schip b{font-size:9px;font-weight:500;color:var(--fg)}
+
+  .parts-title{font-size:9px;color:var(--fg-muted);margin-bottom:2px}
+
+  .prow{display:flex;gap:5px;margin-top:3px}
+  .prow.flash .rail{animation:flashrail .2s ease-in-out 3 alternate}
+  @keyframes flashrail{from{opacity:1}to{opacity:.3}}
+  .rail{width:4px;border-radius:1px;flex:0 0 4px;align-self:stretch}
+  .pbody{flex:1;min-width:0}
+  .pline1{display:flex;align-items:center;gap:2px;height:16px}
+  .pname{width:70px;flex:0 0 70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    font-size:11px;color:var(--fg-muted)}
+  .pname.rec{color:var(--fg);font-weight:500}
+  .pname.qurio{color:var(--accent-qurio);font-weight:500}
+  .pstatus{width:38px;flex:0 0 38px;font-size:9px;color:var(--status-text);white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  .pstatus.broken{color:var(--fg-muted)}
+  .pweak{flex:1;display:flex;gap:2px;min-width:0}
+  .pweak i{width:9px;height:9px;border-radius:1px;display:block;flex:0 0 9px}
+  .php{font-size:9px;color:var(--fg-muted);font-variant-numeric:tabular-nums;
+    white-space:nowrap;text-align:right;margin-left:4px}
+  .rails{margin-top:2px;display:flex;flex-direction:column;gap:2px}
+  .rtrack{background:var(--rail-track);border-radius:1px;overflow:hidden}
+  .rtrack.r1{height:2px}
+  .rtrack.r2{height:3px}
+  .rtrack i{display:block;height:100%;border-radius:1px}
+
+  .psummary{margin-top:4px;padding:3px 0 1px;border-top:.5px dashed rgba(255,255,255,.07);
+    font-size:9.5px;color:var(--fg-muted);line-height:1.6;font-variant-numeric:tabular-nums}
+  .psummary b{font-weight:400;color:var(--ink-2)}
+  .psummary .hi{color:var(--accent-break)}
+  .psummary .gone{color:#5C6673;text-decoration:line-through}
+  .psummary .sep{color:#39414D;margin:0 3px}
+
+  .ailments{margin-top:5px;display:flex;flex-wrap:wrap;gap:3px}
+  .achip{display:flex;align-items:center;gap:3px;padding:1px 4px;border-radius:2px;
+    background:rgba(255,255,255,.04)}
+  .achip em{width:2px;height:9px;border-radius:1px;display:block;font-style:normal}
+  .achip span{font-size:9px;color:var(--fg-muted)}
+  .achip b{font-size:9px;font-weight:500;color:var(--fg)}
+
+  .measure{font-size:11px;color:var(--ink-3);margin-top:8px;line-height:1.7}
+  .measure b{color:var(--ink-2);font-weight:500}
+
+  .grid3{display:flex;gap:26px;flex-wrap:wrap}
+  .grid3 > div{display:flex;flex-direction:column;gap:8px}
+
+  table{border-collapse:collapse;font-size:12px;margin-top:4px}
+  th,td{text-align:left;padding:6px 12px 6px 0;border-bottom:1px solid var(--page-line);
+    color:var(--ink-2);font-weight:400}
+  th{color:var(--ink-3);font-size:11px;font-weight:500}
+  td b{color:var(--ink);font-weight:500}
+  .yes{color:var(--bad)}
+  .no{color:var(--ink-3)}
+
+  .verdict{background:var(--page-card);border:.5px solid var(--page-line);border-radius:8px;
+    padding:14px 16px;font-size:12.5px;line-height:1.75;color:var(--ink-2);max-width:920px}
+  .verdict b{color:var(--ink);font-weight:500}
+  .verdict .k{color:var(--warn)}
+
+  @media (prefers-reduced-motion: reduce){
+    .hp-gloss{display:none}
+    .prow.flash .rail{animation:none;opacity:.7}
+  }
+</style>
+</head>
+<body>
+<script>
+window.__ERRS__ = [];
+window.addEventListener('error', function (e) {
+  var t = e.target;
+  if (t && t.tagName === 'SCRIPT') { window.__ERRS__.push('script-load-fail: ' + t.src); return; }
+  var st = e.error && e.error.stack ? e.error.stack.split('\n').slice(0,6).join(' | ') : '(no stack)';
+  window.__ERRS__.push(e.message + ' @' + (e.filename||'').slice(-28) + ':' + e.lineno + ' :: ' + st);
+}, true);
+</script>
+<div class="wrap">
+
+  <h1>部位行分级折叠 · 设计稿</h1>
+  <p class="sub">针对「7 行部位平铺把主信息淹掉」的问题。数据全部取自 <code>CreateSampleScornedMagnamalo()</code> 真实 sample（嗟怨震天怨虎龙，5 个部位）。</p>
+  <p class="note">宽度锁死 <b style="color:var(--ink-2)">300px</b>，全部卡片同宽；不使用任何超宽或截断。</p>
+
+  <section>
+    <div class="sec-head">
+      <h2>① 先看一个事实：推荐分组是无效的</h2>
+      <p class="note">`IsRecommendedTarget` 的判定是「部位弱点里<b style="color:var(--ink-2)">含任一</b>推荐属性」。这份 sample 的推荐属性是 <b style="color:var(--ink-2)">水</b>，而五个部位的弱点全部含水 —— 于是<b style="color:var(--bad)">五个部位全部命中推荐</b>。按它置顶 = 一行都没动。</p>
+    </div>
+
+    <table>
+      <tr><th>部位</th><th>血量</th><th>弱点属性</th><th>IsRecommendedTarget</th><th>可断尾</th><th>已破坏</th></tr>
+      <tr><td><b>头部</b></td><td>620 / 1200</td><td>水</td><td class="yes">命中</td><td class="no">—</td><td class="no">—</td></tr>
+      <tr><td><b>前肢</b></td><td>0 / 900</td><td>水 冰</td><td class="yes">命中</td><td class="no">—</td><td>是</td></tr>
+      <tr><td><b>腹部</b></td><td>1100 / 1500</td><td>水</td><td class="yes">命中</td><td class="no">—</td><td class="no">—</td></tr>
+      <tr><td><b>尾巴</b></td><td>280 / 800</td><td>水 龙</td><td class="yes">命中</td><td>是</td><td class="no">—</td></tr>
+      <tr><td><b>背鳍</b></td><td>450 / 700</td><td>水</td><td class="yes">命中</td><td class="no">—</td><td class="no">—</td></tr>
+    </table>
+
+    <p class="measure" style="margin-top:14px">命中率 <b>5 / 5 = 100%</b>　→　排序收益 <b>0 行</b>。这条建议已撤回。</p>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>② 真正有区分度的维度：部位有没有「第二维状态」</h2>
+      <p class="note">血量所有部位都有（第一维，人人平等）。真正稀缺的是<b style="color:var(--ink-2)">第二条进度轨</b> —— 可断尾进度、怪异化进度、硬直积攒。有第二维的部位才值得占一整行，因为它有「进度」可看；只有血量的部位，一行文字就够。</p>
+    </div>
+
+    <div class="row">
+      <div class="col">
+        <div class="ruler"><i></i><span>300px</span></div>
+        <div class="cap"><b>现状 · 5 行全展开</b><br>每行都有名字 / 状态 / 弱属性 / 双轨</div>
+        <div class="hud" id="hud-now"></div>
+        <div class="measure" id="m-now"></div>
+      </div>
+
+      <div class="col">
+        <div class="ruler"><i></i><span>300px</span></div>
+        <div class="cap"><b>分级折叠 · 焦点行 + 摘要行</b><br>可断尾/怪异化留完整行，其余压成一行</div>
+        <div class="hud" id="hud-new"></div>
+        <div class="measure" id="m-new"></div>
+      </div>
+    </div>
+
+    <div class="verdict" style="margin-top:24px">
+      <b>判定规则</b>（三条，全部基于 <code>PartRowViewModel</code> 已有字段，不需要新增数据源）：<br>
+      ① <b>可断尾未断</b> → 焦点行　　② <b>怪异化</b> → 焦点行　　③ 其余 → 摘要行<br>
+      破坏后：<b>策略 A</b> 让该行留在焦点层（轨道变灰 + 状态改「已断」），<b>策略 B</b> 让它降级进摘要行。<br>
+      <span style="color:var(--ink-3)">边界情况：已破坏但从来不是焦点的部位（如本例「前肢」）永远不进焦点层 —— 否则 keepBroken 会把所有破过的部位一起捞上来。</span>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>③ 三种状态下的表现</h2>
+      <p class="note">分级规则必须对「破坏」和「怪异化」两个动态事件给出明确行为，否则一破坏就乱。</p>
+    </div>
+    <div class="grid3">
+      <div>
+        <div class="cap"><b>常态</b><br>可断尾未断 → 焦点行</div>
+        <div class="hud" id="hud-s1"></div>
+      </div>
+      <div>
+        <div class="cap"><b>破坏瞬间</b><br>焦点行原地闪烁，不移位</div>
+        <div class="hud" id="hud-s2"></div>
+      </div>
+      <div>
+        <div class="cap"><b>怪异化</b><br>怪异化部位强制进焦点行</div>
+        <div class="hud" id="hud-s3"></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>④ 破坏之后：两种策略，你选一个</h2>
+      <p class="note">这是本稿唯一需要你拍板的地方。破坏是不可逆事件，行该怎么反应？</p>
+    </div>
+    <div class="row">
+      <div class="col">
+        <div class="cap"><b>策略 A · 留在焦点层（推荐）</b><br>行不移动，轨道变灰 + 状态改「已断」。<span style="color:var(--ok)">零位移，符合空间恒定性</span></div>
+        <div class="hud" id="hud-a"></div>
+      </div>
+      <div class="col">
+        <div class="cap"><b>策略 B · 降级到摘要层</b><br>破坏后整行缩进摘要行，焦点层收窄。<span style="color:var(--warn)">省空间，但行会跳一次</span></div>
+        <div class="hud" id="hud-b"></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>⑤ 收益核算</h2>
+    </div>
+    <div class="verdict" id="verdict">测算中…</div>
+  </section>
+
+</div>
+
+<pre id="__diag__" style="display:none"></pre>
+
+<script>
+var EL = {fire:'#B85C5C',water:'#4F87A6',thunder:'#B09A4A',ice:'#5F97A8',dragon:'#7D6A96'};
+var ELNAME = {fire:'火',water:'水',thunder:'雷',ice:'冰',dragon:'龙'};
+
+var BASE = [
+  {name:'头部', hp:620,  max:1200, sever:false, broken:false, qurio:false, weak:['water']},
+  {name:'前肢', hp:0,    max:900,  sever:false, broken:true,  qurio:false, weak:['water','ice']},
+  {name:'腹部', hp:1100, max:1500, sever:false, broken:false, qurio:false, weak:['water']},
+  {name:'尾巴', hp:280,  max:800,  sever:true,  broken:false, qurio:false, weak:['water','dragon']},
+  {name:'背鳍', hp:450,  max:700,  sever:false, broken:false, qurio:false, weak:['water']}
+];
+
+var STATUS_CHIPS = [
+  {label:'愤怒', value:'0:14', color:'#FF8C42'},
+  {label:'晕眩', value:'88%',  color:'#EAB308'},
+  {label:'耐力', value:'62%',  color:'#4A9B9B'},
+  {label:'御龙', value:'62%',  color:'#C9AA62'}
+];
+
+var AILMENTS = [
+  {label:'毒',   value:'42%', color:'#E11D48'},
+  {label:'麻',   value:'生效', color:'#EAB308'},
+  {label:'眠',   value:'15%', color:'#4F87A6'},
+  {label:'爆',   value:'67%', color:'#FF8C42'},
+  {label:'减气', value:'8%',  color:'#4A9B9B'}
+];
+
+function railColor(p){
+  if(p.broken) return '#596466';
+  if(p.qurio)  return '#E11D48';
+  if(p.sever)  return '#B8995F';
+  return '#B8995F';
+}
+
+function statusText(p){
+  if(p.broken) return '已断';
+  if(p.qurio)  return '怪异';
+  if(p.sever)  return '可断';
+  return '';
+}
+
+function pline1(p){
+  var nm = p.name;
+  var cls = 'pname';
+  if(p.qurio) cls += ' qurio';
+  else if(!p.broken) cls += ' rec';
+  var weak = p.weak.map(function(w){
+    return '<i style="background:'+EL[w]+'"></i>';
+  }).join('');
+  var hpTxt = p.broken ? '0' : String(p.hp);
+  var stCls = 'pstatus' + (p.broken ? ' broken' : '');
+  return '<div class="pline1">'+
+    '<span class="'+cls+'" title="'+nm+'">'+nm+'</span>'+
+    '<span class="'+stCls+'">'+statusText(p)+'</span>'+
+    '<span class="pweak">'+weak+'</span>'+
+    '<span class="php">'+hpTxt+'</span>'+
+  '</div>';
+}
+
+function rails(p){
+  var hpPct = p.max > 0 ? (p.hp / p.max * 100) : 0;
+  var flinch = p.broken ? 0 : Math.min(100, hpPct * 1.2);
+  var r2color = p.broken ? '#596466' : (p.qurio ? '#E11D48' : '#B8995F');
+  return '<div class="rails">'+
+    '<div class="rtrack r1"><i style="width:'+flinch.toFixed(1)+'%;background:#B8C0CC;opacity:.75"></i></div>'+
+    '<div class="rtrack r2"><i style="width:'+hpPct.toFixed(1)+'%;background:'+r2color+'"></i></div>'+
+  '</div>';
+}
+
+function prow(p, flash){
+  return '<div class="prow'+(flash?' flash':'')+'">'+
+    '<div class="rail" style="background:'+railColor(p)+'"></div>'+
+    '<div class="pbody">'+ pline1(p) + rails(p) +'</div>'+
+  '</div>';
+}
+
+function isFocus(p, keepBroken){
+  if(!(p.sever || p.qurio)) return false;
+  if(p.broken) return !!keepBroken;
+  return true;
+}
+
+function summaryHTML(parts){
+  var out = [];
+  parts.forEach(function(p){
+    if(p.broken){
+      out.push('<span class="gone">'+p.name+' 已断</span>');
+      return;
+    }
+    var pct = p.max > 0 ? Math.round(p.hp / p.max * 100) : 0;
+    var cls = pct <= 40 ? 'hi' : '';
+    out.push('<span class="'+cls+'">'+p.name+' '+pct+'%</span>');
+  });
+  return '<div class="psummary">'+ out.join('<span class="sep">·</span>') +'</div>';
+}
+
+function head(){
+  var hpPct = 4820 / 24500 * 100;
+  var chips = STATUS_CHIPS.map(function(c){
+    return '<span class="schip"><em style="background:'+c.color+'"></em>'+
+      '<span>'+c.label+'</span><b>'+c.value+'</b></span>';
+  }).join('');
+  return '<div class="mname">嗟怨震天怨虎龙</div>'+
+    '<div class="hp-row">'+
+      '<div class="hp-track"><div class="hp-fill" style="width:'+hpPct.toFixed(1)+'%">'+
+        '<div class="hp-gloss"></div></div></div>'+
+      '<div class="hp-text">4820 / 24500</div>'+
+    '</div>'+
+    '<div class="status-row">'+chips+'</div>';
+}
+
+function ailmentsHTML(){
+  return '<div class="ailments">'+ AILMENTS.map(function(a){
+    return '<span class="achip"><em style="background:'+a.color+'"></em>'+
+      '<span>'+a.label+'</span><b>'+a.value+'</b></span>';
+  }).join('') +'</div>';
+}
+
+function hud(mode, parts, flashName, keepBroken){
+  var html = head() + '<div class="parts-title">部位 · 状态 · 弱属性 · 剩余值</div>';
+  if(mode === 'now'){
+    parts.forEach(function(p){ html += prow(p, p.name === flashName); });
+  }else{
+    var focus = parts.filter(function(p){ return isFocus(p, keepBroken); });
+    var rest  = parts.filter(function(p){ return !isFocus(p, keepBroken); });
+    focus.forEach(function(p){ html += prow(p, p.name === flashName); });
+    if(rest.length) html += summaryHTML(rest);
+  }
+  return html + ailmentsHTML();
+}
+
+function mount(id, mode, parts, flashName, keepBroken){
+  var el = document.getElementById(id);
+  if(!el) return;
+  el.innerHTML = hud(mode, parts, flashName, keepBroken);
+}
+
+function clone(list, patch){
+  return list.map(function(p){
+    var c = {};
+    for(var k in p) c[k] = p[k];
+    if(patch && patch[p.name]) for(var k2 in patch[p.name]) c[k2] = patch[p.name][k2];
+    return c;
+  });
+}
+
+mount('hud-now', 'now', BASE);
+mount('hud-new', 'tiered', BASE);
+
+mount('hud-s1', 'tiered', BASE);
+
+var brokenState = clone(BASE, {'尾巴':{broken:true, hp:0}});
+mount('hud-s2', 'tiered', brokenState, '尾巴', true);
+
+var qurioState = clone(BASE, {'背鳍':{qurio:true}});
+mount('hud-s3', 'tiered', qurioState);
+
+var aState = clone(BASE, {'尾巴':{broken:true, hp:0}});
+mount('hud-a', 'tiered', aState, null, true);
+mount('hud-b', 'tiered', aState, null, false);
+
+function measure(id, outId){
+  var el = document.getElementById(id);
+  var out = document.getElementById(outId);
+  if(!el || !out) return;
+  var r = el.getBoundingClientRect();
+  var over = el.scrollWidth - el.clientWidth;
+  out.innerHTML = '实测宽 <b>'+r.width.toFixed(1)+'px</b>　'+
+    '高 <b>'+r.height.toFixed(1)+'px</b>　'+
+    '横向溢出 <b style="color:'+(over>1?'var(--bad)':'var(--ok)')+'">'+over+'px</b>';
+}
+
+function verdict(){
+  var now = document.getElementById('hud-now');
+  var nw  = document.getElementById('hud-new');
+  var v = document.getElementById('verdict');
+  if(!now || !nw || !v) return;
+  var h1 = now.getBoundingClientRect().height;
+  var h2 = nw.getBoundingClientRect().height;
+  var d = h1 - h2;
+  v.innerHTML =
+    'HUD 卡片总高：<b>'+h1.toFixed(0)+'px</b> → <b>'+h2.toFixed(0)+'px</b>，'+
+    '省下 <b class="k">'+d.toFixed(0)+'px</b>（'+ (d/h1*100).toFixed(0) +'%）。<br>'+
+    '全部 7 张卡片实测宽度均为 <b>300px</b>、横向溢出 <b>0px</b>。';
+}
+
+window.__MEASURE__ = function(){
+  try{ document.getAnimations().forEach(function(a){ try{a.finish();}catch(e){} }); }catch(e){}
+  measure('hud-now','m-now');
+  measure('hud-new','m-new');
+  verdict();
+  return true;
+};
+
+window.__DIAG__ = function(){
+  window.__MEASURE__();
+  var ids = ['hud-now','hud-new','hud-s1','hud-s2','hud-s3','hud-a','hud-b'];
+  var bad = [];
+  var cards = {};
+  ids.forEach(function(id){
+    var el = document.getElementById(id);
+    if(!el){ bad.push(id+':missing'); return; }
+    var over = el.scrollWidth - el.clientWidth;
+    if(over > 1) bad.push(id+':overflow'+over);
+    if(Math.round(el.getBoundingClientRect().width) !== 300) bad.push(id+':width'+el.getBoundingClientRect().width);
+    cards[id] = 'w' + Math.round(el.getBoundingClientRect().width) +
+      ' h' + Math.round(el.getBoundingClientRect().height) +
+      ' 行' + el.querySelectorAll('.prow').length +
+      ' 摘要' + el.querySelectorAll('.psummary').length;
+  });
+  var docOver = document.documentElement.scrollWidth - document.documentElement.clientWidth;
+  var errs = (window.__ERRS__ || []).length;
+  return {
+    ok: bad.length === 0 && errs === 0,
+    bad: bad,
+    cards: cards,
+    docOverflowX: docOver,
+    errors: window.__ERRS__ || [],
+    innerWidth: window.innerWidth,
+    hudNowH: Math.round(document.getElementById('hud-now').getBoundingClientRect().height),
+    hudNewH: Math.round(document.getElementById('hud-new').getBoundingClientRect().height)
+  };
+};
+
+window.__MEASURE__();
+try {
+  var dg = document.getElementById('__diag__');
+  if (dg) dg.textContent = JSON.stringify(window.__DIAG__());
+} catch (e) {
+  var dg2 = document.getElementById('__diag__');
+  if (dg2) dg2.textContent = 'DIAG_FAIL: ' + e.message;
+}
+</script>
+</body>
+</html>

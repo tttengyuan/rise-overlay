@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Rise Overlay · 12 版信息架构重构稿</title>
+<style>
+  :root{
+    --page-bg:#0B0F14; --page-card:#121821; --page-line:#1E2733;
+    --ink:#E6EDF5; --ink-2:#9AA3B2; --ink-3:#66707E;
+    --panel-bg:rgba(10,14,22,.949); --panel-border:#2A2F38;
+    --fg:#FFFFFF; --fg-muted:#9AA3B2;
+    --hp:#D94B43; --qurio:#E11D48; --stun:#EAB308; --brk:#FF8C42;
+    --cap:#C9AA62; --teal:#4A9B9B; --track:#1A222C;
+    --rail-def:#B8995F; --rail-broken:#596466; --flinch:#B8C0CC;
+    --el-fire:#B85C5C; --el-water:#4F87A6; --el-ice:#5F97A8; --el-dragon:#7D6A96;
+    --ok:#97C459; --warn:#EF9F27; --bad:#F09595;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--page-bg);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:40px 28px 80px}
+  h1{font-size:22px;font-weight:500;margin:0 0 8px}
+  .sub{font-size:13px;color:var(--ink-2);line-height:1.75;margin:0 0 6px;max-width:900px}
+  .note{font-size:12px;color:var(--ink-3);line-height:1.7;margin:0 0 26px;max-width:900px}
+
+  .gallery{display:flex;flex-wrap:wrap;gap:34px 30px;align-items:flex-start}
+  .cell{width:300px}
+  .idx{font-size:11px;color:var(--ink-3);letter-spacing:1px;margin-bottom:3px}
+  .lname{font-size:13px;font-weight:500;color:var(--ink);margin-bottom:2px}
+  .ldesc{font-size:11.5px;color:var(--ink-2);line-height:1.6;margin-bottom:9px;min-height:36px}
+  .lmeta{font-size:10.5px;color:var(--ink-3);line-height:1.6;margin-top:7px}
+  .lmeta b{color:var(--ink-2);font-weight:500}
+
+  .hud{width:300px;background:var(--panel-bg);border:1px solid var(--panel-border);
+    border-radius:6px;padding:6px 8px;font-size:11px;color:var(--fg);overflow:hidden}
+  .mname{font-size:12px;font-weight:500;margin-bottom:3px}
+  .hp-row{display:flex;align-items:center;gap:6px}
+  .hp-track{flex:1;height:8px;background:var(--track);border-radius:1px;overflow:hidden}
+  .hp-fill{height:100%;background:linear-gradient(90deg,#8E2F2B,#D94B43);border-radius:1px}
+  .hp-text{font-size:9px;color:var(--fg-muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .srow{display:flex;flex-wrap:wrap;gap:3px;margin:6px 0 7px}
+  .schip{display:flex;align-items:center;gap:3px;padding:1px 4px;border-radius:2px;background:rgba(255,255,255,.04)}
+  .schip em{width:2px;height:9px;border-radius:1px;display:block;font-style:normal}
+  .schip span{font-size:9px;color:var(--fg-muted)}
+  .schip b{font-size:9px;font-weight:500;color:var(--fg)}
+  .ptitle{font-size:9px;color:var(--fg-muted);margin-bottom:2px}
+  .arow{display:flex;flex-wrap:wrap;gap:3px;margin-top:5px}
+  .achip{display:flex;align-items:center;gap:3px;padding:1px 4px;border-radius:2px;background:rgba(255,255,255,.04)}
+  .achip em{width:2px;height:9px;border-radius:1px;display:block;font-style:normal}
+  .achip span{font-size:9px;color:var(--fg-muted)}
+  .achip b{font-size:9px;font-weight:500;color:var(--fg)}
+
+  /* 01 分段轨 */
+  .segline{display:flex;gap:2px}
+  .seg{position:relative;height:11px;background:var(--track);border-radius:1px;overflow:hidden;min-width:0}
+  .seg i{display:block;height:100%}
+  .seglab{display:flex;gap:2px;margin-top:2px}
+  .seglab div{font-size:8.5px;color:var(--fg-muted);text-align:center;overflow:hidden;
+    white-space:nowrap;min-width:0}
+  .seglab div.dim{color:#4E5766}
+
+  /* 02 热力网格 */
+  .heat{display:grid;grid-template-columns:repeat(3,1fr);gap:3px}
+  .hcell{border-radius:3px;padding:4px 5px;display:flex;flex-direction:column;gap:1px;
+    border:.5px solid rgba(255,255,255,.06);min-width:0}
+  .hcell .hn{font-size:9px;color:rgba(255,255,255,.72);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hcell .hv{font-size:13px;font-weight:500;font-variant-numeric:tabular-nums;line-height:1.1}
+  .hcell.gone .hn{text-decoration:line-through;color:rgba(255,255,255,.34)}
+  .hcell.gone .hv{color:rgba(255,255,255,.28);font-size:10px}
+
+  /* 03 环形 */
+  .radial{display:flex;align-items:center;gap:8px}
+  .radial svg{flex:0 0 118px}
+  .rlegend{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+  .rl{display:flex;align-items:center;gap:4px;font-size:9px;color:var(--fg-muted)}
+  .rl em{width:6px;height:6px;border-radius:50%;display:block;flex:0 0 6px;font-style:normal}
+  .rl b{margin-left:auto;color:var(--fg);font-weight:500;font-variant-numeric:tabular-nums}
+  .rl.gone{text-decoration:line-through;color:#5C6673}
+
+  /* 04 带状 */
+  .ribbon{display:flex;gap:2px;align-items:flex-end;height:26px}
+  .rcol{flex:1;background:var(--track);border-radius:1px;position:relative;overflow:hidden;height:100%}
+  .rcol i{position:absolute;left:0;right:0;bottom:0;display:block}
+  .rlab{display:flex;gap:2px;margin-top:2px}
+  .rlab span{flex:1;text-align:center;font-size:8.5px;color:var(--fg-muted)}
+
+  /* 05 聚焦 */
+  .foc{border:.5px solid rgba(255,255,255,.09);border-radius:4px;padding:5px 6px;
+    background:rgba(255,255,255,.025)}
+  .foc-top{display:flex;align-items:baseline;gap:5px;margin-bottom:3px}
+  .foc-top .fn{font-size:13px;font-weight:500}
+  .foc-top .ft{font-size:9px;color:var(--brk);border:.5px solid rgba(255,140,66,.5);
+    border-radius:2px;padding:0 3px}
+  .foc-top .fv{margin-left:auto;font-size:9px;color:var(--fg-muted);font-variant-numeric:tabular-nums}
+  .foc-bar{height:6px;background:var(--track);border-radius:1px;overflow:hidden}
+  .foc-bar i{display:block;height:100%}
+  .foc-meta{display:flex;align-items:center;gap:4px;margin-top:3px}
+  .foc-meta .el{width:8px;height:8px;border-radius:1px;display:block}
+  .foc-meta .txt{font-size:8.5px;color:var(--fg-muted)}
+  .fstrip{display:flex;gap:3px;margin-top:4px}
+  .fs{flex:1;min-width:0;text-align:center;font-size:8.5px;color:var(--fg-muted);
+    padding:2px 0;border-radius:2px;background:rgba(255,255,255,.03);white-space:nowrap;
+    overflow:hidden}
+  .fs.gone{color:#4E5766;text-decoration:line-through}
+
+  /* 06 仪表盘 */
+  .gauges{display:flex;align-items:center;justify-content:space-between;gap:6px}
+  .gauge-big{flex:0 0 96px;position:relative}
+  .gauge-big .gval{position:absolute;left:0;right:0;top:38%;text-align:center;
+    font-size:15px;font-weight:500;font-variant-numeric:tabular-nums}
+  .gauge-big .gsub{position:absolute;left:0;right:0;top:56%;text-align:center;
+    font-size:8px;color:var(--fg-muted)}
+  .gmini{flex:1;display:flex;gap:4px;justify-content:flex-end}
+  .gmini .gi{display:flex;flex-direction:column;align-items:center;gap:1px;width:32px}
+  .gmini .gi span{font-size:8px;color:var(--fg-muted);white-space:nowrap}
+  .gmini .gi.gone span{color:#4E5766;text-decoration:line-through}
+
+  /* 07 反转条 */
+  .rev{display:flex;flex-direction:column;gap:3px}
+  .rev-row{display:flex;align-items:center;gap:5px;flex-direction:row-reverse}
+  .rev-row .rn{flex:0 0 40px;font-size:9px;color:var(--fg-muted);text-align:left}
+  .rev-row .rb{flex:1;height:6px;background:var(--track);border-radius:1px;
+    overflow:hidden;display:flex;justify-content:flex-end}
+  .rev-row .rb i{display:block;height:100%}
+  .rev-row .rp{flex:0 0 26px;font-size:9px;color:var(--fg);text-align:left;
+    font-variant-numeric:tabular-nums}
+
+  /* 08 时间轴 */
+  .spark{display:flex;flex-direction:column;gap:2px}
+  .sp-row{display:flex;align-items:center;gap:4px}
+  .sp-row .sn{flex:0 0 40px;font-size:9px;color:var(--fg-muted);white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  .sp-row .sv{flex:0 0 26px;font-size:9px;color:var(--fg);text-align:right;
+    font-variant-numeric:tabular-nums}
+
+  /* 09 状态卡片 */
+  .scard{display:flex;align-items:center;gap:5px;padding:3px 5px;border-radius:3px;
+    border:.5px solid rgba(255,140,66,.42);background:rgba(255,140,66,.07)}
+  .scard .sn{font-size:11px;font-weight:500;flex:0 0 44px}
+  .scard .stag{font-size:8.5px;color:var(--brk);flex:0 0 auto}
+  .scard .sb{flex:1;height:5px;background:var(--track);border-radius:1px;overflow:hidden}
+  .scard .sb i{display:block;height:100%}
+  .scard .sv{font-size:9px;color:var(--fg-muted);font-variant-numeric:tabular-nums}
+  .srest{margin-top:4px;font-size:9px;color:#5C6673;text-align:center}
+
+  /* 10 双列 */
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:3px}
+  .tc{display:flex;align-items:center;gap:4px;padding:3px 4px;border-radius:2px;
+    background:rgba(255,255,255,.035);min-width:0}
+  .tc .tn{font-size:9px;color:var(--fg-muted);flex:1;white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis}
+  .tc .tv{font-size:10px;font-weight:500;font-variant-numeric:tabular-nums}
+  .tc.gone .tn{text-decoration:line-through;color:#4E5766}
+  .tc.gone .tv{color:#4E5766}
+
+  /* 11 图标矩阵 */
+  .icons{display:flex;gap:4px;justify-content:space-between}
+  .ico{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}
+  .ico .ring{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;
+    justify-content:center;font-size:11px;font-weight:500;position:relative}
+  .ico .ring span{position:relative;z-index:1}
+  .ico .pc{font-size:8.5px;color:var(--fg-muted);font-variant-numeric:tabular-nums}
+  .ico.gone .ring{color:#5C6673}
+  .ico.gone .pc{color:#4E5766}
+
+  /* 12 极细条 */
+  .thin{display:flex;flex-direction:column;gap:3px}
+  .th-row{display:flex;align-items:center;gap:5px}
+  .th-row .tn{flex:0 0 32px;font-size:8.5px;color:var(--fg-muted);white-space:nowrap}
+  .th-row .tt{flex:1;height:3px;background:var(--track);border-radius:1.5px;overflow:hidden}
+  .th-row .tt i{display:block;height:100%}
+  .th-row .tv{flex:0 0 24px;font-size:8.5px;color:var(--fg-muted);text-align:right;
+    font-variant-numeric:tabular-nums}
+  .th-row.gone .tn{text-decoration:line-through;color:#4E5766}
+
+  .ruler{position:relative;height:16px;width:300px;margin-bottom:6px}
+  .ruler::before,.ruler::after{content:"";position:absolute;top:6px;width:1px;height:8px;background:var(--ink-3)}
+  .ruler::before{left:0}.ruler::after{right:0}
+  .ruler i{position:absolute;left:0;right:0;top:9px;height:1px;background:var(--page-line)}
+  .ruler span{position:absolute;left:50%;transform:translateX(-50%);top:-4px;font-size:10px;
+    color:var(--ink-3);background:var(--page-bg);padding:0 6px}
+
+  .verdict{background:var(--page-card);border:.5px solid var(--page-line);border-radius:8px;
+    padding:14px 16px;font-size:12.5px;line-height:1.8;color:var(--ink-2);margin-top:44px}
+  .verdict b{color:var(--ink);font-weight:500}
+  .verdict table{border-collapse:collapse;font-size:11.5px;margin-top:10px;width:100%}
+  .verdict th,.verdict td{text-align:left;padding:5px 10px 5px 0;
+    border-bottom:1px solid var(--page-line);font-weight:400;color:var(--ink-2)}
+  .verdict th{color:var(--ink-3);font-size:11px;font-weight:500}
+  @media (prefers-reduced-motion: reduce){ .hp-fill,.seg i,.foc-bar i{transition:none} }
+</style>
+</head>
+<body>
+<script>
+window.__ERRS__ = [];
+window.addEventListener('error', function (e) {
+  var t = e.target;
+  if (t && t.tagName === 'SCRIPT') { window.__ERRS__.push('script-load-fail: ' + t.src); return; }
+  var st = e.error && e.error.stack ? e.error.stack.split('\n').slice(0,6).join(' | ') : '(no stack)';
+  window.__ERRS__.push(e.message + ' @' + (e.filename||'').slice(-28) + ':' + e.lineno + ' :: ' + st);
+}, true);
+</script>
+
+<div class="wrap">
+  <h1>12 版信息架构重构稿</h1>
+  <p class="sub">上一轮是换皮（同一套竖排列表，换色换纹理）。这一轮是<b style="color:var(--ink-2)">换骨架</b>：部位区不再假设「必须是一行一个部位」。</p>
+  <p class="note">数据全部取自真实 sample <code>CreateSampleScornedMagnamalo()</code>（嗟怨震天怨虎龙，5 部位）。全部卡片锁死 <b style="color:var(--ink-2)">300px</b>。各版共用同一套怪物名 / 主血条 / 状态行 / 异常行，只替换部位区的信息架构，便于横向对比。</p>
+
+  <div class="gallery" id="gallery"></div>
+
+  <div class="verdict" id="verdict">测算中…</div>
+</div>
+
+<pre id="__diag__" style="display:none"></pre>
+
+<script>
+var EL = {fire:'#B85C5C',water:'#4F87A6',thunder:'#B09A4A',ice:'#5F97A8',dragon:'#7D6A96'};
+
+var BASE = [
+  {name:'头部', short:'头', hp:620,  max:1200, sever:false, broken:false, qurio:false, weak:['water']},
+  {name:'前肢', short:'前', hp:0,    max:900,  sever:false, broken:true,  qurio:false, weak:['water','ice']},
+  {name:'腹部', short:'腹', hp:1100, max:1500, sever:false, broken:false, qurio:false, weak:['water']},
+  {name:'尾巴', short:'尾', hp:280,  max:800,  sever:true,  broken:false, qurio:false, weak:['water','dragon']},
+  {name:'背鳍', short:'鳍', hp:450,  max:700,  sever:false, broken:false, qurio:false, weak:['water']}
+];
+
+var SCHIPS = [
+  {l:'愤怒', v:'0:14', c:'#FF8C42'}, {l:'晕眩', v:'88%', c:'#EAB308'},
+  {l:'耐力', v:'62%', c:'#4A9B9B'}, {l:'御龙', v:'62%', c:'#C9AA62'}
+];
+var AILS = [
+  {l:'毒', v:'42%', c:'#E11D48'}, {l:'麻', v:'生效', c:'#EAB308'},
+  {l:'眠', v:'15%', c:'#4F87A6'}, {l:'爆', v:'67%', c:'#FF8C42'},
+  {l:'减气', v:'8%', c:'#4A9B9B'}
+];
+
+function pct(p){ return p.max > 0 ? p.hp / p.max * 100 : 0; }
+function pctInt(p){ return Math.round(pct(p)); }
+function hpColor(p){
+  if(p.broken) return '#596466';
+  if(p.qurio)  return '#E11D48';
+  if(p.sever)  return '#FF8C42';
+  return '#B8995F';
+}
+function heatBg(p){
+  if(p.broken) return 'rgba(255,255,255,.045)';
+  var t = pct(p) / 100;
+  var r = Math.round(30 + 175 * t), g = Math.round(22 + 26 * t), b = Math.round(26 + 12 * t);
+  return 'rgba(' + r + ',' + g + ',' + b + ',' + (0.24 + 0.42 * t).toFixed(2) + ')';
+}
+function mkHist(endPct){
+  var a = [];
+  for(var i = 0; i < 12; i++){
+    var t = i / 11;
+    a.push(Math.max(0, Math.min(100, 100 - (100 - endPct) * Math.pow(t, 0.7))));
+  }
+  a[11] = endPct;
+  return a;
+}
+
+function hpRow(){
+  return '<div class="hp-row"><div class="hp-track"><div class="hp-fill" style="width:19.7%"></div></div>'+
+    '<div class="hp-text">4820 / 24500</div></div>';
+}
+function statusRow(){
+  return '<div class="srow">' + SCHIPS.map(function(c){
+    return '<span class="schip"><em style="background:'+c.c+'"></em><span>'+c.l+'</span><b>'+c.v+'</b></span>';
+  }).join('') + '</div>';
+}
+function ailRow(){
+  return '<div class="arow">' + AILS.map(function(a){
+    return '<span class="achip"><em style="background:'+a.c+'"></em><span>'+a.l+'</span><b>'+a.v+'</b></span>';
+  }).join('') + '</div>';
+}
+function shell(inner, title){
+  return '<div class="mname">嗟怨震天怨虎龙</div>' + hpRow() + statusRow() +
+    (title === null ? '' : '<div class="ptitle">' + (title || '部位 · 状态 · 弱属性 · 剩余值') + '</div>') +
+    inner + ailRow();
+}
+
+/* ---------- 01 分段轨 ---------- */
+function v01(parts){
+  var line = '<div class="segline">' + parts.map(function(p){
+    return '<div class="seg" style="flex:'+p.max+'">'+
+      '<i style="width:'+pct(p).toFixed(1)+'%;background:'+hpColor(p)+'"></i></div>';
+  }).join('') + '</div>';
+  var lab = '<div class="seglab">' + parts.map(function(p){
+    return '<div class="'+(p.broken?'dim':'')+'" style="flex:'+p.max+'">'+p.name+'</div>';
+  }).join('') + '</div>';
+  return shell(line + lab, '部位 · 轨宽按部位上限，填充按当前');
+}
+
+/* ---------- 02 热力网格 ---------- */
+function v02(parts){
+  var cells = parts.map(function(p){
+    return '<div class="hcell'+(p.broken?' gone':'')+'" style="background:'+heatBg(p)+'">'+
+      '<span class="hn">'+p.name+'</span>'+
+      '<b class="hv">'+(p.broken?'已断':pctInt(p)+'%')+'</b></div>';
+  }).join('');
+  return shell('<div class="heat">'+cells+'</div>', '部位 · 色块 = 血量');
+}
+
+/* ---------- 03 环形雷达 ---------- */
+function v03(parts){
+  var CX=59, CY=59, R=44, C=2*Math.PI*R, SEG=C/parts.length, GAP=4;
+  var arcs='', dots='';
+  parts.forEach(function(p,i){
+    var off = -i*SEG;
+    var arc = SEG - GAP;
+    arcs += '<circle cx="'+CX+'" cy="'+CY+'" r="'+R+'" fill="none" stroke="#1A222C" '+
+      'stroke-width="8" stroke-dasharray="'+arc.toFixed(1)+' '+(C-arc).toFixed(1)+'" '+
+      'stroke-dashoffset="'+off.toFixed(1)+'" transform="rotate(-90 '+CX+' '+CY+')"/>';
+    var f = arc * (p.broken ? 1 : pct(p)/100);
+    if(p.broken){
+      arcs += '<circle cx="'+CX+'" cy="'+CY+'" r="'+R+'" fill="none" stroke="#596466" '+
+        'stroke-width="8" stroke-dasharray="'+arc.toFixed(1)+' '+(C-arc).toFixed(1)+'" '+
+        'stroke-dashoffset="'+off.toFixed(1)+'" transform="rotate(-90 '+CX+' '+CY+')" opacity=".45"/>';
+    }else{
+      arcs += '<circle cx="'+CX+'" cy="'+CY+'" r="'+R+'" fill="none" stroke="'+hpColor(p)+'" '+
+        'stroke-width="8" stroke-dasharray="'+f.toFixed(1)+' '+(C-f).toFixed(1)+'" '+
+        'stroke-dashoffset="'+off.toFixed(1)+'" transform="rotate(-90 '+CX+' '+CY+')" '+
+        'stroke-linecap="butt"/>';
+    }
+    var mid = (i*SEG + SEG/2 - 90) * Math.PI/180;
+    var dx = CX + Math.cos(mid)*(R+15), dy = CY + Math.sin(mid)*(R+15);
+    dots += '<text x="'+dx.toFixed(1)+'" y="'+dy.toFixed(1)+'" fill="#9AA3B2" font-size="8.5" '+
+      'text-anchor="middle" dominant-baseline="central">'+p.short+'</text>';
+  });
+  var svg = '<svg width="118" height="118" viewBox="0 0 118 118">'+
+    '<text x="'+CX+'" y="'+(CY-6)+'" fill="#FFFFFF" font-size="15" font-weight="500" '+
+    'text-anchor="middle" font-variant-numeric="tabular-nums">19.7%</text>'+
+    '<text x="'+CX+'" y="'+(CY+9)+'" fill="#9AA3B2" font-size="8" text-anchor="middle">总体</text>'+
+    arcs + dots + '</svg>';
+  var legend = '<div class="rlegend">' + parts.map(function(p){
+    return '<div class="rl'+(p.broken?' gone':'')+'"><em style="background:'+hpColor(p)+'"></em>'+
+      p.name+'<b>'+(p.broken?'已断':pctInt(p)+'%')+'</b></div>';
+  }).join('') + '</div>';
+  return shell('<div class="radial">'+svg+legend+'</div>', '部位 · 环段按方位，弧长 = 血量');
+}
+
+/* ---------- 04 带状 ---------- */
+function v04(parts){
+  var cols = '<div class="ribbon">' + parts.map(function(p){
+    return '<div class="rcol"><i style="height:'+(p.broken?4:pct(p).toFixed(1))+'%;background:'+
+      hpColor(p)+'"></i></div>';
+  }).join('') + '</div>';
+  var lab = '<div class="rlab">' + parts.map(function(p){
+    return '<span>'+p.short+'</span>';
+  }).join('') + '</div>';
+  return shell(cols + lab, '部位 · 等宽竖柱，柱高 = 血量');
+}
+
+/* ---------- 05 聚焦 + 条带 ---------- */
+function v05(parts){
+  var focus = null;
+  parts.forEach(function(p){ if(!p.broken && (p.sever || p.qurio)) focus = p; });
+  if(!focus) focus = parts[0];
+  var els = focus.weak.map(function(w){ return '<em class="el" style="background:'+EL[w]+'"></em>'; }).join('');
+  var foc = '<div class="foc">'+
+    '<div class="foc-top"><span class="fn">'+focus.name+'</span>'+
+      (focus.sever?'<span class="ft">可断尾</span>':'')+
+      '<span class="fv">'+focus.hp+' / '+focus.max+'</span></div>'+
+    '<div class="foc-bar"><i style="width:'+pct(focus).toFixed(1)+'%;background:'+hpColor(focus)+'"></i></div>'+
+    '<div class="foc-meta">'+els+'<span class="txt">弱点 · 剩余 '+pctInt(focus)+'%</span></div></div>';
+  var strip = '<div class="fstrip">' + parts.filter(function(p){ return p !== focus; }).map(function(p){
+    return '<div class="fs'+(p.broken?' gone':'')+'">'+p.name+' '+(p.broken?'已断':pctInt(p)+'%')+'</div>';
+  }).join('') + '</div>';
+  return shell(foc + strip, null);
+}
+
+/* ---------- 06 仪表盘集群 ---------- */
+function v06(parts){
+  function ring(cx, cy, r, p, sw, idx){
+    var C = 2*Math.PI*r;
+    var f = p.broken ? 0 : C * pct(p)/100;
+    var s = '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="#1A222C" stroke-width="'+sw+'"/>';
+    if(p.broken){
+      s += '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="#596466" '+
+        'stroke-width="'+sw+'" stroke-dasharray="'+(C*0.12).toFixed(1)+' '+(C*0.88).toFixed(1)+'" '+
+        'stroke-dashoffset="'+(-C*0.06).toFixed(1)+'" opacity=".5" transform="rotate(-90 '+cx+' '+cy+')"/>';
+    }else{
+      s += '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+hpColor(p)+'" '+
+        'stroke-width="'+sw+'" stroke-dasharray="'+f.toFixed(1)+' '+(C-f).toFixed(1)+'" '+
+        'stroke-dashoffset="0" stroke-linecap="round" transform="rotate(-90 '+cx+' '+cy+')"/>';
+    }
+    return s;
+  }
+  var svg = '<svg width="96" height="96" viewBox="0 0 96 96">'+
+    '<circle cx="48" cy="48" r="34" fill="none" stroke="#1A222C" stroke-width="9"/>'+
+    '<circle cx="48" cy="48" r="34" fill="none" stroke="#D94B43" stroke-width="9" '+
+      'stroke-dasharray="'+(2*Math.PI*34*0.197).toFixed(1)+' '+(2*Math.PI*34).toFixed(1)+'" '+
+      'stroke-linecap="round" transform="rotate(-90 48 48)"/></svg>';
+  var big = '<div class="gauge-big">'+svg+
+    '<div class="gval">19.7%</div><div class="gsub">4820 / 24500</div></div>';
+  var minis = '<div class="gmini">' + parts.map(function(p){
+    return '<div class="gi'+(p.broken?' gone':'')+'">'+
+      '<svg width="32" height="32" viewBox="0 0 32 32">'+ ring(16,16,12,p,4) +
+      '<text x="16" y="16" fill="#E6EDF5" font-size="8" text-anchor="middle" '+
+      'dominant-baseline="central">'+(p.broken?'—':pctInt(p))+'</text></svg>'+
+      '<span>'+p.short+'</span></div>';
+  }).join('') + '</div>';
+  return shell('<div class="gauges">'+big+minis+'</div>', '部位 · 环形仪表，弧长 = 血量');
+}
+
+/* ---------- 07 反转条 ---------- */
+function v07(parts){
+  var rows = parts.map(function(p){
+    return '<div class="rev-row">'+
+      '<span class="rp">'+(p.broken?'—':pctInt(p)+'%')+'</span>'+
+      '<div class="rb"><i style="width:'+(p.broken?100:pct(p).toFixed(1))+'%;background:'+
+        (p.broken?'#2E3640':hpColor(p))+'"></i></div>'+
+      '<span class="rn">'+p.name+'</span></div>';
+  }).join('');
+  return shell('<div class="rev">'+rows+'</div>', '部位 · 名右置，条向左生长');
+}
+
+/* ---------- 08 掉血时间轴 ---------- */
+function v08(parts){
+  var rows = parts.map(function(p){
+    var h = mkHist(p.broken ? 0 : pct(p));
+    var pts = h.map(function(v,i){
+      return (i/11*64).toFixed(1) + ',' + (14 - v/100*14).toFixed(1);
+    }).join(' ');
+    return '<div class="sp-row"><span class="sn">'+p.name+'</span>'+
+      '<svg width="64" height="14" viewBox="0 0 64 14" style="flex:1">'+
+      '<polyline points="'+pts+'" fill="none" stroke="'+(p.broken?'#596466':hpColor(p))+
+      '" stroke-width="1.2"/></svg>'+
+      '<span class="sv">'+(p.broken?'已断':pctInt(p)+'%')+'</span></div>';
+  }).join('');
+  return shell('<div class="spark">'+rows+'</div>', '部位 · 曲线 = 掉血历史');
+}
+
+/* ---------- 09 状态卡片 ---------- */
+function v09(parts){
+  var act = parts.filter(function(p){ return !p.broken && (p.sever || p.qurio); });
+  var cards = act.map(function(p){
+    var tag = p.sever ? '可断尾' : '怪异化';
+    return '<div class="scard"><span class="sn">'+p.name+'</span>'+
+      '<span class="stag">'+tag+'</span>'+
+      '<div class="sb"><i style="width:'+pct(p).toFixed(1)+'%;background:'+hpColor(p)+'"></i></div>'+
+      '<span class="sv">'+p.hp+'</span></div>';
+  }).join('');
+  var rest = parts.filter(function(p){ return p.broken || !(p.sever || p.qurio); });
+  var avg = Math.round(rest.reduce(function(a,p){ return a + pct(p); }, 0) / (rest.length || 1));
+  return shell(cards + '<div class="srest">其余 '+rest.length+' 个部位正常 · 均值 '+avg+'%</div>',
+    '部位 · 只显示需要动作的');
+}
+
+/* ---------- 10 双列紧凑 ---------- */
+function v10(parts){
+  var cells = parts.map(function(p){
+    return '<div class="tc'+(p.broken?' gone':'')+'"><span class="tn">'+p.name+'</span>'+
+      '<span class="tv">'+(p.broken?'已断':pctInt(p)+'%')+'</span></div>';
+  }).join('');
+  return shell('<div class="two">'+cells+'</div>', '部位 · 两列排布');
+}
+
+/* ---------- 11 图标矩阵 ---------- */
+function v11(parts){
+  var items = parts.map(function(p){
+    var f = p.broken ? 0 : pct(p);
+    var r = 17, C = 2*Math.PI*r;
+    return '<div class="ico'+(p.broken?' gone':'')+'">'+
+      '<div class="ring">'+
+      '<svg width="34" height="34" viewBox="0 0 34 34" style="position:absolute;left:0;top:0">'+
+      '<circle cx="17" cy="17" r="'+r+'" fill="none" stroke="#1A222C" stroke-width="3"/>'+
+      (p.broken
+        ? '<circle cx="17" cy="17" r="'+r+'" fill="none" stroke="#596466" stroke-width="3" '+
+          'stroke-dasharray="3 5" opacity=".6"/>'
+        : '<circle cx="17" cy="17" r="'+r+'" fill="none" stroke="'+hpColor(p)+'" stroke-width="3" '+
+          'stroke-dasharray="'+(C*f/100).toFixed(1)+' '+(C-C*f/100).toFixed(1)+'" '+
+          'transform="rotate(-90 17 17)"/>')+
+      '</svg><span>'+p.short+'</span></div>'+
+      '<span class="pc">'+(p.broken?'已断':pctInt(p)+'%')+'</span></div>';
+  }).join('');
+  return shell('<div class="icons">'+items+'</div>', '部位 · 首字环，弧长 = 血量');
+}
+
+/* ---------- 12 极细条 ---------- */
+function v12(parts){
+  var rows = parts.map(function(p){
+    return '<div class="th-row'+(p.broken?' gone':'')+'">'+
+      '<span class="tn">'+p.name+'</span>'+
+      '<div class="tt"><i style="width:'+(p.broken?100:pct(p).toFixed(1))+'%;background:'+
+        (p.broken?'#2E3640':hpColor(p))+'"></i></div>'+
+      '<span class="tv">'+(p.broken?'—':pctInt(p)+'%')+'</span></div>';
+  }).join('');
+  return shell('<div class="thin">'+rows+'</div>', '部位 · 3px 细条阵列');
+}
+
+var VERSIONS = [
+  {id:'01', key:'v01', name:'SEGMENTED RAIL · 分段轨',
+   desc:'五个部位压成一条水平轨。轨宽按部位血量上限分配（静态不变），填充按当前血量。',
+   meta:'部位区 <b>≈24px</b> · 聚合型 · 适合极窄 HUD'},
+  {id:'02', key:'v02', name:'HEAT GRID · 热力网格',
+   desc:'3×2 色块矩阵，块底色深浅 = 血量，右上角百分比。一眼扫完全部部位。',
+   meta:'部位区 <b>≈68px</b> · 矩阵型 · 扫读最快'},
+  {id:'03', key:'v03', name:'RADIAL · 环形雷达',
+   desc:'部位按方位排成环段，弧长 = 血量，中心是总体血量。像雷达方位图。',
+   meta:'部位区 <b>≈118px</b> · 环形型 · 方位感最强'},
+  {id:'04', key:'v04', name:'RIBBON · 等宽竖柱',
+   desc:'五个等宽竖柱紧贴排开，柱高 = 血量。像音频频谱条。',
+   meta:'部位区 <b>≈38px</b> · 聚合型 · 最省纵向'},
+  {id:'05', key:'v05', name:'FOCUS + STRIP · 聚焦式',
+   desc:'当前该打的部位放大成主卡（大字号 + 大血条 + 弱属性），其余压成一条细带。',
+   meta:'部位区 <b>≈62px</b> · 分级型 · 主次最分明'},
+  {id:'06', key:'v06', name:'GAUGE CLUSTER · 仪表盘集群',
+   desc:'主血量做中央大环，五个部位做右侧小环。汽车仪表盘布局。',
+   meta:'部位区 <b>≈96px</b> · 环形型 · 视觉冲击最强'},
+  {id:'07', key:'v07', name:'REVERSED BARS · 反转条',
+   desc:'部位名右置贴边，条从右向左生长，数值在最左。与现行方向完全镜像。',
+   meta:'部位区 <b>≈48px</b> · 条列型 · 视线落点靠边'},
+  {id:'08', key:'v08', name:'SPARKLINE · 掉血时间轴',
+   desc:'每个部位一条掉血历史曲线，能看出掉血速度，不只是当前值。',
+   meta:'部位区 <b>≈52px</b> · 历史型 · 需新增历史缓冲'},
+  {id:'09', key:'v09', name:'STATE CARDS · 状态卡片',
+   desc:'只显示需要动作的部位（可断尾 / 怪异化），其余收成一行汇总。空态即零噪音。',
+   meta:'部位区 <b>≈44px</b> · 分级型 · 噪音最低'},
+  {id:'10', key:'v10', name:'TWO-COLUMN · 双列紧凑',
+   desc:'部位分两列排，5 个部位只占 3 行。信息不丢，纵向减半。',
+   meta:'部位区 <b>≈48px</b> · 矩阵型 · 改动最小'},
+  {id:'11', key:'v11', name:'ICON MATRIX · 首字环',
+   desc:'每个部位一个圆环 + 首字，环弧长 = 血量。不依赖完整文字。',
+   meta:'部位区 <b>≈52px</b> · 符号型 · 跨语言'},
+  {id:'12', key:'v12', name:'THIN BARS · 极细条阵列',
+   desc:'每个部位一条 3px 细条紧密堆叠，像 CPU 核心监控。保留每部位独立可读。',
+   meta:'部位区 <b>≈42px</b> · 条列型 · 密度最高'}
+];
+
+var RENDER = {v01:v01, v02:v02, v03:v03, v04:v04, v05:v05, v06:v06,
+              v07:v07, v08:v08, v09:v09, v10:v10, v11:v11, v12:v12};
+
+function build(){
+  var g = document.getElementById('gallery');
+  if(!g) return;
+  var html = '';
+  VERSIONS.forEach(function(v){
+    html += '<div class="cell">'+
+      '<div class="idx">'+v.id+'</div>'+
+      '<div class="lname">'+v.name+'</div>'+
+      '<div class="ldesc">'+v.desc+'</div>'+
+      '<div class="ruler"><i></i><span>300px</span></div>'+
+      '<div class="hud" id="hud-'+v.id+'">'+ RENDER[v.key](BASE) +'</div>'+
+      '<div class="lmeta">'+v.meta+'</div>'+
+    '</div>';
+  });
+  g.innerHTML = html;
+}
+
+function verdict(){
+  var v = document.getElementById('verdict');
+  if(!v) return;
+  var rows = '', hMin = 1e9, hMinId = '', hMax = 0, hMaxId = '';
+  VERSIONS.forEach(function(ver){
+    var el = document.getElementById('hud-'+ver.id);
+    if(!el) return;
+    var h = el.getBoundingClientRect().height;
+    if(h < hMin){ hMin = h; hMinId = ver.id; }
+    if(h > hMax){ hMax = h; hMaxId = ver.id; }
+    rows += '<tr><td>'+ver.id+' '+ver.name+'</td><td>'+h.toFixed(0)+'px</td>'+
+      '<td>'+(el.scrollWidth - el.clientWidth)+'px</td>'+
+      '<td>'+Math.round(el.getBoundingClientRect().width)+'px</td></tr>';
+  });
+  v.innerHTML = '<b>实测（无头 Chrome，1180 视口）</b>'+
+    '<table><tr><th>版本</th><th>卡片总高</th><th>横向溢出</th><th>宽度</th></tr>'+rows+'</table>'+
+    '<p style="margin:12px 0 0">最矮 <b>'+hMinId+' · '+hMin.toFixed(0)+'px</b>　'+
+    '最高 <b>'+hMaxId+' · '+hMax.toFixed(0)+'px</b>　'+
+    '现行版（竖排 5 行）约 <b>238px</b>。</p>';
+}
+
+window.__DIAG__ = function(){
+  var ids = VERSIONS.map(function(v){ return 'hud-'+v.id; });
+  var bad = [], cards = {};
+  ids.forEach(function(id){
+    var el = document.getElementById(id);
+    if(!el){ bad.push(id+':missing'); return; }
+    var over = el.scrollWidth - el.clientWidth;
+    var w = el.getBoundingClientRect().width;
+    if(over > 1) bad.push(id+':overflow'+over);
+    if(Math.round(w) !== 300) bad.push(id+':width'+w);
+    cards[id] = 'w'+Math.round(w)+' h'+Math.round(el.getBoundingClientRect().height)+' over'+over;
+  });
+  var docOver = document.documentElement.scrollWidth - document.documentElement.clientWidth;
+  var errs = (window.__ERRS__ || []).length;
+  return { ok: bad.length === 0 && errs === 0, bad: bad, cards: cards,
+    docOverflowX: docOver, errors: window.__ERRS__ };
+};
+
+build();
+verdict();
+try {
+  var dg = document.getElementById('__diag__');
+  if(dg) dg.textContent = JSON.stringify(window.__DIAG__());
+} catch (e) {
+  var dg2 = document.getElementById('__diag__');
+  if(dg2) dg2.textContent = 'DIAG_FAIL: ' + e.message;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Rise Overlay · 等距 3D · 6 版</title>
+<style>
+  :root{
+    --page-bg:#070A0F; --page-card:#111721; --page-line:#1D2633;
+    --ink:#E6EDF5; --ink-2:#9AA3B2; --ink-3:#66707E;
+    --panel-bg:rgba(8,12,18,.96); --panel-border:#242B36;
+    --fg:#FFFFFF; --fg-muted:#9AA3B2; --track:#161D26;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--page-bg);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:44px 28px 80px}
+  h1{font-size:22px;font-weight:500;margin:0 0 10px}
+  .sub{font-size:13px;color:var(--ink-2);line-height:1.8;margin:0 0 10px;max-width:960px}
+  .sub b{color:var(--ink);font-weight:500}
+  .kicker{font-size:12px;color:var(--ink-3);line-height:1.85;margin:0 0 30px;max-width:960px;
+    border-left:2px solid #2A3340;padding-left:14px}
+  .kicker code{color:#8FA6BF;font-size:11.5px}
+
+  .gallery{display:flex;flex-wrap:wrap;gap:36px 30px;align-items:flex-start}
+  .cell{width:300px}
+  .idx{font-size:11px;color:var(--ink-3);letter-spacing:1px;margin-bottom:3px}
+  .lname{font-size:13px;font-weight:500;margin-bottom:2px}
+  .ldesc{font-size:11.5px;color:var(--ink-2);line-height:1.6;margin-bottom:9px;min-height:54px}
+  .lmeta{font-size:10.5px;color:var(--ink-3);line-height:1.65;margin-top:7px}
+  .lmeta b{color:var(--ink-2);font-weight:500}
+
+  .hud{width:300px;border-radius:6px;padding:6px 8px;font-size:11px;color:var(--fg);
+    overflow:hidden;border:1px solid var(--panel-border);background:var(--panel-bg)}
+  .mname{font-size:12px;font-weight:500;margin-bottom:3px}
+  .hp-row{display:flex;align-items:center;gap:6px}
+  .hp-track{flex:1;height:8px;background:var(--track);border-radius:1px;overflow:hidden}
+  .hp-fill{height:100%;border-radius:1px;background:linear-gradient(90deg,#8E2F2B,#D94B43)}
+  .hp-text{font-size:9px;color:var(--fg-muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .srow{display:flex;flex-wrap:wrap;gap:3px;margin:6px 0 7px}
+  .schip{display:flex;align-items:center;gap:3px;padding:1px 4px;border-radius:2px;background:rgba(255,255,255,.045)}
+  .schip em{width:2px;height:9px;border-radius:1px;display:block;font-style:normal}
+  .schip span{font-size:9px;color:var(--fg-muted)}
+  .schip b{font-size:9px;font-weight:500;color:var(--fg)}
+  .ptitle{font-size:9px;color:var(--fg-muted);margin-bottom:2px}
+  .arow{display:flex;flex-wrap:wrap;gap:3px;margin-top:5px}
+  .achip{display:flex;align-items:center;gap:3px;padding:1px 4px;border-radius:2px;background:rgba(255,255,255,.045)}
+  .achip em{width:2px;height:9px;border-radius:1px;display:block;font-style:normal}
+  .achip span{font-size:9px;color:var(--fg-muted)}
+  .achip b{font-size:9px;font-weight:500;color:var(--fg)}
+  .legend{margin-top:3px;font-size:9px;color:var(--fg-muted);line-height:1.6;
+    font-variant-numeric:tabular-nums}
+  .legend .sep{color:#3A434F;margin:0 3px}
+  .legend .gone{color:#5C6673;text-decoration:line-through}
+
+  .ruler{position:relative;height:16px;width:300px;margin-bottom:6px}
+  .ruler::before,.ruler::after{content:"";position:absolute;top:6px;width:1px;height:8px;background:var(--ink-3)}
+  .ruler::before{left:0}.ruler::after{right:0}
+  .ruler i{position:absolute;left:0;right:0;top:9px;height:1px;background:var(--page-line)}
+  .ruler span{position:absolute;left:50%;transform:translateX(-50%);top:-4px;font-size:10px;
+    color:var(--ink-3);background:var(--page-bg);padding:0 6px}
+
+  .verdict{background:var(--page-card);border:.5px solid var(--page-line);border-radius:8px;
+    padding:16px 18px;font-size:12.5px;line-height:1.85;color:var(--ink-2);margin-top:46px}
+  .verdict b{color:var(--ink);font-weight:500}
+  .verdict h3{font-size:13px;font-weight:500;color:var(--ink);margin:0 0 8px}
+  .verdict table{border-collapse:collapse;font-size:11.5px;margin-top:10px;width:100%}
+  .verdict th,.verdict td{text-align:left;padding:5px 10px 5px 0;
+    border-bottom:1px solid var(--page-line);font-weight:400;color:var(--ink-2);vertical-align:top}
+  .verdict th{color:var(--ink-3);font-size:11px;font-weight:500}
+  .verdict code{color:#8FA6BF;font-size:11.5px}
+  .verdict .ok{color:#4ADEC0}
+  .verdict .no{color:#D94B43}
+</style>
+</head>
+<body>
+<script>
+window.__ERRS__ = [];
+window.addEventListener('error', function (e) {
+  var t = e.target;
+  if (t && t.tagName === 'SCRIPT') { window.__ERRS__.push('script-load-fail: ' + t.src); return; }
+  var st = e.error && e.error.stack ? e.error.stack.split('\n').slice(0,6).join(' | ') : '(no stack)';
+  window.__ERRS__.push(e.message + ' @' + (e.filename||'').slice(-28) + ':' + e.lineno + ' :: ' + st);
+}, true);
+</script>
+
+<div class="wrap">
+  <h1>等距 3D · 6 版</h1>
+  <p class="sub">官方模型拿不到（RE Engine <code>.mod3</code>，版权归 Capcom，且又是「一怪一模型」的老坑）。但 3D 感不需要模型 —— <b>等距投影（isometric）能让任何结构看起来是立体的</b>。</p>
+  <p class="kicker">
+    <b>为什么这版能落地</b>：默认渲染是 <code>Software</code>（<code>ClientConfig.cs:63</code>），真 <code>Viewport3D</code> 在软渲染下会卡。<br>
+    等距投影的本质是 —— <b>把 3D 坐标算成 2D 多边形</b>：<code>sx=(x−y)·cos30°</code>，<code>sy=(x+y)·sin30°−z</code>。<br>
+    所以每根柱子就是 <b>3 个 <code>Path</code></b>（顶 / 左 / 右），<b>纯 2D、纯 XAML、软渲染可跑</b>，但看起来是立体的。
+  </p>
+
+  <div class="gallery" id="gallery"></div>
+
+  <div class="verdict" id="verdict">测算中…</div>
+</div>
+
+<pre id="__diag__" style="display:none"></pre>
+
+<script>
+var SCHIPS = [
+  {l:'愤怒', v:'0:14', c:'#FF8C42'}, {l:'晕眩', v:'88%', c:'#EAB308'},
+  {l:'耐力', v:'62%', c:'#4A9B9B'}, {l:'御龙', v:'62%', c:'#C9AA62'}
+];
+var AILS = [
+  {l:'毒', v:'42%', c:'#E11D48'}, {l:'麻', v:'生效', c:'#EAB308'},
+  {l:'眠', v:'15%', c:'#4F87A6'}, {l:'爆', v:'67%', c:'#FF8C42'},
+  {l:'减气', v:'8%', c:'#4A9B9B'}
+];
+var PARTS = [
+  {name:'头部', hp:620,  max:1200, broken:false, sever:false, qurio:false},
+  {name:'前肢', hp:0,    max:900,  broken:true,  sever:false, qurio:false},
+  {name:'腹部', hp:1100, max:1500, broken:false, sever:false, qurio:false},
+  {name:'尾巴', hp:280,  max:800,  broken:false, sever:true,  qurio:false},
+  {name:'背鳍', hp:450,  max:700,  broken:false, sever:false, qurio:false}
+];
+function k(n){ for(var i=0;i<PARTS.length;i++) if(PARTS[i].name===n) return PARTS[i].broken?0:PARTS[i].hp/PARTS[i].max; }
+function pi(n){ return Math.round(k(n)*100); }
+function isB(n){ for(var i=0;i<PARTS.length;i++) if(PARTS[i].name===n) return PARTS[i].broken; }
+
+/* ===== 等距投影核心 ===== */
+var A = Math.PI/6, COS = Math.cos(A), SIN = Math.sin(A);
+var SC = 2.0, OX = 140, OY = 70;
+var VW = 280, VH = 124;
+function setP(sc, ox, oy){ SC = sc; OX = ox; OY = oy; }
+function pt(x, y, z){
+  return [ OX + (x - y)*COS*SC, OY + ((x + y)*SIN - z)*SC ];
+}
+function poly(pts, fill, extra, cls){
+  return '<polygon'+(cls===null?'':' class="'+(cls||'solid')+'"')+' points="'+pts.map(function(q){
+    return q[0].toFixed(1)+','+q[1].toFixed(1);
+  }).join(' ')+'" fill="'+fill+'" '+(extra||'')+'/>';
+}
+function line(a, b, stroke, w, extra){
+  return '<line x1="'+a[0].toFixed(1)+'" y1="'+a[1].toFixed(1)+'" x2="'+b[0].toFixed(1)+
+    '" y2="'+b[1].toFixed(1)+'" stroke="'+stroke+'" stroke-width="'+w+'" '+(extra||'')+'/>';
+}
+function txt(x, y, s, anchor, color, onFill){
+  return '<text class="lb'+(onFill?' onfill':'')+'" x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" fill="'+color+
+    '" font-size="8.5" text-anchor="'+(anchor||'middle')+'">'+s+'</text>';
+}
+function labC(n){ return isB(n) ? '#5C6673' : 'rgba(255,255,255,.72)'; }
+
+/* 血量 → 三个面的明暗（顶亮 / 左中 / 右暗） */
+function cols(n, hue, sat){
+  if(isB(n)) return { top:'rgba(255,255,255,.09)', left:'rgba(255,255,255,.05)', right:'rgba(255,255,255,.035)',
+                      edge:'rgba(255,255,255,.16)' };
+  var t = k(n), L = 15 + 27*t;
+  return {
+    top:   'hsl('+hue+','+sat+'%,'+(L+17).toFixed(1)+'%)',
+    left:  'hsl('+hue+','+sat+'%,'+L.toFixed(1)+'%)',
+    right: 'hsl('+hue+','+sat+'%,'+(L-7).toFixed(1)+'%)',
+    edge:  'hsl('+hue+','+sat+'%,'+(L+24).toFixed(1)+'%)'
+  };
+}
+function ball(cx, cy, r, color, opacity, solid){
+  return '<circle'+(solid===false?'':' class="solid"')+' cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+
+    '" r="'+r.toFixed(1)+'" fill="'+color+'" opacity="'+(opacity===undefined?1:opacity)+'"/>'+
+    '<circle cx="'+(cx-r*0.32).toFixed(1)+'" cy="'+(cy-r*0.34).toFixed(1)+'" r="'+(r*0.3).toFixed(1)+
+    '" fill="rgba(255,255,255,.55)"/>';
+}
+/* 等距长方体：顶 / 左 / 右 三个面 */
+function isoBox(x, y, z, w, d, h, c){
+  var p000=pt(x,y,z), p100=pt(x+w,y,z), p110=pt(x+w,y+d,z), p010=pt(x,y+d,z);
+  var p001=pt(x,y,z+h), p101=pt(x+w,y,z+h), p111=pt(x+w,y+d,z+h), p011=pt(x,y+d,z+h);
+  var e = 'stroke="'+c.edge+'" stroke-width=".5"';
+  return poly([p000,p010,p011,p001], c.left,  e) +
+         poly([p000,p100,p101,p001], c.right, e) +
+         poly([p001,p101,p111,p011], c.top,   e);
+}
+/* 等距四棱锥 */
+function isoPyramid(x, y, z, w, d, h, c){
+  var p000=pt(x,y,z), p100=pt(x+w,y,z), p110=pt(x+w,y+d,z), p010=pt(x,y+d,z);
+  var apex=pt(x+w/2, y+d/2, z+h);
+  var e = 'stroke="'+c.edge+'" stroke-width=".5"';
+  return poly([p000,p100,apex], c.right, e) +
+         poly([p000,p010,apex], c.left,  e) +
+         poly([p010,p110,apex], c.top,   e);
+}
+function svgWrap(inner){
+  return '<svg width="100%" viewBox="0 0 '+VW+' '+VH+'" style="display:block">'+inner+'</svg>';
+}
+
+/* ---------- 01 TOWERS 能量塔 ---------- */
+/* 柱子沿「屏幕水平」等距轴排开（x=−y），所以 (x+y) 恒定 → 底边一条水平线，不阶梯 */
+function vTowers(){
+  setP(2.2, 140, 76);
+  var order = ['头部','前肢','腹部','尾巴','背鳍'];
+  var ground = poly([pt(-42,26,0), pt(26,-42,0), pt(42,-26,0), pt(-26,42,0)],
+    'rgba(255,255,255,.022)', 'stroke="rgba(255,255,255,.07)" stroke-width=".6"', null);
+  var items = order.map(function(n, i){
+    var t = (i - 2) * 14.5, h = Math.max(1.6, k(n) * 26);
+    return isoBox(t - 6.5, -t - 6.5, 0, 13, 13, h, cols(n, 12, 62));
+  }).join('');
+  var labels = order.map(function(n, i){
+    var t = (i - 2) * 14.5;
+    return txt(140 + 2*t*COS*SC, 102, n, 'middle', labC(n));
+  }).join('');
+  return svgWrap(ground + items + labels);
+}
+
+/* ---------- 02 ORBITAL 轨道球 ---------- */
+function vOrbital(){
+  setP(1.9, 140, 82);
+  var rings = [ {R:16, z:0}, {R:24, z:9}, {R:32, z:18} ];
+  var ringSvg = rings.map(function(r){
+    var c = pt(0,0,r.z);
+    return '<ellipse cx="'+c[0].toFixed(1)+'" cy="'+c[1].toFixed(1)+'" rx="'+
+      (r.R*1.225*SC).toFixed(1)+'" ry="'+(r.R*0.707*SC).toFixed(1)+
+      '" fill="none" stroke="rgba(140,200,255,.42)" stroke-width="1"/>';
+  }).join('');
+  var P = [
+    {n:'头部', R:16, a:-150, z:0, lo:'below'},
+    {n:'前肢', R:16, a:30,   z:0},
+    {n:'背鳍', R:24, a:-60,  z:9},
+    {n:'腹部', R:24, a:150,  z:9},
+    {n:'尾巴', R:32, a:30,   z:18}
+  ];
+  var objs = P.map(function(o){
+    var rad = o.a*Math.PI/180;
+    var wx = Math.cos(rad)*o.R, wy = Math.sin(rad)*o.R;
+    var c = pt(wx, wy, o.z);
+    var r = 3 + k(o.n)*4.2;
+    var col = isB(o.n) ? 'rgba(255,255,255,.10)' : 'hsl(202,62%,'+(30+28*k(o.n)).toFixed(1)+'%)';
+    var s = isB(o.n)
+      ? '<circle class="solid" cx="'+c[0].toFixed(1)+'" cy="'+c[1].toFixed(1)+'" r="'+r.toFixed(1)+
+        '" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.24)" stroke-width=".8" stroke-dasharray="2 3"/>'
+      : ball(c[0], c[1], r, col, .92);
+    /* 标签默认沿「环心 → 节点」外推，方向自适应锚点；头部改挂球下方，避开核心 */
+    if(o.lo === 'below'){
+      s += txt(c[0], c[1] + r + 11, o.n, 'middle', labC(o.n));
+    } else {
+      var cc = pt(0, 0, o.z);
+      var dx = c[0]-cc[0], dy = c[1]-cc[1], dl = Math.sqrt(dx*dx+dy*dy) || 1;
+      var ex = dx/dl, ey = dy/dl, off = r + 9.5;
+      var anc = ex < -0.30 ? 'end' : (ex > 0.30 ? 'start' : 'middle');
+      s += txt(c[0] + ex*off, c[1] + ey*off + 3, o.n, anc, labC(o.n));
+    }
+    return { far: wx + wy, svg: s };
+  }).sort(function(a,b){ return a.far - b.far; }).map(function(o){ return o.svg; }).join('');
+  /* 核心球浮在轨道系上方，与所有节点球留出净空 */
+  var core = pt(0,0,22);
+  var coreSvg = ball(core[0], core[1], 8, '#5AC8FA', .85) +
+    txt(core[0], core[1] + 2.8, '19.7', 'middle', '#04212E', true);
+  return svgWrap(ringSvg + objs + coreSvg);
+}
+
+/* ---------- 03 CORE FIELD 核心力场 ---------- */
+function vCore(){
+  setP(1.9, 140, 78);
+  var C = pt(0,0,10);
+  var T = [
+    {n:'头部', x:0,   y:-24, z:22, lx:6,   ly:12,  a:'start'},
+    {n:'背鳍', x:-14, y:-2,  z:24, lx:-7,  ly:3,   a:'end'},
+    {n:'尾巴', x:30,  y:8,   z:8,  lx:7,   ly:3,   a:'start'},
+    {n:'腹部', x:0,   y:2,   z:-12,lx:0,   ly:10,  a:'middle'},
+    {n:'前肢', x:-26, y:10,  z:4,  lx:-7,  ly:3,   a:'end'}
+  ];
+  var rays = T.map(function(o){
+    var p = pt(o.x, o.y, o.z), t = k(o.n);
+    return line(C, p, isB(o.n)?'rgba(255,255,255,.16)':'hsla(168,62%,'+(32+26*t).toFixed(0)+'%,.62)',
+      isB(o.n)?0.9:(0.9+1.9*t), isB(o.n)?'stroke-dasharray="3 3"':'');
+  }).join('');
+  var ends = T.map(function(o){
+    var p = pt(o.x, o.y, o.z), r = 2.6 + k(o.n)*4;
+    var s = isB(o.n)
+      ? '<circle class="solid" cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="'+r.toFixed(1)+
+        '" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.24)" stroke-width=".8" stroke-dasharray="2 3"/>'
+      : ball(p[0], p[1], r, 'hsl(168,62%,'+(32+26*k(o.n)).toFixed(1)+'%)');
+    var ty = p[1] + (o.ly < 0 ? -r + o.ly + 3 : r + o.ly);
+    s += txt(p[0] + o.lx, ty, o.n, o.a, labC(o.n));
+    return s;
+  }).join('');
+  var halo = '<circle cx="'+C[0].toFixed(1)+'" cy="'+C[1].toFixed(1)+'" r="19" fill="none" '+
+    'stroke="rgba(74,222,192,.16)" stroke-width="1"/>';
+  var core = ball(C[0], C[1], 10, '#4ADEC0', .95) + txt(C[0], C[1] + 2.8, '19.7', 'middle', '#04241E', true);
+  return svgWrap(halo + rays + ends + core);
+}
+
+/* ---------- 04 HOLO PANELS 全息面板 ---------- */
+/* 面板躺在 x–z 平面，沿 y 逐块后退；标签一律挂左侧，永不与面板相交 */
+function vHolo(){
+  setP(1.4, 140, 68);
+  var order = ['头部','前肢','腹部','尾巴','背鳍'];
+  var W = 44, H = 10, panel = '';
+  order.forEach(function(n, i){
+    var y = i*16 - 32, z = 18 - i*4.5, c = cols(n, 198, 58);
+    var p1=pt(0,y,z), p2=pt(W,y,z), p3=pt(W,y,z+H), p4=pt(0,y,z+H);
+    panel += poly([p1,p2,p3,p4], c.left, 'stroke="'+c.edge+'" stroke-width=".7"');
+    if(!isB(n)){
+      var inner = 4 + (W-8)*k(n);
+      panel += poly([pt(4,y,z+3), pt(inner,y,z+3), pt(inner,y,z+6), pt(4,y,z+6)], c.top, '');
+    }
+    var lp = pt(-9, y, z + H/2);
+    panel += txt(lp[0], lp[1] + 3, n, 'end', labC(n));
+  });
+  return svgWrap(panel);
+}
+
+/* ---------- 05 PYRAMIDS 金字塔阵 ---------- */
+function vPyramids(){
+  setP(2.2, 140, 76);
+  var order = ['头部','前肢','腹部','尾巴','背鳍'];
+  var ground = poly([pt(-42,26,0), pt(26,-42,0), pt(42,-26,0), pt(-26,42,0)],
+    'rgba(255,255,255,.022)', 'stroke="rgba(255,255,255,.07)" stroke-width=".6"', null);
+  var items = order.map(function(n, i){
+    var t = (i - 2) * 14.5, h = Math.max(1.6, k(n) * 26);
+    return isoPyramid(t - 6.5, -t - 6.5, 0, 13, 13, h, cols(n, 40, 62));
+  }).join('');
+  var labels = order.map(function(n, i){
+    var t = (i - 2) * 14.5;
+    return txt(140 + 2*t*COS*SC, 102, n, 'middle', labC(n));
+  }).join('');
+  return svgWrap(ground + items + labels);
+}
+
+/* ---------- 06 HELIX 螺旋阶梯 ---------- */
+function vHelix(){
+  setP(2.0, 140, 92);
+  var order = ['头部','前肢','腹部','尾巴','背鳍'];
+  var R = 20, B = 10, S = 5;
+  var items = order.map(function(n, i){
+    var a = (i*72 - 90) * Math.PI/180;
+    var cx = Math.cos(a)*R, cy = Math.sin(a)*R, z = i*4;
+    return { far: cx + cy, z: z, a: a, svg: isoBox(cx-S, cy-S, z, B, B, B, cols(n, 252, 56)) };
+  }).sort(function(a,b){ return a.far - b.far; });
+  var post = items.map(function(o){
+    var x = Math.cos(o.a)*R, y = Math.sin(o.a)*R;
+    return line(pt(x,y,0), pt(x,y,o.z + S), 'rgba(255,255,255,.10)', 1);
+  }).join('');
+  /* 标签锚在各自方块的屏幕包围盒外侧：上 / 右 / 左，按包围盒算，不靠手调魔数 */
+  var SIDE = { '头部':'top', '前肢':'right', '腹部':'left', '尾巴':'left', '背鳍':'left' };
+  var labels = order.map(function(n, i){
+    var a = (i*72 - 90) * Math.PI/180;
+    var cx = Math.cos(a)*R, cy = Math.sin(a)*R, z = i*4;
+    var xs = [], ys = [];
+    [[-S,-S],[-S,S],[S,-S],[S,S]].forEach(function(d){
+      [z, z+B].forEach(function(zz){
+        var q = pt(cx+d[0], cy+d[1], zz);
+        xs.push(q[0]); ys.push(q[1]);
+      });
+    });
+    var l = Math.min.apply(null, xs), r = Math.max.apply(null, xs);
+    var t = Math.min.apply(null, ys), b = Math.max.apply(null, ys);
+    var side = SIDE[n];
+    if(side === 'top')   return txt((l+r)/2, t - 5, n, 'middle', labC(n));
+    if(side === 'right') return txt(r + 4, (t+b)/2 + 3, n, 'start', labC(n));
+    return txt(l - 4, (t+b)/2 + 3, n, 'end', labC(n));
+  }).join('');
+  return svgWrap(post + items.map(function(o){ return o.svg; }).join('') + labels);
+}
+
+var VERSIONS = [
+  {id:'01', key:'towers', name:'TOWERS · 能量塔', fn:vTowers,
+   desc:'五根等距柱体立在网格上，柱高 = 血量。每根柱子三个面（顶/左/右）明暗不同，立体感来自这里。',
+   meta:'<b>每根柱 = 3 个 Path</b> · 纯 XAML · 软渲染可跑'},
+  {id:'02', key:'orbital', name:'ORBITAL · 轨道球', fn:vOrbital,
+   desc:'中心核 + 三条等距椭圆轨道，五个部位是轨道上的球，球半径 = 血量。等距投影把 3D 圆压成椭圆。',
+   meta:'<b>椭圆 + 球</b> · 纯 XAML · 软渲染可跑'},
+  {id:'03', key:'core', name:'CORE FIELD · 核心力场', fn:vCore,
+   desc:'中心核心向五个部位射出光束，光柱粗细 = 血量，末端是发光球。有纵深，有方向。',
+   meta:'<b>Line + 球</b> · 纯 XAML · 软渲染可跑'},
+  {id:'04', key:'holo', name:'HOLO PANELS · 全息面板', fn:vHolo,
+   desc:'五块全息面板沿纵深错落后退，每块是被投影成平行四边形的矩形，板内进度条 = 血量。',
+   meta:'<b>平行四边形 = 4 点 Path</b> · 纯 XAML · 最像科幻 HUD'},
+  {id:'05', key:'pyr', name:'PYRAMIDS · 金字塔阵', fn:vPyramids,
+   desc:'与能量塔同构，但换成四棱锥。锥高 = 血量，锥面明暗差更强烈，棱角更锐。',
+   meta:'<b>每锥 = 3 个 Path</b> · 纯 XAML · 软渲染可跑'},
+  {id:'06', key:'helix', name:'HELIX · 螺旋阶梯', fn:vHelix,
+   desc:'五个方块沿螺旋线逐级上升，高度 = 血量，立柱连到地面。纵深关系最明显的一版。',
+   meta:'<b>需按 x+y 排序前后遮挡</b> · 纯 XAML · 软渲染可跑'}
+];
+
+function legend(){
+  return '<div class="legend">' + PARTS.map(function(p){
+    if(p.broken) return '<span class="gone">'+p.name+' 已断</span>';
+    return '<span>'+p.name+' '+pi(p.name)+'%</span>';
+  }).join('<span class="sep">·</span>') + '</div>';
+}
+function hud(v){
+  return '<div class="mname">嗟怨震天怨虎龙</div>'+
+    '<div class="hp-row"><div class="hp-track"><div class="hp-fill" style="width:19.7%"></div></div>'+
+      '<div class="hp-text">4820 / 24500</div></div>'+
+    '<div class="srow">' + SCHIPS.map(function(c){
+      return '<span class="schip"><em style="background:'+c.c+'"></em><span>'+c.l+'</span><b>'+c.v+'</b></span>';
+    }).join('') + '</div>'+
+    '<div class="ptitle">部位 · 立体高度 / 尺寸 = 剩余血量</div>'+
+    v.fn() + legend() +
+    '<div class="arow">' + AILS.map(function(a){
+      return '<span class="achip"><em style="background:'+a.c+'"></em><span>'+a.l+'</span><b>'+a.v+'</b></span>';
+    }).join('') + '</div>';
+}
+
+function build(){
+  var g = document.getElementById('gallery');
+  if(!g) return;
+  g.innerHTML = VERSIONS.map(function(v, i){
+    return '<div class="cell">'+
+      '<div class="idx">'+v.id+'</div>'+
+      '<div class="lname">'+v.name+'</div>'+
+      '<div class="ldesc">'+v.desc+'</div>'+
+      '<div class="ruler"><i></i><span>300px</span></div>'+
+      '<div class="hud" id="hud-'+i+'">'+hud(v)+'</div>'+
+      '<div class="lmeta">'+v.meta+'</div>'+
+    '</div>';
+  }).join('');
+}
+
+/* ===== 几何体检：图形是否被 viewBox 裁掉 + 标签是否压到实体面 ===== */
+function geoAudit(){
+  var res = [];
+  document.querySelectorAll('.hud svg').forEach(function(svg, si){
+    var sr = svg.getBoundingClientRect();
+    var clip = 0, hit = 0, notes = [];
+    function rectOf(el){
+      var r = el.getBoundingClientRect();
+      return { l:r.left-sr.left, t:r.top-sr.top, r:r.right-sr.left, b:r.bottom-sr.top };
+    }
+    function outside(q){
+      return Math.max(0, -q.l, q.r-sr.width, -q.t, q.b-sr.height);
+    }
+    var solids = [];
+    svg.querySelectorAll('.solid').forEach(function(el){
+      var q = rectOf(el);
+      solids.push(q);
+      var o = outside(q);
+      if(o > 0.5){ clip++; notes.push('实体面越界+'+o.toFixed(1)); }
+    });
+    var labels = 0;
+    svg.querySelectorAll('text').forEach(function(el){
+      labels++;
+      var nm = el.textContent;
+      var q = rectOf(el);
+      var o = outside(q);
+      if(o > 0.5){ clip++; notes.push('「'+nm+'」越界+'+o.toFixed(1)); }
+      if(el.classList.contains('onfill')) return;   /* 刻意写在实体上的数字（核心 19.7），不算压图 */
+      for(var i=0;i<solids.length;i++){
+        var s = solids[i];
+        var ox = Math.min(q.r, s.r) - Math.max(q.l, s.l);
+        var oy = Math.min(q.b, s.b) - Math.max(q.t, s.t);
+        if(ox > 1 && oy > 1){ hit++; notes.push('「'+nm+'」压图'+ox.toFixed(0)+'x'+oy.toFixed(0)); break; }
+      }
+    });
+    res.push({ svg:si, clip:clip, hit:hit, labels:labels, notes:notes.join('; ') });
+  });
+  return res;
+}
+
+function verdict(){
+  var v = document.getElementById('verdict');
+  if(!v) return;
+  var audit = geoAudit();
+  var rows = '', allOk = true;
+  VERSIONS.forEach(function(ver, i){
+    var el = document.getElementById('hud-'+i);
+    if(!el) return;
+    var a = audit[i] || {clip:0, hit:0};
+    var over = el.scrollWidth - el.clientWidth;
+    if(over > 1 || a.clip > 0 || a.hit > 0) allOk = false;
+    rows += '<tr><td>'+ver.id+' '+ver.name+'</td>'+
+      '<td>'+el.getBoundingClientRect().height.toFixed(0)+'px</td>'+
+      '<td>'+Math.round(el.getBoundingClientRect().width)+'px</td>'+
+      '<td>'+over+'px</td>'+
+      '<td class="'+(a.clip? 'no':'ok')+'">'+a.clip+(a.clip?(' <span style="color:#66707E">'+a.notes+'</span>'):'')+'</td>'+
+      '<td class="'+(a.hit? 'no':'ok')+'">'+a.hit+(a.hit?(' <span style="color:#66707E">'+a.notes+'</span>'):'')+'</td></tr>';
+  });
+  v.innerHTML = '<h3>实测（无头 Chrome，1180 视口）'+
+    '<span class="'+(allOk?'ok':'no')+'" style="font-weight:400;font-size:11.5px;margin-left:8px">'+
+    (allOk?'全部通过':'存在问题')+'</span></h3>'+
+    '<table><tr><th>版本</th><th>卡片高</th><th>宽度</th><th>横向溢出</th>'+
+    '<th>图形越界</th><th>标签压图</th></tr>'+rows+'</table>'+
+    '<p style="margin:14px 0 0"><b>投影公式（XAML 里照抄即可）</b>：'+
+    '<code>sx = (x − y) · cos30°</code>，<code>sy = (x + y) · sin30° − z</code>。'+
+    '三个面按 <b>顶亮 / 左中 / 右暗</b> 上色，立体感就出来了 —— '+
+    '没有摄像机、没有光照、没有 GPU。</p>'+
+    '<p style="margin:10px 0 0"><b>前后遮挡</b>：多个物体重叠时，按 <code>x + y</code> 从小到大绘制'+
+    '（越小越远，先画）。这是等距投影唯一的排序规则，一行 <code>OrderBy</code> 搞定。</p>'+
+    '<p style="margin:10px 0 0"><b>体检口径</b>：<b>图形越界</b> = 任一实体面 / 文字的实际 bbox 超出 SVG 视口'+
+    '（>0.5px 即计）；<b>标签压图</b> = 文字 bbox 与实体面 bbox 双向重叠超过 1px。'+
+    '两项都必须为 0，否则就是「看着能跑、上线被裁」。</p>';
+}
+
+window.__DIAG__ = function(){
+  var ids = VERSIONS.map(function(v, i){ return 'hud-'+i; });
+  var bad = [], cards = {};
+  ids.forEach(function(id){
+    var el = document.getElementById(id);
+    if(!el){ bad.push(id+':missing'); return; }
+    var over = el.scrollWidth - el.clientWidth;
+    var w = el.getBoundingClientRect().width;
+    if(over > 1) bad.push(id+':overflow'+over);
+    if(Math.round(w) !== 300) bad.push(id+':width'+w);
+    cards[id] = 'w'+Math.round(w)+' h'+Math.round(el.getBoundingClientRect().height)+' over'+over;
+  });
+  var audit = geoAudit();
+  audit.forEach(function(a, i){
+    if(a.clip) bad.push('hud-'+i+':clip'+a.clip+'('+a.notes+')');
+    if(a.hit)  bad.push('hud-'+i+':labelHit'+a.hit+'('+a.notes+')');
+  });
+  var docOver = document.documentElement.scrollWidth - document.documentElement.clientWidth;
+  var errs = (window.__ERRS__ || []).length;
+  return { ok: bad.length === 0 && errs === 0, bad: bad, cards: cards, audit: audit,
+    svgCount: document.querySelectorAll('.hud svg').length,
+    polyCount: document.querySelectorAll('.hud polygon').length,
+    docOverflowX: docOver, errors: window.__ERRS__ };
+};
+
+build();
+verdict();
+try {
+  var dg = document.getElementById('__diag__');
+  if(dg) dg.textContent = JSON.stringify(window.__DIAG__());
+} catch (e) {
+  var dg2 = document.getElementById('__diag__');
+  if(dg2) dg2.textContent = 'DIAG_FAIL: ' + e.message;
+}
+</script>
+</body>
+</html>

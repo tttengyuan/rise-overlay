@@ -8,6 +8,10 @@
              IsTabStop="False">
     <UserControl.Resources>
         <ResourceDictionary>
+        <!-- 怪物图标：与 MonsterHudView 共用同一份 name→png 映射 -->
+        <ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary Source="pack://application:,,,/RiseOverlay.UI;component/Resources/MonsterIcons.xaml" />
+        </ResourceDictionary.MergedDictionaries>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
 
         <DataTemplate DataType="{x:Type vm:ElementDisplayItem}">
@@ -67,25 +71,32 @@
                             <ColumnDefinition Width="*" MinWidth="48" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0"
-                                   Text="{Binding Name}"
-                                   FontSize="14"
-                                   FontWeight="SemiBold"
-                                   TextTrimming="CharacterEllipsis"
-                                   TextWrapping="NoWrap"
-                                   VerticalAlignment="Center"
-                                   Margin="0,0,6,0">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock">
-                                    <Setter Property="Foreground" Value="{DynamicResource Brushes.Foreground}" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsDefeated}" Value="True">
-                                            <Setter Property="Foreground" Value="{DynamicResource Brushes.ForegroundMuted}" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
+                        <Grid Grid.Column="0" VerticalAlignment="Center">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" MinWidth="0" />
+                            </Grid.ColumnDefinitions>
+                            <Image Grid.Column="0" Style="{StaticResource MonsterIconStyle}" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding Name}"
+                                       FontSize="14"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis"
+                                       TextWrapping="NoWrap"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,6,0">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{DynamicResource Brushes.Foreground}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsDefeated}" Value="True">
+                                                <Setter Property="Foreground" Value="{DynamicResource Brushes.ForegroundMuted}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
                         <ItemsControl Grid.Column="1"
                                       ItemsSource="{Binding Recommended}"
                                       VerticalAlignment="Center">

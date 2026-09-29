@@ -26,7 +26,7 @@
                        Foreground="#C5CCD6"
                        TextWrapping="Wrap"
                        Margin="0,0,0,10" />
-            <TextBlock Text="新版本新增怪物御龙值：状态行显示积累进度，进入御龙时高亮倒计时。更新后会自动重启；狩猎中请先结束或稍后更新。"
+            <TextBlock Text="新版本优化了 HUD 观感：多套主题皮肤、状态行彩色标签，以及怪物名字旁图标。更新后会自动重启；狩猎中请先结束或稍后更新。"
                        FontSize="12.5"
                        Foreground="#8B93A1"
                        TextWrapping="Wrap"
