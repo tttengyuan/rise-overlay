@@ -35,12 +35,14 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
     private readonly MonsterStaticStore _staticStore;
     private readonly QuestStaticStore _questStore;
     private readonly DispatcherTimer _alignTimer;
-    private readonly RiseOverlayPlacement _placement = new();
+    private readonly RiseOverlayPlacement _placement;
     private readonly QuestCompletionClock _completionClock;
+    private readonly Func<bool>? _isDesignMode;
     private readonly object _progressSync = new();
 
     private bool _questActive;
     private bool _huntSummary;
+    private DateTime? _huntSummaryDeadlineUtc;
     private OverlayScene _scene = OverlayScene.Idle;
     private readonly List<TargetKey> _targetKeys = [];
     private readonly HashSet<string> _defeatedQuestTargets = new(StringComparer.OrdinalIgnoreCase);
@@ -57,29 +59,30 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
         RiseCompactMonsterViewModel viewModel,
         MonsterStaticStore staticStore,
         QuestStaticStore? questStore = null,
-        QuestCompletionClock? completionClock = null)
+        QuestCompletionClock? completionClock = null,
+        Func<bool>? isDesignMode = null)
     {
         _context = context;
         _viewModel = viewModel;
         _staticStore = staticStore;
         _questStore = questStore ?? QuestStaticStore.LoadEmpty();
         _completionClock = completionClock ?? new QuestCompletionClock();
+        _isDesignMode = isDesignMode;
+        _placement = new RiseOverlayPlacement(() => _context.Process.SystemProcess);
 
-        _placement.RestoreOrSnapInitial(viewModel.Config.Position);
+        ApplyOverlayPlacement();
 
         HookEvents();
         BootstrapFromCurrentState();
 
-        _alignTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _alignTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
         _alignTimer.Tick += OnAlignTick;
         _alignTimer.Start();
     }
 
     private void OnAlignTick(object? sender, EventArgs e)
     {
-        // Original HunterPie behavior: fixed absolute screen position. Only rescue when a
-        // display/DPI change leaves the saved point outside the virtual desktop.
-        _placement.EnsureVisible(_viewModel.Config.Position);
+        ApplyOverlayPlacement();
 
         // Safety net if OnQuestStart/End was missed (scan race / type mapping).
         bool questNow = _context.Game.Quest is not null;
@@ -90,7 +93,7 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
             if (_questActive)
             {
                 BeginQuestTracking(_context.Game.Quest);
-                _huntSummary = false;
+                ClearHuntSummary();
                 _targetKeys.Clear();
                 ClearBriefingProgress();
                 if (!PushBriefingDto())
@@ -101,16 +104,57 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
                 UnhookAllMonsterLifecycle(deactivate: true);
                 _targetKeys.Clear();
                 ClearBriefingProgress();
-                // Only keep hunt summary while still on a hunt map; village cancel → Idle.
-                _huntSummary = IsOnHuntMap();
+                // Quest ended without OnQuestEnd (scan race): keep HUD through the
+                // post-success return countdown while still on the hunt map.
+                if (IsOnHuntMap())
+                    BeginHuntSummaryCountdown();
+                else
+                    ClearHuntSummary();
             }
         }
 
-        // Village cancel / hub linger: drop stale combat summary without waiting for stage event.
-        if (_huntSummary && !IsOnHuntMap() && _context.Game.Quest is null)
-            _huntSummary = false;
-
+        UpdateHuntSummaryExpiry();
         RefreshScene();
+    }
+
+    private void ApplyOverlayPlacement()
+    {
+        if (_isDesignMode?.Invoke() == true)
+            return;
+
+        _placement.ApplyNormalized(
+            _viewModel.Config.Position,
+            _viewModel.Config.HorizontalPosition.Current,
+            _viewModel.Config.VerticalPosition.Current,
+            _viewModel.Config.Scale.Current);
+    }
+
+    private void BeginHuntSummaryCountdown()
+    {
+        _huntSummary = true;
+        // Rise keeps you on the map for ~60s after success before the settlement UI.
+        _huntSummaryDeadlineUtc = DateTime.UtcNow.AddSeconds(60);
+    }
+
+    private void ClearHuntSummary()
+    {
+        _huntSummary = false;
+        _huntSummaryDeadlineUtc = null;
+    }
+
+    private void UpdateHuntSummaryExpiry()
+    {
+        if (!_huntSummary)
+            return;
+
+        if (!IsOnHuntMap())
+        {
+            ClearHuntSummary();
+            return;
+        }
+
+        if (_huntSummaryDeadlineUtc is { } deadline && DateTime.UtcNow >= deadline)
+            ClearHuntSummary();
     }
 
     public void HookEvents()
@@ -159,7 +203,7 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
         _viewModel.UIThread.BeginInvoke(() =>
         {
             _questActive = true;
-            _huntSummary = false;
+            ClearHuntSummary();
             _targetKeys.Clear();
             ClearBriefingProgress();
             // Do not merge live monsters here — village leftovers inflated anomaly target counts.
@@ -219,16 +263,16 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
             _targetKeys.Clear();
             ClearBriefingProgress();
 
-            // Finished a real hunt → keep DPS/HUD until leaving the map.
-            // Cancelled / abandoned in hub → go Idle immediately (no empty combat shell).
-            if (IsOnHuntMap())
+            // Keep the combat HUD through Rise's ~60s post-success return countdown.
+            // Settlement opens after that timer; hide then (or sooner if you leave the map).
+            if (IsOnHuntMap() && e.Status is QuestStatus.Success or QuestStatus.Fail)
             {
-                _huntSummary = true;
+                BeginHuntSummaryCountdown();
                 ApplyScene(OverlayScene.Combat);
             }
             else
             {
-                _huntSummary = false;
+                ClearHuntSummary();
                 ApplyScene(OverlayScene.Idle);
             }
         });
@@ -383,8 +427,7 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
         EnsureCurrentMonsterLifecycle();
         _viewModel.UIThread.BeginInvoke(() =>
         {
-            if (_huntSummary && !IsOnHuntMap() && _context.Game.Quest is null)
-                _huntSummary = false;
+            UpdateHuntSummaryExpiry();
             RefreshScene();
         });
     }
@@ -395,6 +438,7 @@ public sealed class QuestBriefingController : IContextHandler, IDisposable
     private void RefreshScene()
     {
         EnsureCurrentMonsterLifecycle();
+        UpdateHuntSummaryExpiry();
         if (_huntSummary)
         {
             ApplyScene(OverlayScene.Combat);

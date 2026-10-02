@@ -247,8 +247,11 @@ public partial class App : System.Windows.Application
     {
         _shell?.Dispatcher.Invoke(() =>
         {
-            RiseHudDisplaySettings.Config.Position.X = 20;
-            RiseHudDisplaySettings.Config.Position.Y = 20;
+            var cfg = RiseHudDisplaySettings.Config;
+            cfg.Position.X = 20;
+            cfg.Position.Y = 20;
+            cfg.HorizontalPosition.Current = 1.0;
+            cfg.VerticalPosition.Current = 0.18;
         });
     }
 

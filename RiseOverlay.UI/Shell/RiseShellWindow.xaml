@@ -3,9 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Rise血条"
         Width="600"
-        Height="460"
+        Height="560"
         MinWidth="560"
-        MinHeight="420"
+        MinHeight="520"
         WindowStartupLocation="CenterScreen"
         Background="#FF080A0E"
         Foreground="#FFEEF0F4"
@@ -187,6 +187,88 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <Style x:Key="Shell.ChipRadio" TargetType="RadioButton">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{StaticResource Shell.Muted}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Chip"
+                                Background="#FF182028"
+                                BorderBrush="#FF2A303C"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="6,8"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Chip" Property="BorderBrush" Value="{StaticResource Shell.Accent}" />
+                                <Setter Property="Foreground" Value="#FFEEF0F4" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chip" Property="Background" Value="#FF1A2830" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="Shell.ValueSlider" TargetType="Slider">
+            <Setter Property="Height" Value="20" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Slider">
+                        <Grid Height="20" VerticalAlignment="Center">
+                            <Track x:Name="PART_Track" Height="16" VerticalAlignment="Center">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="{x:Static Slider.DecreaseLarge}">
+                                        <RepeatButton.Template>
+                                            <ControlTemplate TargetType="RepeatButton">
+                                                <Border Height="4"
+                                                        VerticalAlignment="Center"
+                                                        Background="{StaticResource Shell.Accent}"
+                                                        CornerRadius="2" />
+                                            </ControlTemplate>
+                                        </RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.DecreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb Width="14" Height="14">
+                                        <Thumb.Template>
+                                            <ControlTemplate TargetType="Thumb">
+                                                <Ellipse Fill="#FFF3F5F7"
+                                                         Stroke="{StaticResource Shell.Accent}"
+                                                         StrokeThickness="2" />
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="{x:Static Slider.IncreaseLarge}">
+                                        <RepeatButton.Template>
+                                            <ControlTemplate TargetType="RepeatButton">
+                                                <Border Height="4"
+                                                        VerticalAlignment="Center"
+                                                        Background="{StaticResource Shell.TrackOff}"
+                                                        CornerRadius="2" />
+                                            </ControlTemplate>
+                                        </RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.IncreaseRepeatButton>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Border Margin="14"
@@ -344,6 +426,47 @@
                                         HorizontalAlignment="Stretch"
                                         Click="OnResetPositionClick"
                                         ToolTip="叠层飞出屏幕时点这里拉回左上角" />
+                                <Rectangle Height="1" Fill="#FF1C2230" Margin="0,10,0,8" />
+                                <DockPanel Margin="0,0,0,1">
+                                    <TextBlock x:Name="OpacityValueText"
+                                               DockPanel.Dock="Right"
+                                               Text="100%"
+                                               FontSize="11"
+                                               Foreground="{StaticResource Shell.AccentSoft}" />
+                                    <TextBlock Text="透明度"
+                                               FontSize="11"
+                                               Foreground="#FFEEF0F4" />
+                                </DockPanel>
+                                <Slider x:Name="OpacitySlider"
+                                        Style="{StaticResource Shell.ValueSlider}"
+                                        Minimum="0.1"
+                                        Maximum="1"
+                                        TickFrequency="0.05"
+                                        SmallChange="0.05"
+                                        LargeChange="0.1"
+                                        IsSnapToTickEnabled="True"
+                                        ValueChanged="OnHudRangeChanged"
+                                        ToolTip="调整叠层整体透明度" />
+                                <DockPanel Margin="0,10,0,1">
+                                    <TextBlock x:Name="ScaleValueText"
+                                               DockPanel.Dock="Right"
+                                               Text="1.0×"
+                                               FontSize="11"
+                                               Foreground="{StaticResource Shell.AccentSoft}" />
+                                    <TextBlock Text="缩放"
+                                               FontSize="11"
+                                               Foreground="#FFEEF0F4" />
+                                </DockPanel>
+                                <Slider x:Name="ScaleSlider"
+                                        Style="{StaticResource Shell.ValueSlider}"
+                                        Minimum="0.5"
+                                        Maximum="2"
+                                        TickFrequency="0.05"
+                                        SmallChange="0.05"
+                                        LargeChange="0.1"
+                                        IsSnapToTickEnabled="True"
+                                        ValueChanged="OnHudRangeChanged"
+                                        ToolTip="调整叠层整体缩放" />
                             </StackPanel>
                         </Border>
 
@@ -364,11 +487,29 @@
                                               Checked="OnHudDisplayToggle"
                                               Unchecked="OnHudDisplayToggle" />
                                     <CheckBox x:Name="ShowDpsToggle"
-                                              Content="DPS"
+                                              Content="伤害"
                                               Style="{StaticResource Shell.Chip}"
                                               Margin="4,0,0,0"
                                               Checked="OnHudDisplayToggle"
                                               Unchecked="OnHudDisplayToggle" />
+                                </UniformGrid>
+                                <TextBlock Text="部位样式"
+                                           FontSize="11"
+                                           Foreground="#FFEEF0F4"
+                                           Margin="0,0,0,6" />
+                                <UniformGrid Columns="2" Margin="0,0,0,10">
+                                    <RadioButton x:Name="PartsLayoutBar"
+                                                 Content="条形"
+                                                 GroupName="PartsLayout"
+                                                 Style="{StaticResource Shell.ChipRadio}"
+                                                 Margin="0,0,4,0"
+                                                 Checked="OnPartsLayoutChanged" />
+                                    <RadioButton x:Name="PartsLayoutCapsule"
+                                                 Content="胶囊"
+                                                 GroupName="PartsLayout"
+                                                 Style="{StaticResource Shell.ChipRadio}"
+                                                 Margin="4,0,0,0"
+                                                 Checked="OnPartsLayoutChanged" />
                                 </UniformGrid>
                                 <CheckBox x:Name="CombatMotionToggle"
                                           Style="{StaticResource Shell.Toggle}"

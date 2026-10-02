@@ -38,7 +38,20 @@ public class RiseCompactMonsterWidgetConfig : IWidgetSettings, ISettings
     [ConfigurationConditional(name: nameof(Initialize), withValue: true)]
     public Range Scale { get; set; } = new(1, 2, 0.1, 0.1);
 
-    /// <summary>Default top-left of the primary screen (screen-space, same as other HunterPie widgets).</summary>
+    /// <summary>0 = game-client left, 1 = right. Default hugs the top-right combat HUD corner.</summary>
+    [ConfigurationProperty("RISE_HUD_HORIZONTAL_POSITION", group: CommonConfigurationGroups.GENERAL)]
+    [ConfigurationConditional(name: nameof(Initialize), withValue: true)]
+    public Range HorizontalPosition { get; set; } = new(1, 1, 0, 0.01);
+
+    /// <summary>0 = game-client top, 1 = bottom. Default sits under the lock-on monster icons.</summary>
+    [ConfigurationProperty("RISE_HUD_VERTICAL_POSITION", group: CommonConfigurationGroups.GENERAL)]
+    [ConfigurationConditional(name: nameof(Initialize), withValue: true)]
+    public Range VerticalPosition { get; set; } = new(0.18, 1, 0, 0.01);
+
+    /// <summary>
+    /// Absolute screen position written by <see cref="HorizontalPosition"/> /
+    /// <see cref="VerticalPosition"/> against the live game client bounds.
+    /// </summary>
     [ConfigurationProperty("WIDGET_POSITION", group: CommonConfigurationGroups.GENERAL)]
     [ConfigurationConditional(name: nameof(Initialize), withValue: true)]
     public Position Position { get; set; } = new(20, 20);
@@ -64,4 +77,9 @@ public class RiseCompactMonsterWidgetConfig : IWidgetSettings, ISettings
     [ConfigurationProperty("RISE_COMBAT_MOTION_STRING", group: CommonConfigurationGroups.CUSTOMIZATIONS)]
     [ConfigurationConditional(name: nameof(Initialize), withValue: true)]
     public Observable<bool> EnableCombatMotion { get; set; } = true;
+
+    /// <summary>Parts row layout: <c>Capsule</c> (default) or <c>Bar</c> (legacy dual-rail).</summary>
+    [ConfigurationProperty("RISE_PARTS_LAYOUT_STRING", group: CommonConfigurationGroups.CUSTOMIZATIONS)]
+    [ConfigurationConditional(name: nameof(Initialize), withValue: true)]
+    public Observable<string> PartsLayout { get; set; } = "Capsule";
 }

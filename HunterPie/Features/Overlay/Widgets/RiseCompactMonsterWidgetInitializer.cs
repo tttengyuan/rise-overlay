@@ -93,7 +93,13 @@ internal class RiseCompactMonsterWidgetInitializer(
             localizePart: LocalizePart,
             questStore: questStore
         );
-        _briefingHandler = new QuestBriefingController(context, viewModel, store, questStore, completionClock);
+        _briefingHandler = new QuestBriefingController(
+            context,
+            viewModel,
+            store,
+            questStore,
+            completionClock,
+            isDesignMode: () => _overlay is IOverlayState state && state.IsDesignModeEnabled);
         _dpsHandler = new RiseDpsController(context, viewModel, damageConfig, completionClock);
 
         _view = _overlay.Register(viewModel);

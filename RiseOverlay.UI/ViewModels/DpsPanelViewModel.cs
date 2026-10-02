@@ -83,7 +83,8 @@ public sealed class DpsEntryRowViewModel : INotifyPropertyChanged
 public sealed class DpsPanelViewModel : INotifyPropertyChanged
 {
     private bool _isSolo;
-    private string _soloLineText = "";
+    private string _soloTimeText = "";
+    private string _soloDpsText = "";
     private string _soloDamageText = "";
     private string _partyTimeText = "";
     private string _partyTotalText = "";
@@ -107,10 +108,37 @@ public sealed class DpsPanelViewModel : INotifyPropertyChanged
 
     public bool IsParty => !_isSolo;
 
+    /// <summary>Legacy combined solo line (tests / callers). Prefer SoloTimeText + SoloDpsText in UI.</summary>
     public string SoloLineText
     {
-        get => _soloLineText;
-        private set => SetField(ref _soloLineText, value);
+        get
+        {
+            if (string.IsNullOrEmpty(_soloTimeText))
+                return _soloDpsText;
+            if (string.IsNullOrEmpty(_soloDpsText))
+                return _soloTimeText;
+            return $"{_soloTimeText} · {_soloDpsText}";
+        }
+    }
+
+    public string SoloTimeText
+    {
+        get => _soloTimeText;
+        private set
+        {
+            if (SetField(ref _soloTimeText, value))
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SoloLineText)));
+        }
+    }
+
+    public string SoloDpsText
+    {
+        get => _soloDpsText;
+        private set
+        {
+            if (SetField(ref _soloDpsText, value))
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SoloLineText)));
+        }
     }
 
     public string PartyTotalText
@@ -196,15 +224,13 @@ public sealed class DpsPanelViewModel : INotifyPropertyChanged
         long sum = source.Sum(e => e.TotalDamage);
         double ratioBase = sum <= 0 ? 1.0 : sum;
         string timeText = FormatHuntDuration(dto.HuntDurationSeconds);
-        string timePrefix = string.IsNullOrEmpty(timeText) ? "" : $"{timeText} · ";
 
         if (source.Count <= 1)
         {
             IsSolo = true;
             var e = source.FirstOrDefault();
-            SoloLineText = e is null
-                ? $"{timePrefix}DPS 0"
-                : $"{timePrefix}DPS {FormatDps(e.Dps)}";
+            SoloTimeText = timeText;
+            SoloDpsText = "";
             SoloDamageText = $"本怪 {FormatDamage(e?.TotalDamage ?? 0)}";
 
             PartyTimeText = "";
@@ -216,7 +242,8 @@ public sealed class DpsPanelViewModel : INotifyPropertyChanged
         }
 
         IsSolo = false;
-        SoloLineText = "";
+        SoloTimeText = "";
+        SoloDpsText = "";
         SoloDamageText = "";
         PartyTimeText = timeText;
         PartyTotalText = $"本怪 {FormatDamage(sum)}";

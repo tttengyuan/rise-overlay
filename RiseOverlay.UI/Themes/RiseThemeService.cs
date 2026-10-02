@@ -84,4 +84,8 @@ public static class RiseThemeService
         _motionEnabled = enabled;
         MotionChanged?.Invoke();
     }
+
+    /// <summary>Theme dictionary for scoped preview (does not touch application resources).</summary>
+    public static ResourceDictionary CreateThemeDictionary(string? themeId) =>
+        new() { Source = new Uri(RiseThemeIds.PackUri(RiseThemeIds.Normalize(themeId)), UriKind.Absolute) };
 }

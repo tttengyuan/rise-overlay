@@ -8,6 +8,7 @@ using HunterPie.UI.Overlay;
 using RiseOverlay.Data;
 using RiseOverlay.Domain;
 using RiseOverlay.UI.Overlay;
+using System.ComponentModel;
 using System.Windows.Threading;
 
 namespace RiseOverlay.UI.Integration;
@@ -51,6 +52,9 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
         _questStore = questStore ?? QuestStaticStore.LoadEmpty();
         _localizePart = localizePart ?? (id => id);
 
+        SyncPartsLayoutFromConfig();
+        _viewModel.Config.PartsLayout.PropertyChanged += OnPartsLayoutConfigChanged;
+
         HookEvents();
         SyncExistingMonsters();
         RefreshActiveMonster();
@@ -67,6 +71,8 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
 
     public void UnhookEvents()
     {
+        _viewModel.Config.PartsLayout.PropertyChanged -= OnPartsLayoutConfigChanged;
+
         _context.Game.OnMonsterSpawn -= OnMonsterSpawn;
         _context.Game.OnMonsterDespawn -= OnMonsterDespawn;
         _context.Game.OnQuestStart -= OnQuestChanged;
@@ -449,6 +455,18 @@ public sealed class RiseMonsterHudController : IContextHandler, IDisposable
             ? null
             : MonsterHudMapper.BuildFromStatic(MonsterStaticAdapter.ToSnapshot(dto));
     }
+
+    private void OnPartsLayoutConfigChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is not "Value" and not null)
+            return;
+
+        _viewModel.UIThread.BeginInvoke(SyncPartsLayoutFromConfig);
+    }
+
+    private void SyncPartsLayoutFromConfig() =>
+        _viewModel.MonsterHud.UseCapsuleParts =
+            RiseCompactMonsterViewModel.IsCapsuleLayout(_viewModel.Config.PartsLayout.Value);
 
     private void PushActiveHud()
     {

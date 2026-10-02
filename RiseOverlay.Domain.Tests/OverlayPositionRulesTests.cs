@@ -30,4 +30,36 @@ public sealed class OverlayPositionRulesTests
             screens: [Primary, LeftMonitor],
             minimumVisible: 32));
     }
+
+    [Fact]
+    public void ResolveNormalizedPosition_anchors_to_the_game_client_area()
+    {
+        (double x, double y) = OverlayPositionRules.ResolveNormalizedPosition(
+            bounds: new OverlayScreenBounds(100, 50, 1380, 770),
+            widgetWidth: 300,
+            widgetHeight: 520,
+            scale: 1,
+            horizontal: 1,
+            vertical: 0.18,
+            margin: 18);
+
+        Assert.Equal(1062, x, precision: 2);
+        Assert.Equal(179.6, y, precision: 2);
+    }
+
+    [Fact]
+    public void ResolveNormalizedPosition_clamps_invalid_values_inside_the_game_client_area()
+    {
+        (double x, double y) = OverlayPositionRules.ResolveNormalizedPosition(
+            bounds: Primary,
+            widgetWidth: 300,
+            widgetHeight: 520,
+            scale: 1,
+            horizontal: double.PositiveInfinity,
+            vertical: -4,
+            margin: 18);
+
+        Assert.Equal(1602, x, precision: 2);
+        Assert.Equal(18, y, precision: 2);
+    }
 }

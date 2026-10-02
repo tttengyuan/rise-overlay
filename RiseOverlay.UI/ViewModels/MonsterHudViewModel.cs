@@ -164,6 +164,9 @@ public sealed class PartRowViewModel : INotifyPropertyChanged
         ObservableCollectionSync.Values(_weakElements, elements);
         if (hadElements != HasWeakElements)
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasWeakElements)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CapsuleElements)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasCapsuleElements)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CapsuleElementText)));
     }
 
     public double HealthRatio => _maxHp <= 0 ? 0 : Math.Clamp(_currentHp / _maxHp, 0, 1);
@@ -189,6 +192,32 @@ public sealed class PartRowViewModel : INotifyPropertyChanged
 
     public double RowOpacity => _isBroken && !_isQurio ? 0.72 : 1.0;
 
+    /// <summary>Capsule fill fraction (flinch, or Qurio/break HP).</summary>
+    public double CapsuleFillRatio => CapsulePartRules.FillRatio(
+        _isQurio, HealthRatio, FlinchRatio, _maxFlinch);
+
+    public string CapsulePercentText => CapsulePartRules.Percent(CapsuleFillRatio).ToString();
+
+    public bool ShowHardMark => CapsulePartRules.ShowHardMark(_isQurio, _maxFlinch, FlinchRatio);
+
+    public bool IsCapsuleComplete => _isBroken && !_isQurio;
+
+    public IReadOnlyList<ElementId> CapsuleElements =>
+        CapsulePartRules.TakeVisibleElements(_weakElements);
+
+    public bool HasCapsuleElements => CapsuleElements.Count > 0;
+
+    public string CapsuleElementText
+    {
+        get
+        {
+            var els = CapsuleElements;
+            if (els.Count == 0)
+                return "";
+            return string.Concat(els.Select(CapsulePartRules.ElementChar));
+        }
+    }
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     private void NotifyDerived()
@@ -201,6 +230,13 @@ public sealed class PartRowViewModel : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowFlinchBar)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowBreakBar)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowBrokenRail)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CapsuleFillRatio)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CapsulePercentText)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowHardMark)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsCapsuleComplete)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CapsuleElements)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasCapsuleElements)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CapsuleElementText)));
     }
 
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string? name = null)
@@ -239,11 +275,19 @@ public sealed class MonsterHudViewModel : INotifyPropertyChanged
     private bool _showParts = true;
     private bool _showAilments = true;
     private bool _motionEnabled = true;
+    private bool _useCapsuleParts = true;
 
     public bool ShowParts
     {
         get => _showParts;
         set => SetField(ref _showParts, value);
+    }
+
+    /// <summary>True = capsule pills; false = legacy dual-rail bars.</summary>
+    public bool UseCapsuleParts
+    {
+        get => _useCapsuleParts;
+        set => SetField(ref _useCapsuleParts, value);
     }
 
     public bool ShowAilments

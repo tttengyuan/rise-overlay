@@ -4296,7 +4296,13 @@
             <Setting Id="RISE_COMPACT_MONSTER_WIDGET_STRING"
                      String="Rise compact combat HUD"
                      Description="Quest briefing, lock-on monster HP, parts, ailments, and DPS panel." />
-            <Setting Id="SHOW_PARTS_STRING"
+                        <Setting Id="RISE_HUD_HORIZONTAL_POSITION"
+                     String="Horizontal position"
+                     Description="Horizontal anchor inside the game window (0=left, 1=top-right default). Follows the game client when windowed or resized." />
+            <Setting Id="RISE_HUD_VERTICAL_POSITION"
+                     String="Vertical position"
+                     Description="Vertical anchor inside the game window (0=top, default about 0.18 under the lock-on monster icons)." />
+<Setting Id="SHOW_PARTS_STRING"
                      String="Show parts"
                      Description="Show monster part break bars on the combat HUD." />
             <Setting Id="SHOW_AILMENTS_STRING"

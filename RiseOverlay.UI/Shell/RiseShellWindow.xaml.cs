@@ -2,12 +2,14 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using System.Windows.Threading;
 using HunterPie.Core.Client;
 using HunterPie.Core.Client.Configuration.Overlay;
 using RiseOverlay.UI.Themes;
 using RiseOverlay.UI.Update;
+using RiseOverlay.UI.Views;
 
 namespace RiseOverlay.UI.Shell;
 
@@ -39,7 +41,10 @@ public partial class RiseShellWindow : Window
     private static readonly TimeSpan AttachPollInterval = TimeSpan.FromSeconds(5);
 
     private readonly DispatcherTimer _pollTimer;
+    private readonly DispatcherTimer _themePreviewCloseTimer;
     private readonly RiseGitHubUpdateService _updateService = new();
+    private Popup? _themePreviewPopup;
+    private MonsterHudView? _themePreviewHud;
     private bool _forceClose;
     private bool _syncingDesignMode;
     private bool _syncingHudToggles;
@@ -75,8 +80,20 @@ public partial class RiseShellWindow : Window
         };
         _pollTimer.Start();
 
+        _themePreviewCloseTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(140) };
+        _themePreviewCloseTimer.Tick += (_, _) =>
+        {
+            _themePreviewCloseTimer.Stop();
+            CloseThemePreview();
+        };
+
         Closing += OnWindowClosing;
-        Closed += (_, _) => _pollTimer.Stop();
+        Closed += (_, _) =>
+        {
+            _pollTimer.Stop();
+            _themePreviewCloseTimer.Stop();
+            CloseThemePreview();
+        };
         Loaded += (_, _) => _ = CheckForUpdateOnStartupAsync();
     }
 
@@ -152,10 +169,73 @@ public partial class RiseShellWindow : Window
                 Template = CreateThemeCardTemplate(),
             };
             btn.Click += OnThemeButtonClick;
+            btn.MouseEnter += (_, _) => ShowThemePreview(btn, id);
+            btn.MouseLeave += (_, _) => ScheduleCloseThemePreview();
             ThemeGrid.Children.Add(btn);
         }
 
         HighlightSelectedTheme();
+    }
+
+    private void ShowThemePreview(Button anchor, string themeId)
+    {
+        _themePreviewCloseTimer.Stop();
+        EnsureThemePreviewPopup();
+        if (_themePreviewHud is null || _themePreviewPopup is null)
+            return;
+
+        _themePreviewHud.Resources.MergedDictionaries.Clear();
+        _themePreviewHud.Resources.MergedDictionaries.Add(RiseThemeService.CreateThemeDictionary(themeId));
+        _themePreviewHud.DataContext = ThemePreviewSample.Create(
+            useCapsuleParts: PartsLayoutCapsule.IsChecked != false);
+
+        _themePreviewPopup.PlacementTarget = anchor;
+        _themePreviewPopup.IsOpen = true;
+    }
+
+    private void EnsureThemePreviewPopup()
+    {
+        if (_themePreviewPopup is not null)
+            return;
+
+        _themePreviewHud = new MonsterHudView
+        {
+            Width = 300,
+            IsHitTestVisible = false,
+            Focusable = false,
+        };
+
+        var host = new Border
+        {
+            Background = Brushes.Transparent,
+            Padding = new Thickness(2),
+            Child = _themePreviewHud,
+        };
+        host.MouseEnter += (_, _) => _themePreviewCloseTimer.Stop();
+        host.MouseLeave += (_, _) => ScheduleCloseThemePreview();
+
+        _themePreviewPopup = new Popup
+        {
+            AllowsTransparency = true,
+            PopupAnimation = PopupAnimation.Fade,
+            StaysOpen = true,
+            Placement = PlacementMode.Right,
+            HorizontalOffset = 10,
+            VerticalOffset = -36,
+            Child = host,
+        };
+    }
+
+    private void ScheduleCloseThemePreview()
+    {
+        _themePreviewCloseTimer.Stop();
+        _themePreviewCloseTimer.Start();
+    }
+
+    private void CloseThemePreview()
+    {
+        if (_themePreviewPopup is not null)
+            _themePreviewPopup.IsOpen = false;
     }
 
     private static ControlTemplate CreateThemeCardTemplate()
@@ -403,6 +483,32 @@ public partial class RiseShellWindow : Window
         RiseThemeService.SetMotionEnabled(cfg.EnableCombatMotion.Value);
     }
 
+    private void OnHudRangeChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (_syncingHudToggles || !IsLoaded)
+            return;
+
+        HudConfig.Opacity.Current = Math.Clamp(OpacitySlider.Value, 0.1, 1.0);
+        HudConfig.Scale.Current = Math.Clamp(ScaleSlider.Value, 0.5, 2.0);
+        UpdateHudRangeLabels();
+    }
+
+    private void UpdateHudRangeLabels()
+    {
+        OpacityValueText.Text = HudDisplayRangeFormatter.Opacity(OpacitySlider.Value);
+        ScaleValueText.Text = HudDisplayRangeFormatter.Scale(ScaleSlider.Value);
+    }
+
+    private void OnPartsLayoutChanged(object sender, RoutedEventArgs e)
+    {
+        if (_syncingHudToggles)
+            return;
+        if (PartsLayoutCapsule.IsChecked == true)
+            HudConfig.PartsLayout.Value = "Capsule";
+        else if (PartsLayoutBar.IsChecked == true)
+            HudConfig.PartsLayout.Value = "Bar";
+    }
+
     private void SyncHudTogglesFromConfig()
     {
         if (!Dispatcher.CheckAccess())
@@ -419,6 +525,12 @@ public partial class RiseShellWindow : Window
             ShowAilmentsToggle.IsChecked = cfg.ShowAilments.Value;
             ShowDpsToggle.IsChecked = cfg.ShowDps.Value;
             CombatMotionToggle.IsChecked = cfg.EnableCombatMotion.Value;
+            OpacitySlider.Value = Math.Clamp(cfg.Opacity.Current, 0.1, 1.0);
+            ScaleSlider.Value = Math.Clamp(cfg.Scale.Current, 0.5, 2.0);
+            bool capsule = !string.Equals(cfg.PartsLayout.Value, "Bar", StringComparison.OrdinalIgnoreCase);
+            PartsLayoutCapsule.IsChecked = capsule;
+            PartsLayoutBar.IsChecked = !capsule;
+            UpdateHudRangeLabels();
             HighlightSelectedTheme();
         }
         finally
@@ -449,6 +561,8 @@ public partial class RiseShellWindow : Window
         var cfg = HudConfig;
         cfg.Position.X = 20;
         cfg.Position.Y = 20;
+        cfg.HorizontalPosition.Current = 1.0;
+        cfg.VerticalPosition.Current = 0.18;
         StatusText.Text = "叠层位置已复位";
         StatusText.Foreground = TextAccentSoft;
         StatusDot.Fill = DotOk;

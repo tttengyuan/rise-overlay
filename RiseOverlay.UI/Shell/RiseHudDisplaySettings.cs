@@ -18,10 +18,19 @@ public static class RiseHudDisplaySettings
         cfg.ShowDps.PropertyChanged += OnChanged;
         cfg.ThemeId.PropertyChanged += OnChanged;
         cfg.EnableCombatMotion.PropertyChanged += OnChanged;
+        cfg.PartsLayout.PropertyChanged += OnChanged;
+        cfg.Opacity.PropertyChanged += OnRangeChanged;
+        cfg.Scale.PropertyChanged += OnRangeChanged;
 
         void OnChanged(object? sender, PropertyChangedEventArgs e)
         {
             if (e.PropertyName is "Value" or null)
+                syncUi();
+        }
+
+        void OnRangeChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName is "Current" or null)
                 syncUi();
         }
     }

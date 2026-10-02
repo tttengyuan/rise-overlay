@@ -19,6 +19,7 @@ public sealed class RiseCompactMonsterViewModel : WidgetViewModel
         Config.ShowAilments.PropertyChanged += OnDisplayToggleChanged;
         Config.ShowDps.PropertyChanged += OnDisplayToggleChanged;
         Config.EnableCombatMotion.PropertyChanged += OnDisplayToggleChanged;
+        Config.PartsLayout.PropertyChanged += OnDisplayToggleChanged;
         RiseThemeService.InitializeFromConfig(settings);
     }
 
@@ -47,8 +48,12 @@ public sealed class RiseCompactMonsterViewModel : WidgetViewModel
         MonsterHud.ShowParts = Config.ShowParts.Value;
         MonsterHud.ShowAilments = Config.ShowAilments.Value;
         MonsterHud.MotionEnabled = Config.EnableCombatMotion.Value;
+        MonsterHud.UseCapsuleParts = IsCapsuleLayout(Config.PartsLayout.Value);
         DpsVisibility = Config.ShowDps.Value ? Visibility.Visible : Visibility.Collapsed;
     }
+
+    internal static bool IsCapsuleLayout(string? layout)
+        => !string.Equals(layout, "Bar", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// True when a live large monster is bound for combat HUD data (not host visibility).

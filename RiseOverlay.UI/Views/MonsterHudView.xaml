@@ -17,6 +17,7 @@
         </ResourceDictionary.MergedDictionaries>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
         <converters:FractionToLeftMarginConverter x:Key="FractionToLeftMargin" />
+        <converters:FractionToWidthConverter x:Key="FractionToWidth" />
 
         <DataTemplate DataType="{x:Type vm:ElementDisplayItem}">
             <controls:ElementChip Element="{Binding Element}"
@@ -83,7 +84,7 @@
             </StackPanel>
         </DataTemplate>
 
-        <DataTemplate DataType="{x:Type vm:PartRowViewModel}">
+        <DataTemplate x:Key="PartBarTemplate" DataType="{x:Type vm:PartRowViewModel}">
             <Grid Margin="0,3,0,0" Opacity="{Binding RowOpacity}">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -256,6 +257,165 @@
                             Visibility="{Binding ShowBrokenRail, Converter={StaticResource BoolToVis}}" />
                 </StackPanel>
             </Grid>
+        </DataTemplate>
+
+        <!-- Capsule: stadium pill. Fill by Width (not ScaleTransform — that ovalizes rounded ends). -->
+        <DataTemplate x:Key="PartCapsuleTemplate" DataType="{x:Type vm:PartRowViewModel}">
+            <Border x:Name="CapsuleTrack"
+                    Margin="0,0,4,4"
+                    Height="24"
+                    HorizontalAlignment="Stretch"
+                    CornerRadius="12"
+                    ClipToBounds="True"
+                    Opacity="{Binding RowOpacity}"
+                    BorderThickness="1.5"
+                    Background="#FF121820"
+                    ToolTip="{Binding Name}">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="BorderBrush" Value="{DynamicResource Brushes.PanelBorderSubtle}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsQurio}" Value="True">
+                                <Setter Property="BorderBrush" Value="{DynamicResource Brushes.AccentQurio}" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding ShowHardMark}" Value="True">
+                                <Setter Property="BorderBrush" Value="{DynamicResource Brushes.FlinchFill}" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsCapsuleComplete}" Value="True">
+                                <Setter Property="BorderBrush" Value="{DynamicResource Brushes.RailBroken}" />
+                                <Setter Property="Opacity" Value="0.55" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <Grid>
+                    <Border HorizontalAlignment="Left"
+                            Height="24"
+                            CornerRadius="12"
+                            VerticalAlignment="Center">
+                        <Border.Width>
+                            <MultiBinding Converter="{StaticResource FractionToWidth}">
+                                <Binding Path="CapsuleFillRatio" />
+                                <Binding Path="ActualWidth" ElementName="CapsuleTrack" />
+                            </MultiBinding>
+                        </Border.Width>
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="{DynamicResource Brushes.AccentTeal}" />
+                                <Setter Property="Opacity" Value="0.42" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsQurio}" Value="True">
+                                        <Setter Property="Background">
+                                            <Setter.Value>
+                                                <SolidColorBrush Color="#FF8A9A" />
+                                            </Setter.Value>
+                                        </Setter>
+                                        <Setter Property="Opacity" Value="0.62" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding ShowHardMark}" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource Brushes.FlinchFill}" />
+                                        <Setter Property="Opacity" Value="0.5" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsCapsuleComplete}" Value="True">
+                                        <Setter Property="Opacity" Value="0" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                    </Border>
+                    <DockPanel Margin="8,0,8,0" LastChildFill="True">
+                        <TextBlock DockPanel.Dock="Right"
+                                   Text="{Binding CapsulePercentText}"
+                                   FontSize="10"
+                                   FontWeight="Bold"
+                                   Typography.NumeralAlignment="Tabular"
+                                   Foreground="{DynamicResource Brushes.Foreground}"
+                                   VerticalAlignment="Center"
+                                   Margin="6,0,0,0"
+                                   MinWidth="18"
+                                   TextAlignment="Right">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsCapsuleComplete}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Name}"
+                                       FontSize="10"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Brushes.Foreground}"
+                                       TextTrimming="CharacterEllipsis"
+                                       MaxWidth="56"
+                                       VerticalAlignment="Center" />
+                            <ItemsControl ItemsSource="{Binding CapsuleElements}"
+                                          Margin="3,0,0,0"
+                                          VerticalAlignment="Center"
+                                          Visibility="{Binding HasCapsuleElements, Converter={StaticResource BoolToVis}}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type domain:ElementId}">
+                                        <TextBlock FontSize="8" FontWeight="Bold" Margin="0,0,1,0" VerticalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="火" />
+                                                    <Setter Property="Foreground" Value="{DynamicResource Brushes.Element.Fire}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding}" Value="{x:Static domain:ElementId.Fire}">
+                                                            <Setter Property="Text" Value="火" />
+                                                            <Setter Property="Foreground" Value="{DynamicResource Brushes.Element.Fire}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding}" Value="{x:Static domain:ElementId.Water}">
+                                                            <Setter Property="Text" Value="水" />
+                                                            <Setter Property="Foreground" Value="{DynamicResource Brushes.Element.Water}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding}" Value="{x:Static domain:ElementId.Thunder}">
+                                                            <Setter Property="Text" Value="雷" />
+                                                            <Setter Property="Foreground" Value="{DynamicResource Brushes.Element.Thunder}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding}" Value="{x:Static domain:ElementId.Ice}">
+                                                            <Setter Property="Text" Value="冰" />
+                                                            <Setter Property="Foreground" Value="{DynamicResource Brushes.Element.Ice}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding}" Value="{x:Static domain:ElementId.Dragon}">
+                                                            <Setter Property="Text" Value="龙" />
+                                                            <Setter Property="Foreground" Value="{DynamicResource Brushes.Element.Dragon}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Text="硬"
+                                       FontSize="8"
+                                       FontWeight="Bold"
+                                       Margin="2,0,0,0"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource Brushes.FlinchFill}"
+                                       Visibility="{Binding ShowHardMark, Converter={StaticResource BoolToVis}}" />
+                        </StackPanel>
+                    </DockPanel>
+                    <Rectangle RadiusX="12"
+                               RadiusY="12"
+                               Stroke="{DynamicResource Brushes.RailBroken}"
+                               StrokeThickness="1.5"
+                               StrokeDashArray="3 2"
+                               Fill="Transparent"
+                               Margin="-1"
+                               IsHitTestVisible="False"
+                               Visibility="{Binding IsCapsuleComplete, Converter={StaticResource BoolToVis}}" />
+                </Grid>
+            </Border>
         </DataTemplate>
 
 
@@ -687,11 +847,46 @@
 
             <!-- 7. Parts -->
             <StackPanel Visibility="{Binding ShowParts, Converter={StaticResource BoolToVis}}">
-                <TextBlock Text="部位 · 状态 · 弱属性 · 剩余值"
-                           Foreground="{DynamicResource Brushes.ForegroundMuted}"
+                <TextBlock Foreground="{DynamicResource Brushes.ForegroundMuted}"
                            FontSize="9"
-                           Margin="0,0,0,2" />
-                <ItemsControl ItemsSource="{Binding Parts}" Margin="0,0,0,6" />
+                           Margin="0,0,0,4">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Text" Value="部位 · 胶囊" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding UseCapsuleParts}" Value="False">
+                                    <Setter Property="Text" Value="部位 · 状态 · 弱属性 · 剩余值" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+                <ItemsControl ItemsSource="{Binding Parts}" Margin="0,0,0,6">
+                    <ItemsControl.Style>
+                        <Style TargetType="ItemsControl">
+                            <Setter Property="ItemTemplate" Value="{StaticResource PartCapsuleTemplate}" />
+                            <Setter Property="ItemsPanel">
+                                <Setter.Value>
+                                    <ItemsPanelTemplate>
+                                        <UniformGrid Columns="2" />
+                                    </ItemsPanelTemplate>
+                                </Setter.Value>
+                            </Setter>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding UseCapsuleParts}" Value="False">
+                                    <Setter Property="ItemTemplate" Value="{StaticResource PartBarTemplate}" />
+                                    <Setter Property="ItemsPanel">
+                                        <Setter.Value>
+                                            <ItemsPanelTemplate>
+                                                <StackPanel />
+                                            </ItemsPanelTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ItemsControl.Style>
+                </ItemsControl>
             </StackPanel>
 
             <!-- 8. Ailments: one dense text line, no progress bars. -->

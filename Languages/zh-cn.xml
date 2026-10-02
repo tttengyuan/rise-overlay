@@ -4328,7 +4328,13 @@
             <Setting Id="RISE_COMPACT_MONSTER_WIDGET_STRING"
                      String="Rise 紧凑战斗 HUD"
                      Description="进图简报、锁定怪物血条、部位、异常与 DPS 面板。" />
-            <Setting Id="SHOW_PARTS_STRING"
+                        <Setting Id="RISE_HUD_HORIZONTAL_POSITION"
+                     String="水平位置"
+                     Description="相对游戏窗口的水平位置（0=左侧，1=右上角默认）。窗口化或改分辨率时仍跟游戏客户区走。" />
+            <Setting Id="RISE_HUD_VERTICAL_POSITION"
+                     String="垂直位置"
+                     Description="相对游戏窗口的垂直位置（0=顶部，默认约 0.18 落在锁定怪图标下方）。" />
+<Setting Id="SHOW_PARTS_STRING"
                      String="显示部位"
                      Description="战斗 HUD 中显示怪物部位破坏条。" />
             <Setting Id="SHOW_AILMENTS_STRING"
